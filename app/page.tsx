@@ -364,7 +364,7 @@ const weekendHours = weeklyLogs
           return (
             <div key={weekNumber}
               className="flex flex-col items-center justify-center gap-0.5"
-              style={{ height: '44px' }}>
+              style={{ height: '34px' }}>
               <div className="flex gap-0.5">
                 <button
                   onClick={() => handleCommutePlan(weekNumber, '8시')}
