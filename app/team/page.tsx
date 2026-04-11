@@ -12,6 +12,7 @@ export default function TeamPage() {
   const [newTeamName, setNewTeamName] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [isMaster, setIsMaster] = useState(false)
 
   useEffect(() => {
     const getUser = async () => {
@@ -41,6 +42,14 @@ export default function TeamPage() {
       .order('created_at', { ascending: false })
 
     if (allTeams) setTeams(allTeams)
+
+    // 마스터 계정
+    const { data: profileData } = await supabase
+    .from('profiles')
+    .select('is_master')
+    .eq('id', userId)
+    .single()
+    if (profileData?.is_master) setIsMaster(true)
   }
 
   const handleCreateTeam = async () => {
@@ -149,14 +158,17 @@ export default function TeamPage() {
               <div key={team.id}
                 className="flex justify-between items-center py-2 border-b last:border-0">
                 <span className="font-medium">{team.name}</span>
-                {isMyTeam(team.id) ? (
-                  <span className="text-xs text-gray-400">가입됨</span>
-                ) : (
-                  <button onClick={() => handleJoinRequest(team.id)}
-                    className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200">
-                    가입 신청
-                  </button>
-                )}
+                {isMyTeam(team.id) || isMaster ? (
+  <button onClick={() => router.push(`/team/${team.id}`)}
+    className="text-sm text-blue-500 hover:underline">
+    입장 →
+  </button>
+) : (
+  <button onClick={() => handleJoinRequest(team.id)}
+    className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200">
+    가입 신청
+  </button>
+)}
               </div>
             ))
           )}

@@ -32,6 +32,7 @@ export default function TeamDetailPage() {
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date())
   const [remoteWorks, setRemoteWorks] = useState<any[]>([])
   const [selectedRemoteDate, setSelectedRemoteDate] = useState<Date | null>(null)
+  const [isMaster, setIsMaster] = useState(false)
 
   const getPeriod = () => {
     const now = dayjs(calendarMonth)
@@ -103,6 +104,17 @@ const fetchCommutePlans = async (memberData: any[]) => {
 }
 
   const fetchTeamData = async (userId: string) => {
+
+    const { data: profileData } = await supabase
+     .from('profiles')
+     .select('is_master')
+     .eq('id', userId)
+     .single()
+    if (profileData?.is_master) {
+    setIsMaster(true)
+    setIsAdmin(true)  // 마스터는 자동으로 팀장 권한
+    }
+
     const { data: teamData } = await supabase
       .from('teams').select('*').eq('id', id).single()
     if (teamData) setTeam(teamData)
@@ -308,7 +320,7 @@ const getTileContent = ({ date }: { date: Date }) => {
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold">{team?.name}</h1>
           <div className="flex gap-3">
-            {isAdmin && (
+            {isAdmin || isMaster && (
               <button onClick={() => router.push(`/team/${id}/manage`)}
                 className="text-sm text-blue-500 hover:underline">
                 팀 관리
@@ -322,7 +334,7 @@ const getTileContent = ({ date }: { date: Date }) => {
         </div>
 
         {/* 가입 신청 (팀장만) */}
-        {isAdmin && requests.length > 0 && (
+        {isAdmin || isMaster && requests.length > 0 && (
           <div className="bg-yellow-50 rounded-xl shadow p-4 mb-4">
             <h2 className="font-semibold mb-3">가입 신청 ({requests.length})</h2>
             {requests.map((req) => (
@@ -583,7 +595,7 @@ const getTileContent = ({ date }: { date: Date }) => {
                       </div>
                     </div>
 
-                    {isAdmin && (
+                    {isAdmin || isMaster && (
                       <div className="bg-gray-50 rounded-lg p-3">
                         <p className="text-xs text-gray-500 mb-2 font-semibold">일별 상세</p>
                         {(memberWeeklyLogs[member.user_id] || []).length === 0 ? (

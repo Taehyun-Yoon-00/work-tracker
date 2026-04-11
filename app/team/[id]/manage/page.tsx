@@ -11,6 +11,7 @@ export default function ManagePage() {
   const [team, setTeam] = useState<any>(null)
   const [members, setMembers] = useState<any[]>([])
   const [message, setMessage] = useState('')
+  const [isMaster, setIsMaster] = useState(false)
 
   useEffect(() => {
     const getUser = async () => {
@@ -23,6 +24,13 @@ export default function ManagePage() {
   }, [])
 
   const fetchData = async (userId: string) => {
+    const { data: profileData } = await supabase
+    .from('profiles')
+    .select('is_master')
+    .eq('id', userId)
+    .single()
+    if (profileData?.is_master) setIsMaster(true)
+
     const { data: teamData } = await supabase
       .from('teams').select('*').eq('id', id).single()
     if (teamData) setTeam(teamData)
@@ -35,7 +43,7 @@ export default function ManagePage() {
       setMembers(memberData)
       // 팀장이 아니면 접근 차단
       const myRole = memberData.find((m) => m.user_id === userId)
-      if (myRole?.role !== 'admin') router.push(`/team/${id}`)
+if (myRole?.role !== 'admin' && !profileData?.is_master) router.push(`/team/${id}`)
     }
   }
 

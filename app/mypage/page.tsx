@@ -13,6 +13,7 @@ export default function MyPage() {
   const [usedVacation, setUsedVacation] = useState<number>(0)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [isMaster, setIsMaster] = useState(false)
 
   useEffect(() => {
     const getUser = async () => {
@@ -26,16 +27,17 @@ export default function MyPage() {
   }, [])
 
   const fetchProfile = async (userId: string) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('name, total_vacation')
-      .eq('id', userId)
-      .single()
-    if (data) {
-      setName(data.name || '')
-      setTotalVacation(data.total_vacation || 0)
-    }
+  const { data } = await supabase
+    .from('profiles')
+    .select('name, total_vacation, is_master')
+    .eq('id', userId)
+    .single()
+  if (data) {
+    setName(data.name || '')
+    setTotalVacation(data.total_vacation || 0)
+    if (data.is_master) setIsMaster(true)
   }
+}
 
   const fetchUsedVacation = async (userId: string) => {
     const thisYear = dayjs().year()
@@ -78,12 +80,20 @@ const used = data.reduce((acc, v) => {
 
         {/* 헤더 */}
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">마이페이지</h1>
-          <button onClick={() => router.push('/')}
-            className="text-sm text-gray-500 hover:underline">
-            ← 근무시간 기록
-          </button>
-        </div>
+  <h1 className="text-2xl font-bold">마이페이지</h1>
+  <div className="flex gap-3">
+    {isMaster && (
+      <button onClick={() => router.push('/admin')}
+        className="text-sm text-red-500 hover:underline">
+        회원 관리
+      </button>
+    )}
+    <button onClick={() => router.push('/')}
+      className="text-sm text-gray-500 hover:underline">
+      ← 근무시간 기록
+    </button>
+  </div>
+</div>
 
         {/* 프로필 설정 */}
         <div className="bg-white rounded-xl shadow p-4 mb-4">
