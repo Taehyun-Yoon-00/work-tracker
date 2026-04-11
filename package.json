@@ -9,8 +9,14 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@supabase/auth-helpers-nextjs": "^0.15.0",
+    "@supabase/ssr": "^0.10.2",
+    "@supabase/supabase-js": "^2.103.0",
+    "date-holidays": "^3.26.13",
+    "dayjs": "^1.11.20",
     "next": "16.2.3",
     "react": "19.2.4",
+    "react-calendar": "^6.0.1",
     "react-dom": "19.2.4"
   },
   "devDependencies": {

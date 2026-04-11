@@ -24,3 +24,18 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.react-calendar__month-view__weeks {
+  position: relative;
+}
+
+.react-calendar__month-view__weeks {
+  display: grid !important;
+}
+
+.react-calendar__tile {
+  height: 44px !important;
+  max-height: 44px !important;
+  overflow: hidden !important;
+  padding: 2px !important;
+}
