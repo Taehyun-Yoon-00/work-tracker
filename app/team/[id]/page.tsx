@@ -320,12 +320,12 @@ const getTileContent = ({ date }: { date: Date }) => {
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold">{team?.name}</h1>
           <div className="flex gap-3">
-            {isAdmin || isMaster && (
-              <button onClick={() => router.push(`/team/${id}/manage`)}
-                className="text-sm text-blue-500 hover:underline">
-                팀 관리
-              </button>
-            )}
+            {(isAdmin || isMaster) && (
+  <button onClick={() => router.push(`/team/${id}/manage`)}
+    className="text-sm text-blue-500 hover:underline">
+    팀 관리
+  </button>
+)}
             <button onClick={() => router.push('/team')}
               className="text-sm text-gray-500 hover:underline">
               ← 팀 목록
