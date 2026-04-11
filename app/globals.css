@@ -39,3 +39,25 @@ body {
   overflow: hidden !important;
   padding: 2px !important;
 }
+
+/* 모바일 달력 최적화 */
+@media (max-width: 640px) {
+  .react-calendar {
+    width: 100% !important;
+    font-size: 12px !important;
+  }
+
+  .react-calendar__tile {
+    height: 36px !important;
+    padding: 2px !important;
+  }
+
+  .react-calendar__navigation button {
+    font-size: 12px !important;
+    min-width: 36px !important;
+  }
+
+  .react-calendar__month-view__weekdays__weekday {
+    font-size: 10px !important;
+  }
+}
