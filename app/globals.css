@@ -25,14 +25,7 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-.react-calendar__month-view__weeks {
-  position: relative;
-}
-
-.react-calendar__month-view__weeks {
-  display: grid !important;
-}
-
+/* PC 달력 */
 .react-calendar__tile {
   height: 44px !important;
   max-height: 44px !important;
@@ -40,28 +33,7 @@ body {
   padding: 2px !important;
 }
 
-/* 모바일 최적화 */
-@media (max-width: 640px) {
-  .react-calendar {
-    width: 100% !important;
-    font-size: 12px !important;
-  }
-
-  .react-calendar__tile {
-    height: 36px !important;
-    padding: 1px !important;
-  }
-
-  .react-calendar__navigation button {
-    font-size: 12px !important;
-    min-width: 32px !important;
-  }
-
-  .react-calendar__month-view__weekdays__weekday {
-    font-size: 10px !important;
-  }
-}
-
+/* 모바일 달력 */
 @media (max-width: 640px) {
   .react-calendar {
     width: 100% !important;
@@ -82,9 +54,5 @@ body {
   .react-calendar__month-view__weekdays__weekday {
     font-size: 9px !important;
     padding: 2px !important;
-  }
-
-  .react-calendar__month-view__weekdays {
-    font-size: 9px !important;
   }
 }

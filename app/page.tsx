@@ -307,8 +307,8 @@ const weekendHours = weeklyLogs
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-20">
-      <div className="max-w-2xl mx-auto">
+<div className="min-h-screen bg-gray-50 p-2 sm:p-4 pb-20">
+  <div className="w-full max-w-2xl mx-auto">
 
 {/* 헤더 */}
 <div className="flex justify-between items-center mb-6">
@@ -347,7 +347,7 @@ const weekendHours = weeklyLogs
     </div>
 
     {/* 주차별 출근예정 버튼 */}
-    <div className="flex flex-col shrink-0" style={{ marginTop: '64px' }}>
+    <div className="flex flex-col shrink-0 mt-[74px] sm:mt-[74px]">
       {(() => {
         const monthStart = dayjs(selectedDate).startOf('month')
         const monthEnd = dayjs(selectedDate).endOf('month')
@@ -364,7 +364,7 @@ const weekendHours = weeklyLogs
           return (
             <div key={weekNumber}
               className="flex flex-col items-center justify-center gap-0.5"
-              style={{ height: '32px' }}>
+              style={{ height: '44px' }}>
               <div className="flex gap-0.5">
                 <button
                   onClick={() => handleCommutePlan(weekNumber, '8시')}
