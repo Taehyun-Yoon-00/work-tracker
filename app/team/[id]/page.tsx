@@ -347,7 +347,7 @@ const getTileContent = ({ date }: { date: Date }) => {
 
 {/* 달력 */}
 <div className="bg-white rounded-xl shadow p-3 mb-4">
-  <h2 className="font-semibold mb-3">팀 휴가 현황</h2>
+  <h2 className="font-semibold mb-3">팀 캘린더</h2>
   <div className="flex flex-col gap-3">
     {/* 달력 + 시차출근 버튼 */}
     <div className="inline-flex items-start gap-1 w-full">
