@@ -505,11 +505,12 @@ const weekendHours = weeklyLogs
     {dayjs(selectedDate).format('YYYY년 MM월 DD일')} 휴가
   </h2>
   <div className="flex gap-2">
-    {[
-      { type: 'annual', label: '연차' },
-      { type: 'morning', label: '오전반차' },
-      { type: 'afternoon', label: '오후반차' },
-    ].map(({ type, label }) => (
+{[
+  { type: 'annual', label: '연차' },
+  { type: 'morning', label: '오전반차' },
+  { type: 'afternoon', label: '오후반차' },
+  { type: 'special', label: '특휴/대휴' },
+].map(({ type, label }) => (
       <button
         key={type}
         onClick={() => handleVacation(type)}

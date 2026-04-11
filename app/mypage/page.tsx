@@ -47,11 +47,12 @@ export default function MyPage() {
       .lte('date', `${thisYear}-12-31`)
 
     if (data) {
-      const used = data.reduce((acc, v) => {
-        if (v.type === 'annual') return acc + 1
-        if (v.type === 'morning' || v.type === 'afternoon') return acc + 0.5
-        return acc
-      }, 0)
+const used = data.reduce((acc, v) => {
+  if (v.type === 'annual') return acc + 1
+  if (v.type === 'morning' || v.type === 'afternoon') return acc + 0.5
+  if (v.type === 'special') return acc + 0  // 연차에 영향 없음
+  return acc
+}, 0)
       setUsedVacation(used)
     }
   }
