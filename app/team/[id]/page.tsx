@@ -34,7 +34,7 @@ export default function TeamDetailPage() {
   const [selectedRemoteDate, setSelectedRemoteDate] = useState<Date | null>(null)
 
   const getPeriod = () => {
-    const now = dayjs()
+    const now = dayjs(calendarMonth)
     if (periodMode === 'calendar') {
       return {
         start: now.startOf('month').format('YYYY-MM-DD'),
@@ -68,9 +68,11 @@ export default function TeamDetailPage() {
     getUser()
   }, [])
 
-  useEffect(() => {
-    if (members.length > 0) fetchMonthlyLogs(members)
-  }, [periodMode])
+useEffect(() => {
+  if (members.length > 0) {
+    fetchMonthlyLogs(members)
+  }
+}, [calendarMonth, periodMode])
 
 useEffect(() => {
   if (members.length > 0) fetchCommutePlans(members)
