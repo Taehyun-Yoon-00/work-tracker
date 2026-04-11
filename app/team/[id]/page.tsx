@@ -345,164 +345,145 @@ const getTileContent = ({ date }: { date: Date }) => {
           </div>
         )}
 
-        {/* 달력 */}
-        <div className="bg-white rounded-xl shadow p-4 mb-4">
-          <h2 className="font-semibold mb-3">팀 휴가 현황</h2>
-          <div className="flex items-start gap-4 justify-between">
-            <div className="inline-flex items-start gap-2">
-              <div>
-                <Calendar
-                  onClickDay={(date) => {
-                    setSelectedCalendarDate(date)
-                    setSelectedRemoteDate(date)
-                    setSelectedCommuteWeek(null)
-                    }}
-                  onActiveStartDateChange={({ activeStartDate }) => {
-                    if (activeStartDate) setCalendarMonth(activeStartDate)
-                  }}
-                  tileContent={getTileContent}
-                  tileClassName={getTileClassName}
-                  locale="ko-KR"
-                />
-              </div>
-
-              {/* 주차별 시차출근 버튼 */}
-<div className="flex flex-col" style={{ marginTop: '90px' }}>
-  {getWeeks(calendarMonth).map((weekStart, index) => {
-    const weekNumber = String(index + 1)
-    const weekStartStr = weekStart.format('YYYY-MM-DD')
-    const weekEndStr = weekStart.endOf('isoWeek').format('MM/DD')
-    return (
-      <div key={weekNumber}
-        className="flex items-center justify-center"
-        style={{ height: '44px' }}>
-        <button
-          onClick={() => setSelectedCommuteWeek(
-            selectedCommuteWeek === weekNumber ? null : weekNumber
-          )}
-          className={`text-[9px] px-1.5 py-0.5 rounded-full border transition ${
-            selectedCommuteWeek === weekNumber
-              ? 'bg-purple-500 text-white border-purple-500'
-              : 'bg-white text-purple-400 border-purple-300 hover:border-purple-400'
-          }`}>
-          시차출근
-        </button>
+{/* 달력 */}
+<div className="bg-white rounded-xl shadow p-3 mb-4">
+  <h2 className="font-semibold mb-3">팀 휴가 현황</h2>
+  <div className="flex flex-col gap-3">
+    {/* 달력 + 시차출근 버튼 */}
+    <div className="inline-flex items-start gap-1 w-full">
+      <div className="flex-1 min-w-0">
+        <Calendar
+          onClickDay={(date) => {
+            setSelectedCalendarDate(date)
+            setSelectedRemoteDate(date)
+            setSelectedCommuteWeek(null)
+          }}
+          onActiveStartDateChange={({ activeStartDate }) => {
+            if (activeStartDate) setCalendarMonth(activeStartDate)
+          }}
+          tileContent={getTileContent}
+          tileClassName={getTileClassName}
+          locale="ko-KR"
+        />
       </div>
-    )
-  })}
-</div>
+
+      {/* 주차별 시차출근 버튼 */}
+      <div className="flex flex-col shrink-0" style={{ marginTop: '64px' }}>
+        {getWeeks(calendarMonth).map((weekStart, index) => {
+          const weekNumber = String(index + 1)
+          return (
+            <div key={weekNumber}
+              className="flex items-center justify-center"
+              style={{ height: '32px' }}>
+              <button
+                onClick={() => setSelectedCommuteWeek(
+                  selectedCommuteWeek === weekNumber ? null : weekNumber
+                )}
+                className={`text-[8px] px-1 py-0.5 rounded-full border transition ${
+                  selectedCommuteWeek === weekNumber
+                    ? 'bg-purple-500 text-white border-purple-500'
+                    : 'bg-white text-purple-400 border-purple-300'
+                }`}>
+                시차
+              </button>
             </div>
-
-            {/* 오른쪽 패널 */}
-            <div className="flex flex-col min-w-[120px]">
-            {selectedCommuteWeek && (
-  <div className="flex flex-col min-w-[120px]">
-    {/* 날짜 */}
-    <p className="text-sm font-semibold mb-2">
-      {(() => {
-        const weeks = getWeeks(calendarMonth)
-        const idx = parseInt(selectedCommuteWeek) - 1
-        const weekStart = weeks[idx]
-        if (!weekStart) return ''
-        return `${weekStart.format('MM/DD')} ~ ${weekStart.endOf('isoWeek').format('MM/DD')}`
-      })()}
-    </p>
-
-    {['8시', '9시'].map((time) => {
-      const planners = (weekCommutePlans[selectedCommuteWeek] || [])
-        .filter((p) => p.commute_time === time)
-
-      return (
-        <div key={time} className="mb-3">
-          <p
-            className={`text-xs font-semibold mb-1 ${
-              time === '8시' ? 'text-blue-500' : 'text-green-500'
-            }`}
-          >
-            {time}
-          </p>
-
-          {planners.length === 0 ? (
-            <p className="text-xs text-gray-400">없음</p>
-          ) : (
-            planners.map((p) => (
-              <p key={p.id} className="text-xs py-0.5">
-                {p.profiles?.name || p.profiles?.email?.split('@')[0]}
-              </p>
-            ))
-          )}
-        </div>
-      )
-    })}
-
-    <button
-      onClick={() => setSelectedCommuteWeek(null)}
-      className="text-xs text-gray-400 hover:underline mt-1"
-    >
-      닫기
-    </button>
-  </div>
-)}
-<div className="flex flex-col min-w-[120px]">
-{(selectedCalendarDate || selectedRemoteDate) && !selectedCommuteWeek && (
-  <>
-    {/* 날짜 */}
-    <p className="text-sm font-semibold mb-2">
-      {dayjs(selectedCalendarDate || selectedRemoteDate!).format('MM월 DD일')}
-    </p>
-
-    {/* 휴가 */}
-    <p className="text-xs font-semibold text-orange-500 mb-1">휴가</p>
-    {getVacationsOnDate(selectedCalendarDate || selectedRemoteDate!).length === 0 ? (
-      <p className="text-xs text-gray-400 mb-3">없음</p>
-    ) : (
-      <div className="mb-3">
-        {getVacationsOnDate(selectedCalendarDate || selectedRemoteDate!).map((v) => (
-          <p key={v.id} className="text-xs py-0.5">
-            <span className="font-medium">
-              {getMemberName(v.user_id)}
-            </span>
-            <span className="text-orange-400 ml-1">
-              {v.type === 'annual'
-                ? '연차'
-                : v.type === 'morning'
-                ? '오전반차'
-                : '오후반차'}
-            </span>
-          </p>
-        ))}
+          )
+        })}
       </div>
-    )}
+    </div>
 
-    {/* 원격근무 */}
-    <p className="text-xs font-semibold text-indigo-500 mb-1">원격근무</p>
-    {getRemoteOnDate(selectedCalendarDate || selectedRemoteDate!).length === 0 ? (
-      <p className="text-xs text-gray-400 mb-3">없음</p>
-    ) : (
-      <div className="mb-3">
-        {getRemoteOnDate(selectedCalendarDate || selectedRemoteDate!).map((r) => (
-          <p key={r.id} className="text-xs py-0.5">
-            {getMemberName(r.user_id)}
-          </p>
-        ))}
-      </div>
-    )}
-
-    <button
-      onClick={() => {
-        setSelectedCalendarDate(null)
-        setSelectedRemoteDate(null)
-      }}
-      className="text-xs text-gray-400 hover:underline mt-1"
-    >
-      닫기
-    </button>
-  </>
-)}
-</div>
-</div>
+    {/* 리스트 - 달력 아래 */}
+    {(selectedCalendarDate || selectedRemoteDate || selectedCommuteWeek) && (
+      <div className="border-t pt-3">
+        {selectedCommuteWeek && (
+          <div>
+            <p className="text-sm font-semibold mb-2">
+              {(() => {
+                const weeks = getWeeks(calendarMonth)
+                const idx = parseInt(selectedCommuteWeek) - 1
+                const weekStart = weeks[idx]
+                if (!weekStart) return ''
+                return `${weekStart.format('MM/DD')} ~ ${weekStart.endOf('isoWeek').format('MM/DD')}`
+              })()}
+            </p>
+            <div className="flex gap-4">
+              {['8시', '9시'].map((time) => {
+                const planners = (weekCommutePlans[selectedCommuteWeek] || [])
+                  .filter((p) => p.commute_time === time)
+                return (
+                  <div key={time} className="flex-1">
+                    <p className={`text-xs font-semibold mb-1 ${
+                      time === '8시' ? 'text-blue-500' : 'text-green-500'
+                    }`}>{time}</p>
+                    <div className="min-h-[40px]">
+                      {planners.length === 0 ? (
+                        <p className="text-xs text-gray-400">없음</p>
+                      ) : (
+                        planners.map((p) => (
+                          <p key={p.id} className="text-xs py-0.5">
+                            {p.profiles?.name || p.profiles?.email?.split('@')[0]}
+                          </p>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <button onClick={() => setSelectedCommuteWeek(null)}
+              className="text-xs text-gray-400 hover:underline mt-2">
+              닫기
+            </button>
           </div>
-        </div>
+        )}
+
+        {(selectedCalendarDate || selectedRemoteDate) && !selectedCommuteWeek && (
+          <div>
+            <p className="text-sm font-semibold mb-2">
+              {dayjs(selectedCalendarDate || selectedRemoteDate!).format('MM월 DD일')}
+            </p>
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <p className="text-xs font-semibold text-orange-500 mb-1">휴가</p>
+                {getVacationsOnDate(selectedCalendarDate || selectedRemoteDate!).length === 0 ? (
+                  <p className="text-xs text-gray-400">없음</p>
+                ) : (
+                  getVacationsOnDate(selectedCalendarDate || selectedRemoteDate!).map((v) => (
+                    <div key={v.id} className="mb-1">
+                      <p className="text-xs font-medium">{getMemberName(v.user_id)}</p>
+                      <p className="text-[10px] text-orange-400">
+                        {v.type === 'annual' ? '연차' : v.type === 'morning' ? '오전반차' : '오후반차'}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-semibold text-indigo-500 mb-1">원격근무</p>
+                {getRemoteOnDate(selectedCalendarDate || selectedRemoteDate!).length === 0 ? (
+                  <p className="text-xs text-gray-400">없음</p>
+                ) : (
+                  getRemoteOnDate(selectedCalendarDate || selectedRemoteDate!).map((r) => (
+                    <p key={r.id} className="text-xs py-0.5">
+                      {getMemberName(r.user_id)}
+                    </p>
+                  ))
+                )}
+              </div>
+            </div>
+            <button onClick={() => {
+              setSelectedCalendarDate(null)
+              setSelectedRemoteDate(null)
+            }}
+              className="text-xs text-gray-400 hover:underline mt-2">
+              닫기
+            </button>
+          </div>
+        )}
+      </div>
+    )}
+  </div>
+</div>
 
         {/* 팀원 리스트 */}
         <div className="bg-white rounded-xl shadow p-4">

@@ -331,63 +331,65 @@ const weekendHours = weeklyLogs
 
 
 {/* 달력 */}
-<div className="bg-white rounded-xl shadow p-4 mb-4">
-  <div className="inline-flex items-start gap-2">
-    <div>
+<div className="bg-white rounded-xl shadow p-3 mb-4">
+  <div className="inline-flex items-start gap-1 w-full">
+    <div className="flex-1 min-w-0">
       <Calendar
-  onChange={(date) => setSelectedDate(date as Date)}
-  onActiveStartDateChange={({ activeStartDate }) => {
-    if (activeStartDate) setSelectedDate(activeStartDate)
-  }}
-  value={selectedDate}
-  locale="ko-KR"
-  tileClassName={getTileClassName}
-  tileContent={getTileContent}
-/>
+        onChange={(date) => setSelectedDate(date as Date)}
+        onActiveStartDateChange={({ activeStartDate }) => {
+          if (activeStartDate) setSelectedDate(activeStartDate)
+        }}
+        value={selectedDate}
+        locale="ko-KR"
+        tileClassName={getTileClassName}
+        tileContent={getTileContent}
+      />
     </div>
 
     {/* 주차별 출근예정 버튼 */}
-<div className="flex flex-col" style={{ marginTop: '90px' }}>
-  {(() => {
-    const monthStart = dayjs(selectedDate).startOf('month')
-    const monthEnd = dayjs(selectedDate).endOf('month')
-    const firstWeekStart = monthStart.startOf('isoWeek')
-    const weeks = []
-    let current = firstWeekStart
-    while (current.isBefore(monthEnd) || current.isSame(monthEnd, 'day')) {
-      weeks.push(current)
-      current = current.add(1, 'week')
-    }
-    return weeks.map((weekStart, index) => {
-      const weekNumber = String(index + 1)
-      const plan = weekPlans[weekNumber]
-      return (
-        <div key={weekNumber}
-          className="flex flex-row justify-center items-center gap-0.5"
-          style={{ height: '44px' }}>
-          <button
-            onClick={() => handleCommutePlan(weekNumber, '8시')}
-            className={`text-[9px] w-7 py-0.5 rounded-full border transition ${
-              plan === '8시'
-                ? 'bg-blue-500 text-white border-blue-500'
-                : 'bg-white text-gray-400 border-gray-300 hover:border-blue-400'
-            }`}>
-            8시
-          </button>
-          <button
-            onClick={() => handleCommutePlan(weekNumber, '9시')}
-            className={`text-[9px] w-7 py-0.5 rounded-full border transition ${
-              plan === '9시'
-                ? 'bg-green-500 text-white border-green-500'
-                : 'bg-white text-gray-400 border-gray-300 hover:border-green-400'
-            }`}>
-            9시
-          </button>
-        </div>
-      )
-    })
-  })()}
-</div>
+    <div className="flex flex-col shrink-0" style={{ marginTop: '64px' }}>
+      {(() => {
+        const monthStart = dayjs(selectedDate).startOf('month')
+        const monthEnd = dayjs(selectedDate).endOf('month')
+        const firstWeekStart = monthStart.startOf('isoWeek')
+        const weeks = []
+        let current = firstWeekStart
+        while (current.isBefore(monthEnd) || current.isSame(monthEnd, 'day')) {
+          weeks.push(current)
+          current = current.add(1, 'week')
+        }
+        return weeks.map((weekStart, index) => {
+          const weekNumber = String(index + 1)
+          const plan = weekPlans[weekNumber]
+          return (
+            <div key={weekNumber}
+              className="flex flex-col items-center justify-center gap-0.5"
+              style={{ height: '32px' }}>
+              <div className="flex gap-0.5">
+                <button
+                  onClick={() => handleCommutePlan(weekNumber, '8시')}
+                  className={`text-[8px] w-6 py-0.5 rounded-full border transition ${
+                    plan === '8시'
+                      ? 'bg-blue-500 text-white border-blue-500'
+                      : 'bg-white text-gray-400 border-gray-300'
+                  }`}>
+                  8시
+                </button>
+                <button
+                  onClick={() => handleCommutePlan(weekNumber, '9시')}
+                  className={`text-[8px] w-6 py-0.5 rounded-full border transition ${
+                    plan === '9시'
+                      ? 'bg-green-500 text-white border-green-500'
+                      : 'bg-white text-gray-400 border-gray-300'
+                  }`}>
+                  9시
+                </button>
+              </div>
+            </div>
+          )
+        })
+      })()}
+    </div>
   </div>
 </div>
         {/* 근무시간 입력 */}
