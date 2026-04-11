@@ -19,7 +19,7 @@ export default function LoginPage() {
     if (isSignUp) {
       const { error } = await supabase.auth.signUp({ email, password })
       if (error) setMessage(error.message)
-      else setMessage('가입 완료! 이메일을 확인해주세요.')
+      else setMessage('가입 완료!')
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) setMessage(error.message)
