@@ -332,8 +332,8 @@ const weekendHours = weeklyLogs
 
 {/* 달력 */}
 <div className="bg-white rounded-xl shadow p-3 mb-4">
-  <div className="inline-flex items-start gap-1 w-full">
-    <div className="flex-1 min-w-0">
+  <div className="flex items-start gap-2 w-full">
+    <div className="min-w-0">
       <Calendar
         onChange={(date) => setSelectedDate(date as Date)}
         onActiveStartDateChange={({ activeStartDate }) => {
@@ -347,7 +347,7 @@ const weekendHours = weeklyLogs
     </div>
 
     {/* 주차별 출근예정 버튼 */}
-    <div className="flex flex-col shrink-0 mt-[74px] sm:mt-[74px]">
+<div className="flex flex-col shrink-0 mt-8 sm:mt-[74px]">
       {(() => {
         const monthStart = dayjs(selectedDate).startOf('month')
         const monthEnd = dayjs(selectedDate).endOf('month')
@@ -363,8 +363,7 @@ const weekendHours = weeklyLogs
           const plan = weekPlans[weekNumber]
           return (
             <div key={weekNumber}
-              className="flex flex-col items-center justify-center gap-0.5"
-              style={{ height: '32px' }}>
+              className="flex items-center justify-center h-8 sm:h-11">
               <div className="flex gap-0.5">
                 <button
                   onClick={() => handleCommutePlan(weekNumber, '8시')}

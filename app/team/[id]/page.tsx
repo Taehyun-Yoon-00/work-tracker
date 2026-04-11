@@ -352,9 +352,9 @@ const getTileContent = ({ date }: { date: Date }) => {
   <h2 className="font-semibold mb-3">팀 캘린더</h2>
   <div className="flex flex-col gap-3">
     {/* 달력 + 시차출근 버튼 */}
-    <div className="inline-flex items-start gap-1 w-full">
-      <div className="flex-1 min-w-0">
-        <Calendar
+    <div className="flex items-start gap-2 ">
+      <div className="min-w-0">
+          <Calendar
           onClickDay={(date) => {
             setSelectedCalendarDate(date)
             setSelectedRemoteDate(date)
@@ -370,13 +370,12 @@ const getTileContent = ({ date }: { date: Date }) => {
       </div>
 
       {/* 주차별 시차출근 버튼 */}
-      <div className="flex flex-col shrink-0" style={{ marginTop: '64px' }}>
+      <div className="flex flex-col shrink-0 mt-8 sm:mt-[74px]">
         {getWeeks(calendarMonth).map((weekStart, index) => {
           const weekNumber = String(index + 1)
           return (
             <div key={weekNumber}
-              className="flex items-center justify-center"
-              style={{ height: '32px' }}>
+              className="flex items-center justify-center h-8 sm:h-11">
               <button
                 onClick={() => setSelectedCommuteWeek(
                   selectedCommuteWeek === weekNumber ? null : weekNumber
