@@ -347,7 +347,7 @@ const weekendHours = weeklyLogs
     </div>
 
     {/* 주차별 출근예정 버튼 */}
-<div className="flex flex-col shrink-0 mt-8 sm:mt-[74px]">
+<div className="flex flex-col shrink-0 mt-[64px] sm:mt-[90px]">
       {(() => {
         const monthStart = dayjs(selectedDate).startOf('month')
         const monthEnd = dayjs(selectedDate).endOf('month')

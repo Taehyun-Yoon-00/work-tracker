@@ -370,7 +370,7 @@ const getTileContent = ({ date }: { date: Date }) => {
       </div>
 
       {/* 주차별 시차출근 버튼 */}
-      <div className="flex flex-col shrink-0 mt-8 sm:mt-[74px]">
+      <div className="flex flex-col shrink-0 mt-[64px] sm:mt-[90px]">
         {getWeeks(calendarMonth).map((weekStart, index) => {
           const weekNumber = String(index + 1)
           return (
