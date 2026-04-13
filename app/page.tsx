@@ -32,6 +32,7 @@ export default function Home() {
   const [remoteLoading, setRemoteLoading] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [monthlyVacations, setMonthlyVacations] = useState<any[]>([])
+  const [isNextDay, setIsNextDay] = useState(false)
 
   useEffect(() => {
     const getUser = async () => {
@@ -115,17 +116,19 @@ const fetchDayLog = async (date: Date) => {
     .single()
 
   if (data) {
-    setStartTime(data.start_time.slice(0, 5))
-    setEndTime(data.end_time.slice(0, 5))
-    setBreakMinutes(String(data.break_minutes))
-    setMemo(data.memo || '')
-    setIsLocked(true)
+  setStartTime(data.start_time.slice(0, 5))
+  setEndTime(data.end_time.slice(0, 5))
+  setBreakMinutes(String(data.break_minutes))
+  setMemo(data.memo || '')
+  setIsLocked(true)
+  setIsNextDay(data.is_next_day || false)
   } else {
-    setStartTime('')
-    setEndTime('')
-    setBreakMinutes('60')
-    setMemo('')
-    setIsLocked(false)
+  setStartTime('')
+  setEndTime('')
+  setBreakMinutes('60')
+  setMemo('')
+  setIsLocked(false)
+  setIsNextDay(false)
   }
 }
 
@@ -194,13 +197,14 @@ const handleVacation = async (type: string) => {
     setMessage('')
 
     const { error } = await supabase.from('work_logs').upsert({
-      user_id: user.id,
-      date: dayjs(selectedDate).format('YYYY-MM-DD'),
-      start_time: startTime,
-      end_time: endTime,
-      break_minutes: parseInt(breakMinutes),
-      memo,
-    }, { onConflict: 'user_id,date' })
+  user_id: user.id,
+  date: dayjs(selectedDate).format('YYYY-MM-DD'),
+  start_time: startTime,
+  end_time: endTime,
+  break_minutes: parseInt(breakMinutes),
+  memo,
+  is_next_day: isNextDay,
+}, { onConflict: 'user_id,date' })
 
     if (error) setMessage('저장 실패: ' + error.message)
 else {
@@ -287,10 +291,10 @@ const getTileContent = ({ date }: { date: Date }) => {
 }
   const calcHours = (log: any) => {
     const start = dayjs(`2000-01-01 ${log.start_time}`)
-    const end = dayjs(`2000-01-01 ${log.end_time}`)
+    const end = dayjs(`2000-01-0${log.is_next_day ? '2' : '1'} ${log.end_time}`)
     const diff = end.diff(start, 'minute') - log.break_minutes
     return (diff / 60).toFixed(1)
-  }
+}
 
   const totalWeeklyHours = weeklyLogs.reduce((acc, log) => acc + parseFloat(calcHours(log)), 0)
 
@@ -444,32 +448,46 @@ const weekendHours = weeklyLogs
   </div>
 
   <div className="flex-1">
-    <label className="text-sm text-gray-500">퇴근</label>
-    <div className="flex gap-1 mt-1">
-      <select
-        value={endTime ? endTime.split(':')[0] : ''}
-        onChange={(e) => setEndTime(`${e.target.value}:${endTime ? endTime.split(':')[1] : '00'}`)}
-        disabled={isLocked}
-        className={`flex-1 border rounded-lg px-2 py-2 ${isLocked ? 'bg-gray-50 text-gray-400' : ''}`}>
-        <option value="">시</option>
-        {Array.from({ length: 24 }, (_, i) => (
-          <option key={i} value={String(i).padStart(2, '0')}>
-            {String(i).padStart(2, '0')}
-          </option>
-        ))}
-      </select>
-      <span className="flex items-center text-gray-400">:</span>
-      <select
-        value={endTime ? endTime.split(':')[1] : ''}
-        onChange={(e) => setEndTime(`${endTime ? endTime.split(':')[0] : '00'}:${e.target.value}`)}
-        disabled={isLocked}
-        className={`flex-1 border rounded-lg px-2 py-2 ${isLocked ? 'bg-gray-50 text-gray-400' : ''}`}>
-        <option value="">분</option>
-        <option value="00">00</option>
-        <option value="30">30</option>
-      </select>
-    </div>
+  <label className="text-sm text-gray-500">퇴근</label>
+  <div className="flex gap-1 mt-1 items-center">
+    <select
+      value={endTime ? endTime.split(':')[0] : ''}
+      onChange={(e) => setEndTime(`${e.target.value}:${endTime ? endTime.split(':')[1] : '00'}`)}
+      disabled={isLocked}
+      className={`flex-1 border rounded-lg px-2 py-2 ${isLocked ? 'bg-gray-50 text-gray-400' : ''}`}>
+      <option value="">시</option>
+      {Array.from({ length: 24 }, (_, i) => (
+        <option key={i} value={String(i).padStart(2, '0')}>
+          {String(i).padStart(2, '0')}
+        </option>
+      ))}
+    </select>
+    <span className="flex items-center text-gray-400">:</span>
+    <select
+      value={endTime ? endTime.split(':')[1] : ''}
+      onChange={(e) => setEndTime(`${endTime ? endTime.split(':')[0] : '00'}:${e.target.value}`)}
+      disabled={isLocked}
+      className={`flex-1 border rounded-lg px-2 py-2 ${isLocked ? 'bg-gray-50 text-gray-400' : ''}`}>
+      <option value="">분</option>
+      <option value="00">00</option>
+      <option value="30">30</option>
+    </select>
+    {!isLocked && (
+      <button
+        onClick={() => setIsNextDay(!isNextDay)}
+        className={`text-[10px] px-1.5 py-1 rounded-lg border transition shrink-0 ${
+          isNextDay
+            ? 'bg-blue-500 text-white border-blue-500'
+            : 'bg-white text-gray-400 border-gray-300'
+        }`}>
+        익일
+      </button>
+    )}
+    {isLocked && isNextDay && (
+      <span className="text-[10px] text-blue-500 shrink-0">익일</span>
+    )}
   </div>
+</div>
 </div>
   </div>
   <div className="mb-2">
