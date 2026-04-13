@@ -125,9 +125,9 @@ const fetchCommutePlans = async (memberData: any[]) => {
       .eq('team_id', id)
 
     if (memberData) {
-      setMembers(memberData)
-      const myRole = memberData.find((m) => m.user_id === userId)
-      setIsAdmin(myRole?.role === 'admin')
+  setMembers(memberData)
+  const myRole = memberData.find((m) => m.user_id === userId)
+  if (myRole?.role === 'admin') setIsAdmin(true)
       fetchMonthlyLogs(memberData)
 
       fetchCommutePlans(memberData)
@@ -334,7 +334,7 @@ const getTileContent = ({ date }: { date: Date }) => {
         </div>
 
         {/* 가입 신청 (팀장만) */}
-        {isAdmin || isMaster && requests.length > 0 && (
+        {(isAdmin || isMaster) && requests.length > 0 && (
           <div className="bg-yellow-50 rounded-xl shadow p-4 mb-4">
             <h2 className="font-semibold mb-3">가입 신청 ({requests.length})</h2>
             {requests.map((req) => (
@@ -595,7 +595,7 @@ const getTileContent = ({ date }: { date: Date }) => {
                       </div>
                     </div>
 
-                    {isAdmin || isMaster && (
+                    {(isAdmin || isMaster) && (
                       <div className="bg-gray-50 rounded-lg p-3">
                         <p className="text-xs text-gray-500 mb-2 font-semibold">일별 상세</p>
                         {(memberWeeklyLogs[member.user_id] || []).length === 0 ? (

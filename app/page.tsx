@@ -307,7 +307,7 @@ const weekendHours = weeklyLogs
   }
 
   return (
-<div className="min-h-screen bg-gray-50 p-2 sm:p-4 pb-20">
+<div className="min-h-screen bg-gray-50 p-2 sm:p-4 pb-28">
   <div className="w-full max-w-2xl mx-auto">
 
 {/* 헤더 */}
