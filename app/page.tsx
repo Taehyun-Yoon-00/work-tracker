@@ -307,7 +307,7 @@ const weekendHours = weeklyLogs
   }
 
   return (
-<div className="min-h-screen bg-gray-50 p-2 sm:p-4 pb-28">
+<div className="min-h-screen bg-gray-50 p-2 sm:p-4 pb-20">
   <div className="w-full max-w-2xl mx-auto">
 
 {/* 헤더 */}
@@ -553,7 +553,7 @@ const weekendHours = weeklyLogs
 </div>
 
         {/* 주간 합산 */}
-        <div className="bg-white rounded-xl shadow p-4">
+        <div className="bg-white rounded-xl shadow p-4 mb-8">
 <h2 className="font-semibold mb-3">이번 주 근무시간</h2>
 <div className="flex gap-2 mb-3">
   <div className="flex-1 bg-blue-50 rounded-lg p-3 text-center">
