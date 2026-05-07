@@ -405,7 +405,7 @@ const getTileContent = ({ date }: { date: Date }) => {
                 onClick={() => setSelectedCommuteWeek(
                   selectedCommuteWeek === weekNumber ? null : weekNumber
                 )}
-                className={`text-[12px] px-1 py-2 rounded-lg border transition ${
+                className={`text-[12px] px-1 py-1.5 rounded-lg border transition ${
                   selectedCommuteWeek === weekNumber
                     ? 'bg-purple-500 text-white border-purple-500'
                     : 'bg-white text-purple-400 border-purple-300'

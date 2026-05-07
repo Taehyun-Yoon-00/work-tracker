@@ -383,7 +383,7 @@ const weekendHours = weeklyLogs
               <div className="flex gap-0.5">
                 <button
                   onClick={() => handleCommutePlan(weekNumber, '8시')}
-                  className={`text-[12px] w-6 py-2 rounded-lg border transition ${
+                  className={`text-[12px] w-6 py-1.5 rounded-lg border transition ${
                     plan === '8시'
                       ? 'bg-blue-500 text-white border-blue-500'
                       : 'bg-white text-gray-400 border-gray-300'
@@ -392,7 +392,7 @@ const weekendHours = weeklyLogs
                 </button>
                 <button
                   onClick={() => handleCommutePlan(weekNumber, '9시')}
-                  className={`text-[12px] w-6 py-2 rounded-lg border transition ${
+                  className={`text-[12px] w-6 py-1.5 rounded-lg border transition ${
                     plan === '9시'
                       ? 'bg-green-500 text-white border-green-500'
                       : 'bg-white text-gray-400 border-gray-300'
