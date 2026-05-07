@@ -33,6 +33,7 @@ export default function Home() {
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [monthlyVacations, setMonthlyVacations] = useState<any[]>([])
   const [isNextDay, setIsNextDay] = useState(false)
+  const [substituteHolidays, setSubstituteHolidays] = useState<string[]>([])
 
   useEffect(() => {
     const getUser = async () => {
@@ -41,6 +42,7 @@ export default function Home() {
       else setUser(user)
     }
     getUser()
+    fetchSubstituteHolidays()
   }, [])
 
 useEffect(() => {
@@ -93,6 +95,13 @@ const fetchMonthlyVacations = async () => {
     .gte('date', startOfMonth)
     .lte('date', endOfMonth)
   if (data) setMonthlyVacations(data)
+}
+
+const fetchSubstituteHolidays = async () => {
+  const { data } = await supabase
+    .from('substitute_holidays')
+    .select('date')
+  if (data) setSubstituteHolidays(data.map((h) => h.date))
 }
 
 const fetchCommutePlan = async () => {
@@ -235,6 +244,8 @@ const handleDelete = async () => {
   const isHoliday = (date: Date) => {
   const day = dayjs(date).day()
   if (day === 0 || day === 6) return true
+  const dateStr = dayjs(date).format('YYYY-MM-DD')
+  if (substituteHolidays.includes(dateStr)) return true
   return !!hd.isHoliday(date)
 }
 const getTileClassName = ({ date }: { date: Date }) => {
@@ -243,12 +254,13 @@ const getTileClassName = ({ date }: { date: Date }) => {
   const isToday = dateStr === dayjs().format('YYYY-MM-DD')
   const hasLog = monthlyLogs.some((log) => log.date === dateStr)
   const hasVacation = monthlyVacations.some((v) => v.date === dateStr)
+  const isSubstitute = substituteHolidays.includes(dateStr)
 
   let className = ''
   if (hasLog && !isToday) className += '!bg-blue-100 rounded-lg '
   if (hasVacation && !isToday) className += '!bg-orange-100 rounded-lg '
   if (day === 6) className += '!text-blue-500 font-semibold'
-  else if (day === 0 || hd.isHoliday(date)) className += '!text-red-500 font-semibold'
+  else if (day === 0 || hd.isHoliday(date) || isSubstitute) className += '!text-red-500 font-semibold'
 
   return className.trim()
 }
@@ -311,8 +323,8 @@ const weekendHours = weeklyLogs
   }
 
   return (
-<div className="min-h-screen bg-gray-50 p-2 sm:p-4 pb-20">
-  <div className="w-full max-w-2xl mx-auto">
+<div className="min-h-screen bg-gray-50 p-2 sm:p-4 pb-28">
+  <div className="max-w-2xl mx-auto">
 
 {/* 헤더 */}
 <div className="flex justify-between items-center mb-6">
@@ -371,7 +383,7 @@ const weekendHours = weeklyLogs
               <div className="flex gap-0.5">
                 <button
                   onClick={() => handleCommutePlan(weekNumber, '8시')}
-                  className={`text-[8px] w-6 py-0.5 rounded-full border transition ${
+                  className={`text-[12px] w-6 py-2 rounded-lg border transition ${
                     plan === '8시'
                       ? 'bg-blue-500 text-white border-blue-500'
                       : 'bg-white text-gray-400 border-gray-300'
@@ -380,7 +392,7 @@ const weekendHours = weeklyLogs
                 </button>
                 <button
                   onClick={() => handleCommutePlan(weekNumber, '9시')}
-                  className={`text-[8px] w-6 py-0.5 rounded-full border transition ${
+                  className={`text-[12px] w-6 py-2 rounded-lg border transition ${
                     plan === '9시'
                       ? 'bg-green-500 text-white border-green-500'
                       : 'bg-white text-gray-400 border-gray-300'

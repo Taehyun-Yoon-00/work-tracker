@@ -75,8 +75,8 @@ const used = data.reduce((acc, v) => {
   const remaining = totalVacation - usedVacation
 
   return (
-<div className="min-h-screen bg-gray-50 p-2 sm:p-4 pb-20">
-  <div className="w-full max-w-2xl mx-auto">
+<div className="min-h-screen bg-gray-50 p-2 sm:p-4 pb-28">
+  <div className="max-w-2xl mx-auto">
 
         {/* 헤더 */}
         <div className="flex justify-between items-center mb-6">

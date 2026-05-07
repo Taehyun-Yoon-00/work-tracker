@@ -33,6 +33,7 @@ export default function TeamDetailPage() {
   const [remoteWorks, setRemoteWorks] = useState<any[]>([])
   const [selectedRemoteDate, setSelectedRemoteDate] = useState<Date | null>(null)
   const [isMaster, setIsMaster] = useState(false)
+  const [substituteHolidays, setSubstituteHolidays] = useState<string[]>([])
 
   const getPeriod = () => {
     const now = dayjs(calendarMonth)
@@ -67,6 +68,8 @@ export default function TeamDetailPage() {
       }
     }
     getUser()
+    fetchSubstituteHolidays()
+    
   }, [])
 
 useEffect(() => {
@@ -183,6 +186,13 @@ const fetchCommutePlans = async (memberData: any[]) => {
     setMemberWeeklyLogs((prev) => ({ ...prev, [userId]: data || [] }))
   }
 
+const fetchSubstituteHolidays = async () => {
+  const { data } = await supabase
+    .from('substitute_holidays')
+    .select('date')
+  if (data) setSubstituteHolidays(data.map((h) => h.date))
+}
+
   const calcHours = (log: any) => {
     const start = dayjs(`2000-01-01 ${log.start_time}`)
     const end = dayjs(`2000-01-01 ${log.end_time}`)
@@ -196,10 +206,12 @@ const fetchCommutePlans = async (memberData: any[]) => {
   }
 
   const isHoliday = (date: Date) => {
-    const day = dayjs(date).day()
-    if (day === 0 || day === 6) return true
-    return !!hd.isHoliday(date)
-  }
+  const day = dayjs(date).day()
+  if (day === 0 || day === 6) return true
+  const dateStr = dayjs(date).format('YYYY-MM-DD')
+  if (substituteHolidays.includes(dateStr)) return true
+  return !!hd.isHoliday(date)
+}
 
   const getMonthlyStats = (userId: string) => {
     const logs = memberLogs[userId] || []
@@ -248,12 +260,13 @@ const getTileContent = ({ date }: { date: Date }) => {
   )
 }
   const getTileClassName = ({ date }: { date: Date }) => {
-    const day = date.getDay()
-    if (day === 6) return '!text-blue-500 font-semibold'
-    if (day === 0) return '!text-red-500 font-semibold'
-    if (hd.isHoliday(date)) return '!text-red-500 font-semibold'
-    return ''
-  }
+  const day = date.getDay()
+  const dateStr = dayjs(date).format('YYYY-MM-DD')
+  const isSubstitute = substituteHolidays.includes(dateStr)
+  if (day === 6) return '!text-blue-500 font-semibold'
+  if (day === 0 || hd.isHoliday(date) || isSubstitute) return '!text-red-500 font-semibold'
+  return ''
+}
 
   const getWeeks = (month: Date) => {
     const monthStart = dayjs(month).startOf('month')
@@ -313,7 +326,7 @@ const getTileContent = ({ date }: { date: Date }) => {
   const { label } = getPeriod()
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 pb-20">
+    <div className="min-h-screen bg-gray-50 p-2 pb-28">
       <div className="max-w-2xl mx-auto">
 
         {/* 헤더 */}
@@ -392,7 +405,7 @@ const getTileContent = ({ date }: { date: Date }) => {
                 onClick={() => setSelectedCommuteWeek(
                   selectedCommuteWeek === weekNumber ? null : weekNumber
                 )}
-                className={`text-[8px] px-1 py-0.5 rounded-full border transition ${
+                className={`text-[12px] px-1 py-2 rounded-lg border transition ${
                   selectedCommuteWeek === weekNumber
                     ? 'bg-purple-500 text-white border-purple-500'
                     : 'bg-white text-purple-400 border-purple-300'
@@ -523,7 +536,7 @@ const getTileContent = ({ date }: { date: Date }) => {
               </button>
             </div>
           </div>
-          <p className="text-xs text-gray-400 mb-3">{label}</p>
+          {/*<p className="text-xm text-gray-400 mb-3 text-right">{label}</p>*/}
 
           {members.map((member) => {
             const isExpanded = expandedUser === member.user_id
@@ -548,31 +561,37 @@ const getTileContent = ({ date }: { date: Date }) => {
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-blue-500">
-                      {getMonthlyStats(member.user_id)}시간
-                    </span>
-                    <span className="text-sm text-gray-400">{isExpanded ? '▲' : '▼'}</span>
-                  </div>
+  <div className="text-right">
+    <p className="text-sm font-medium text-gray-500">{label}</p>
+    <p className="font-bold text-blue-500">
+      {getMonthlyStats(member.user_id)}시간
+    </p>
+  </div>
+  <span className="text-sm text-gray-400">{isExpanded ? '▲' : '▼'}</span>
+</div>
                 </div>
 
                 {isExpanded && (
                   <div className="pb-4 px-1">
-                    <div className="flex items-center gap-2 mb-3">
-                      <button
-                        onClick={() => changeWeek(member.user_id, -1)}
-                        className="px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm">
-                        ◀
-                      </button>
-                      <span className="text-xs flex-1 text-center text-gray-500">
-                        {dayjs(currentWeek).startOf('isoWeek').format('MM/DD')} ~{' '}
-                        {dayjs(currentWeek).endOf('isoWeek').format('MM/DD')}
-                      </span>
-                      <button
-                        onClick={() => changeWeek(member.user_id, 1)}
-                        className="px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm">
-                        ▶
-                      </button>
-                    </div>
+                    <div className="mb-3">
+  <p className="text-xs font-semibold text-gray-400 mb-2">주간 근무시간</p>
+  <div className="flex items-center gap-2">
+    <button
+      onClick={() => changeWeek(member.user_id, -1)}
+      className="px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm">
+      ◀
+    </button>
+    <span className="text-sm font-semibold flex-1 text-center text-gray-700">
+      {dayjs(currentWeek).startOf('isoWeek').format('MM/DD')} ~{' '}
+      {dayjs(currentWeek).endOf('isoWeek').format('MM/DD')}
+    </span>
+    <button
+      onClick={() => changeWeek(member.user_id, 1)}
+      className="px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm">
+      ▶
+    </button>
+  </div>
+</div>
 
                     <div className="flex gap-2 mb-3">
                       <div className="flex-1 bg-blue-50 rounded-lg p-3 text-center">
