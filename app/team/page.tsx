@@ -45,10 +45,10 @@ export default function TeamPage() {
 
     // 마스터 계정
     const { data: profileData } = await supabase
-    .from('profiles')
-    .select('is_master')
-    .eq('id', userId)
-    .single()
+      .from('profiles')
+      .select('is_master')
+      .eq('id', userId)
+      .single()
     if (profileData?.is_master) setIsMaster(true)
   }
 
@@ -92,22 +92,22 @@ export default function TeamPage() {
     return myTeams.some((t) => t.team_id === teamId)
   }
 
-    const handleLogout = async () => {
+  const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/login')
   }
-  
+
   return (
-<div className="min-h-screen bg-gray-50 p-2 sm:p-4 pb-28">
-  <div className="max-w-2xl mx-auto">
+    <div className="min-h-screen bg-gray-50 p-2 sm:p-4 pb-28">
+      <div className="max-w-2xl mx-auto">
 
         {/* 헤더 */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold">팀 관리</h1>
-    <button onClick={handleLogout}
-      className="text-sm text-gray-500 hover:underline">
-      로그아웃
-    </button>
+          <button onClick={handleLogout}
+            className="text-sm text-gray-500 hover:underline">
+            로그아웃
+          </button>
         </div>
 
         {/* 팀 생성 */}
@@ -138,9 +138,8 @@ export default function TeamPage() {
                 className="flex justify-between items-center py-2 border-b last:border-0">
                 <div>
                   <span className="font-medium">{t.teams?.name}</span>
-                  <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
-                    t.role === 'admin' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
-                  }`}>
+                  <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${t.role === 'admin' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
+                    }`}>
                     {t.role === 'admin' ? '팀장' : '팀원'}
                   </span>
                 </div>
@@ -164,16 +163,16 @@ export default function TeamPage() {
                 className="flex justify-between items-center py-2 border-b last:border-0">
                 <span className="font-medium">{team.name}</span>
                 {isMyTeam(team.id) || isMaster ? (
-  <button onClick={() => router.push(`/team/${team.id}`)}
-    className="text-sm text-blue-500 hover:underline">
-    입장 →
-  </button>
-) : (
-  <button onClick={() => handleJoinRequest(team.id)}
-    className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200">
-    가입 신청
-  </button>
-)}
+                  <button onClick={() => router.push(`/team/${team.id}`)}
+                    className="text-sm text-blue-500 hover:underline">
+                    입장 →
+                  </button>
+                ) : (
+                  <button onClick={() => handleJoinRequest(team.id)}
+                    className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200">
+                    가입 신청
+                  </button>
+                )}
               </div>
             ))
           )}

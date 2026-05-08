@@ -25,10 +25,10 @@ export default function ManagePage() {
 
   const fetchData = async (userId: string) => {
     const { data: profileData } = await supabase
-    .from('profiles')
-    .select('is_master')
-    .eq('id', userId)
-    .single()
+      .from('profiles')
+      .select('is_master')
+      .eq('id', userId)
+      .single()
     if (profileData?.is_master) setIsMaster(true)
 
     const { data: teamData } = await supabase
@@ -43,7 +43,7 @@ export default function ManagePage() {
       setMembers(memberData)
       // 팀장이 아니면 접근 차단
       const myRole = memberData.find((m) => m.user_id === userId)
-if (myRole?.role !== 'admin' && !profileData?.is_master) router.push(`/team/${id}`)
+      if (myRole?.role !== 'admin' && !profileData?.is_master) router.push(`/team/${id}`)
     }
   }
 
@@ -62,7 +62,7 @@ if (myRole?.role !== 'admin' && !profileData?.is_master) router.push(`/team/${id
     fetchData(user.id)
   }
 
-const handleKick = async (member: any) => {
+  const handleKick = async (member: any) => {
     setMessage('')
     if (member.role === 'admin' && adminCount <= 1) {
       setMessage('마지막 팀장은 내보낼 수 없어요.')
@@ -91,8 +91,8 @@ const handleKick = async (member: any) => {
   }
 
   return (
-<div className="min-h-screen bg-gray-50 p-2 sm:p-4 pb-28">
-  <div className="max-w-2xl mx-auto">
+    <div className="min-h-screen bg-gray-50 p-2 sm:p-4 pb-28">
+      <div className="max-w-2xl mx-auto">
 
         {/* 헤더 */}
         <div className="flex justify-between items-center mb-6">
@@ -122,22 +122,20 @@ const handleKick = async (member: any) => {
                 <span className="text-xs text-gray-400 ml-1">
                   {member.profiles?.email}
                 </span>
-                <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
-                  member.role === 'admin'
+                <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${member.role === 'admin'
                     ? 'bg-blue-100 text-blue-600'
                     : 'bg-gray-100 text-gray-600'
-                }`}>
+                  }`}>
                   {member.role === 'admin' ? '팀장' : '팀원'}
                 </span>
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => handleToggleAdmin(member)}
-                  className={`text-xs px-3 py-1 rounded-lg ${
-                    member.role === 'admin'
+                  className={`text-xs px-3 py-1 rounded-lg ${member.role === 'admin'
                       ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       : 'bg-blue-50 text-blue-500 hover:bg-blue-100'
-                  }`}>
+                    }`}>
                   {member.role === 'admin' ? '팀장 해제' : '팀장 지정'}
                 </button>
                 {member.user_id !== user?.id && (
@@ -151,7 +149,7 @@ const handleKick = async (member: any) => {
             </div>
           ))}
         </div>
-      {/* 팀 삭제 */}
+        {/* 팀 삭제 */}
         <div className="bg-red-50 rounded-xl shadow p-4 mt-4">
           <h2 className="font-semibold text-red-500 mb-2">주의</h2>
           <p className="text-xs text-gray-500 mb-3">팀을 삭제하면 모든 팀 데이터가 삭제돼요.</p>

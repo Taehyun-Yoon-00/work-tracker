@@ -69,18 +69,18 @@ export default function TeamDetailPage() {
     }
     getUser()
     fetchSubstituteHolidays()
-    
+
   }, [])
 
-useEffect(() => {
-  if (members.length > 0) {
-    fetchMonthlyLogs(members)
-  }
-}, [calendarMonth, periodMode])
+  useEffect(() => {
+    if (members.length > 0) {
+      fetchMonthlyLogs(members)
+    }
+  }, [calendarMonth, periodMode])
 
-useEffect(() => {
-  if (members.length > 0) fetchCommutePlans(members)
-}, [calendarMonth, members])
+  useEffect(() => {
+    if (members.length > 0) fetchCommutePlans(members)
+  }, [calendarMonth, members])
 
   useEffect(() => {
     if (expandedUser && members.length > 0) {
@@ -89,33 +89,33 @@ useEffect(() => {
     }
   }, [selectedWeek, expandedUser])
 
-const fetchCommutePlans = async (memberData: any[]) => {
-  const { data: commutePlanData } = await supabase
-    .from('commute_plans')
-    .select('*, profiles(name, email)')
-    .in('user_id', memberData.map((m) => m.user_id))
-  
-  const plans: { [key: string]: any[] } = {}
-  if (commutePlanData) {
-    commutePlanData.forEach((p) => {
-      const key = String(p.week_number)
-      if (!plans[key]) plans[key] = []
-      plans[key].push(p)
-    })
+  const fetchCommutePlans = async (memberData: any[]) => {
+    const { data: commutePlanData } = await supabase
+      .from('commute_plans')
+      .select('*, profiles(name, email)')
+      .in('user_id', memberData.map((m) => m.user_id))
+
+    const plans: { [key: string]: any[] } = {}
+    if (commutePlanData) {
+      commutePlanData.forEach((p) => {
+        const key = String(p.week_number)
+        if (!plans[key]) plans[key] = []
+        plans[key].push(p)
+      })
+    }
+    setWeekCommutePlans(plans)
   }
-  setWeekCommutePlans(plans)
-}
 
   const fetchTeamData = async (userId: string) => {
 
     const { data: profileData } = await supabase
-     .from('profiles')
-     .select('is_master')
-     .eq('id', userId)
-     .single()
+      .from('profiles')
+      .select('is_master')
+      .eq('id', userId)
+      .single()
     if (profileData?.is_master) {
-    setIsMaster(true)
-    setIsAdmin(true)  // 마스터는 자동으로 팀장 권한
+      setIsMaster(true)
+      setIsAdmin(true)  // 마스터는 자동으로 팀장 권한
     }
 
     const { data: teamData } = await supabase
@@ -128,14 +128,14 @@ const fetchCommutePlans = async (memberData: any[]) => {
       .eq('team_id', id)
 
     if (memberData) {
-  setMembers(memberData)
-  const myRole = memberData.find((m) => m.user_id === userId)
-  if (myRole?.role === 'admin') setIsAdmin(true)
+      setMembers(memberData)
+      const myRole = memberData.find((m) => m.user_id === userId)
+      if (myRole?.role === 'admin') setIsAdmin(true)
       fetchMonthlyLogs(memberData)
 
       fetchCommutePlans(memberData)
 
-    
+
     }
 
     const { data: requestData } = await supabase
@@ -186,18 +186,18 @@ const fetchCommutePlans = async (memberData: any[]) => {
     setMemberWeeklyLogs((prev) => ({ ...prev, [userId]: data || [] }))
   }
 
-const fetchSubstituteHolidays = async () => {
-  const { data } = await supabase
-    .from('substitute_holidays')
-    .select('date')
-  if (data) setSubstituteHolidays(data.map((h) => h.date))
-}
+  const fetchSubstituteHolidays = async () => {
+    const { data } = await supabase
+      .from('substitute_holidays')
+      .select('date')
+    if (data) setSubstituteHolidays(data.map((h) => h.date))
+  }
 
   const calcHours = (log: any) => {
     const start = dayjs(`2000-01-01 ${log.start_time}`)
     const end = dayjs(`2000-01-01 ${log.end_time}`)
     const diff = end.diff(start, 'minute') - log.break_minutes
-    return (diff / 60).toFixed(1)
+    return (diff / 60).toFixed(2)
   }
 
   const getMemberName = (userId: string) => {
@@ -206,16 +206,16 @@ const fetchSubstituteHolidays = async () => {
   }
 
   const isHoliday = (date: Date) => {
-  const day = dayjs(date).day()
-  if (day === 0 || day === 6) return true
-  const dateStr = dayjs(date).format('YYYY-MM-DD')
-  if (substituteHolidays.includes(dateStr)) return true
-  return !!hd.isHoliday(date)
-}
+    const day = dayjs(date).day()
+    if (day === 0 || day === 6) return true
+    const dateStr = dayjs(date).format('YYYY-MM-DD')
+    if (substituteHolidays.includes(dateStr)) return true
+    return !!hd.isHoliday(date)
+  }
 
   const getMonthlyStats = (userId: string) => {
     const logs = memberLogs[userId] || []
-    return logs.reduce((acc, log) => acc + parseFloat(calcHours(log)), 0).toFixed(1)
+    return logs.reduce((acc, log) => acc + parseFloat(calcHours(log)), 0).toFixed(2)
   }
 
   const getWeeklyStats = (userId: string) => {
@@ -235,38 +235,38 @@ const fetchSubstituteHolidays = async () => {
     return vacations.filter((v) => v.date === dateStr)
   }
 
-const getRemoteOnDate = (date: Date) => {
-  const dateStr = dayjs(date).format('YYYY-MM-DD')
-  return remoteWorks.filter((r) => r.date === dateStr)
-}
+  const getRemoteOnDate = (date: Date) => {
+    const dateStr = dayjs(date).format('YYYY-MM-DD')
+    return remoteWorks.filter((r) => r.date === dateStr)
+  }
 
-const getTileContent = ({ date }: { date: Date }) => {
-  const dayVacations = getVacationsOnDate(date)
-  const dayRemotes = getRemoteOnDate(date)
-  if (dayVacations.length === 0 && dayRemotes.length === 0) return null
-  return (
-    <div className="flex justify-center gap-0.5 mt-0.5">
-      {dayVacations.length > 0 && (
-        <span className="text-[9px] bg-orange-100 text-orange-600 rounded-full w-4 h-4 flex items-center justify-center font-bold">
-          {dayVacations.length}
-        </span>
-      )}
-      {dayRemotes.length > 0 && (
-        <span className="text-[9px] bg-indigo-100 text-indigo-600 rounded-full w-4 h-4 flex items-center justify-center font-bold">
-          {dayRemotes.length}
-        </span>
-      )}
-    </div>
-  )
-}
+  const getTileContent = ({ date }: { date: Date }) => {
+    const dayVacations = getVacationsOnDate(date)
+    const dayRemotes = getRemoteOnDate(date)
+    if (dayVacations.length === 0 && dayRemotes.length === 0) return null
+    return (
+      <div className="flex justify-center gap-0.5 mt-0.5">
+        {dayVacations.length > 0 && (
+          <span className="text-[9px] bg-orange-100 text-orange-600 rounded-full w-4 h-4 flex items-center justify-center font-bold">
+            {dayVacations.length}
+          </span>
+        )}
+        {dayRemotes.length > 0 && (
+          <span className="text-[9px] bg-indigo-100 text-indigo-600 rounded-full w-4 h-4 flex items-center justify-center font-bold">
+            {dayRemotes.length}
+          </span>
+        )}
+      </div>
+    )
+  }
   const getTileClassName = ({ date }: { date: Date }) => {
-  const day = date.getDay()
-  const dateStr = dayjs(date).format('YYYY-MM-DD')
-  const isSubstitute = substituteHolidays.includes(dateStr)
-  if (day === 6) return '!text-blue-500 font-semibold'
-  if (day === 0 || hd.isHoliday(date) || isSubstitute) return '!text-red-500 font-semibold'
-  return ''
-}
+    const day = date.getDay()
+    const dateStr = dayjs(date).format('YYYY-MM-DD')
+    const isSubstitute = substituteHolidays.includes(dateStr)
+    if (day === 6) return '!text-blue-500 font-semibold'
+    if (day === 0 || hd.isHoliday(date) || isSubstitute) return '!text-red-500 font-semibold'
+    return ''
+  }
 
   const getWeeks = (month: Date) => {
     const monthStart = dayjs(month).startOf('month')
@@ -334,11 +334,11 @@ const getTileContent = ({ date }: { date: Date }) => {
           <h1 className="text-2xl font-bold">{team?.name}</h1>
           <div className="flex gap-3">
             {(isAdmin || isMaster) && (
-  <button onClick={() => router.push(`/team/${id}/manage`)}
-    className="text-sm text-blue-500 hover:underline">
-    팀 관리
-  </button>
-)}
+              <button onClick={() => router.push(`/team/${id}/manage`)}
+                className="text-sm text-blue-500 hover:underline">
+                팀 관리
+              </button>
+            )}
             <button onClick={() => router.push('/team')}
               className="text-sm text-gray-500 hover:underline">
               ← 팀 목록
@@ -372,144 +372,142 @@ const getTileContent = ({ date }: { date: Date }) => {
           </div>
         )}
 
-{/* 달력 */}
-<div className="bg-white rounded-xl shadow p-3 mb-4">
-  <h2 className="font-semibold mb-3">팀 캘린더</h2>
-  <div className="flex flex-col gap-3">
-    {/* 달력 + 시차출근 버튼 */}
-    <div className="flex items-start gap-2 ">
-      <div className="min-w-0">
-          <Calendar
-          onClickDay={(date) => {
-            setSelectedCalendarDate(date)
-            setSelectedRemoteDate(date)
-            setSelectedCommuteWeek(null)
-          }}
-          onActiveStartDateChange={({ activeStartDate }) => {
-            if (activeStartDate) setCalendarMonth(activeStartDate)
-          }}
-          tileContent={getTileContent}
-          tileClassName={getTileClassName}
-          locale="ko-KR"
-        />
-      </div>
-
-      {/* 주차별 시차출근 버튼 */}
-      <div className="flex flex-col shrink-0 mt-[74px] sm:mt-[90px]">
-        {getWeeks(calendarMonth).map((weekStart, index) => {
-          const weekNumber = String(index + 1)
-          return (
-            <div key={weekNumber}
-              className="flex items-center justify-center h-8 sm:h-11">
-              <button
-                onClick={() => setSelectedCommuteWeek(
-                  selectedCommuteWeek === weekNumber ? null : weekNumber
-                )}
-                className={`text-[12px] px-1 py-1.5 rounded-lg border transition ${
-                  selectedCommuteWeek === weekNumber
-                    ? 'bg-purple-500 text-white border-purple-500'
-                    : 'bg-white text-purple-400 border-purple-300'
-                }`}>
-                시차
-              </button>
-            </div>
-          )
-        })}
-      </div>
-    </div>
-
-    {/* 리스트 - 달력 아래 */}
-    {(selectedCalendarDate || selectedRemoteDate || selectedCommuteWeek) && (
-      <div className="border-t pt-3">
-        {selectedCommuteWeek && (
-          <div>
-            <p className="text-sm font-semibold mb-2">
-              {(() => {
-                const weeks = getWeeks(calendarMonth)
-                const idx = parseInt(selectedCommuteWeek) - 1
-                const weekStart = weeks[idx]
-                if (!weekStart) return ''
-                return `${weekStart.format('MM/DD')} ~ ${weekStart.endOf('isoWeek').format('MM/DD')}`
-              })()}
-            </p>
-            <div className="flex gap-4">
-              {['8시', '9시'].map((time) => {
-                const planners = (weekCommutePlans[selectedCommuteWeek] || [])
-                  .filter((p) => p.commute_time === time)
-                return (
-                  <div key={time} className="flex-1">
-                    <p className={`text-xm font-semibold mb-1 ${
-                      time === '8시' ? 'text-blue-500' : 'text-green-500'
-                    }`}>{time}</p>
-                    <div className="min-h-[40px]">
-                      {planners.length === 0 ? (
-                        <p className="text-xs text-gray-400">없음</p>
-                      ) : (
-                        planners.map((p) => (
-                          <p key={p.id} className="text-xm py-0.5">
-                            {p.profiles?.name || p.profiles?.email?.split('@')[0]}
-                          </p>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-            <button onClick={() => setSelectedCommuteWeek(null)}
-              className="text-xs text-gray-400 hover:underline mt-2">
-              닫기
-            </button>
-          </div>
-        )}
-
-        {(selectedCalendarDate || selectedRemoteDate) && !selectedCommuteWeek && (
-          <div>
-            <p className="text-sm font-semibold mb-2">
-              {dayjs(selectedCalendarDate || selectedRemoteDate!).format('MM월 DD일')}
-            </p>
-            <div className="flex gap-4">
-              <div className="flex-1">
-                <p className="text-xm font-semibold text-orange-500 mb-1">휴가</p>
-                {getVacationsOnDate(selectedCalendarDate || selectedRemoteDate!).length === 0 ? (
-                  <p className="text-xs text-gray-400">없음</p>
-                ) : (
-                  getVacationsOnDate(selectedCalendarDate || selectedRemoteDate!).map((v) => (
-                    <div key={v.id} className="mb-1">
-                      <p className="text-xm font-medium">{getMemberName(v.user_id)}</p>
-                      <p className="text-[10px] text-orange-400">
-                        {v.type === 'annual' ? '연차' : v.type === 'morning' ? '오전반차' : '오후반차'}
-                      </p>
-                    </div>
-                  ))
-                )}
+        {/* 달력 */}
+        <div className="bg-white rounded-xl shadow p-3 mb-4">
+          <h2 className="font-semibold mb-3">팀 캘린더</h2>
+          <div className="flex flex-col gap-3">
+            {/* 달력 + 시차출근 버튼 */}
+            <div className="flex items-start gap-2 ">
+              <div className="min-w-0">
+                <Calendar
+                  onClickDay={(date) => {
+                    setSelectedCalendarDate(date)
+                    setSelectedRemoteDate(date)
+                    setSelectedCommuteWeek(null)
+                  }}
+                  onActiveStartDateChange={({ activeStartDate }) => {
+                    if (activeStartDate) setCalendarMonth(activeStartDate)
+                  }}
+                  tileContent={getTileContent}
+                  tileClassName={getTileClassName}
+                  locale="ko-KR"
+                />
               </div>
-              <div className="flex-1">
-                <p className="text-xm font-semibold text-indigo-500 mb-1">원격근무</p>
-                {getRemoteOnDate(selectedCalendarDate || selectedRemoteDate!).length === 0 ? (
-                  <p className="text-xs text-gray-400">없음</p>
-                ) : (
-                  getRemoteOnDate(selectedCalendarDate || selectedRemoteDate!).map((r) => (
-                    <p key={r.id} className="text-xm py-0.5">
-                      {getMemberName(r.user_id)}
+
+              {/* 주차별 시차출근 버튼 */}
+              <div className="flex flex-col shrink-0 mt-[74px] sm:mt-[90px]">
+                {getWeeks(calendarMonth).map((weekStart, index) => {
+                  const weekNumber = String(index + 1)
+                  return (
+                    <div key={weekNumber}
+                      className="flex items-center justify-center h-8 sm:h-11">
+                      <button
+                        onClick={() => setSelectedCommuteWeek(
+                          selectedCommuteWeek === weekNumber ? null : weekNumber
+                        )}
+                        className={`text-[12px] px-1 py-1.5 rounded-lg border transition ${selectedCommuteWeek === weekNumber
+                            ? 'bg-purple-500 text-white border-purple-500'
+                            : 'bg-white text-purple-400 border-purple-300'
+                          }`}>
+                        시차
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* 리스트 - 달력 아래 */}
+            {(selectedCalendarDate || selectedRemoteDate || selectedCommuteWeek) && (
+              <div className="border-t pt-3">
+                {selectedCommuteWeek && (
+                  <div>
+                    <p className="text-sm font-semibold mb-2">
+                      {(() => {
+                        const weeks = getWeeks(calendarMonth)
+                        const idx = parseInt(selectedCommuteWeek) - 1
+                        const weekStart = weeks[idx]
+                        if (!weekStart) return ''
+                        return `${weekStart.format('MM/DD')} ~ ${weekStart.endOf('isoWeek').format('MM/DD')}`
+                      })()}
                     </p>
-                  ))
+                    <div className="flex gap-4">
+                      {['8시', '9시'].map((time) => {
+                        const planners = (weekCommutePlans[selectedCommuteWeek] || [])
+                          .filter((p) => p.commute_time === time)
+                        return (
+                          <div key={time} className="flex-1">
+                            <p className={`text-base font-semibold mb-1 ${time === '8시' ? 'text-blue-500' : 'text-green-500'
+                              }`}>{time}</p>
+                            <div className="min-h-[40px]">
+                              {planners.length === 0 ? (
+                                <p className="text-xs text-gray-400">없음</p>
+                              ) : (
+                                planners.map((p) => (
+                                  <p key={p.id} className="text-base py-0.5">
+                                    {p.profiles?.name || p.profiles?.email?.split('@')[0]}
+                                  </p>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <button onClick={() => setSelectedCommuteWeek(null)}
+                      className="text-xs text-gray-400 hover:underline mt-2">
+                      닫기
+                    </button>
+                  </div>
+                )}
+
+                {(selectedCalendarDate || selectedRemoteDate) && !selectedCommuteWeek && (
+                  <div>
+                    <p className="text-sm font-semibold mb-2">
+                      {dayjs(selectedCalendarDate || selectedRemoteDate!).format('MM월 DD일')}
+                    </p>
+                    <div className="flex gap-4">
+                      <div className="flex-1">
+                        <p className="text-base font-semibold text-orange-500 mb-1">휴가</p>
+                        {getVacationsOnDate(selectedCalendarDate || selectedRemoteDate!).length === 0 ? (
+                          <p className="text-xs text-gray-400">없음</p>
+                        ) : (
+                          getVacationsOnDate(selectedCalendarDate || selectedRemoteDate!).map((v) => (
+                            <div key={v.id} className="flex items-center gap-1 mb-1">
+                              <p className="text-base font-medium">{getMemberName(v.user_id)}</p>
+                              <p className="text-[13px] text-orange-400">
+                                {v.type === 'annual' ? '연차' : v.type === 'special' ? '특휴/대휴' : v.type === 'morning' ? '오전반차' : '오후반차'}
+                              </p>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-base font-semibold text-indigo-500 mb-1">원격근무</p>
+                        {getRemoteOnDate(selectedCalendarDate || selectedRemoteDate!).length === 0 ? (
+                          <p className="text-xs text-gray-400">없음</p>
+                        ) : (
+                          getRemoteOnDate(selectedCalendarDate || selectedRemoteDate!).map((r) => (
+                            <p key={r.id} className="text-base py-0.5">
+                              {getMemberName(r.user_id)}
+                            </p>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                    <button onClick={() => {
+                      setSelectedCalendarDate(null)
+                      setSelectedRemoteDate(null)
+                    }}
+                      className="text-xs text-gray-400 hover:underline mt-2">
+                      닫기
+                    </button>
+                  </div>
                 )}
               </div>
-            </div>
-            <button onClick={() => {
-              setSelectedCalendarDate(null)
-              setSelectedRemoteDate(null)
-            }}
-              className="text-xs text-gray-400 hover:underline mt-2">
-              닫기
-            </button>
+            )}
           </div>
-        )}
-      </div>
-    )}
-  </div>
-</div>
+        </div>
 
         {/* 팀원 리스트 */}
         <div className="bg-white rounded-xl shadow p-4">
@@ -518,25 +516,23 @@ const getTileContent = ({ date }: { date: Date }) => {
             <div className="flex bg-gray-100 rounded-lg p-0.5">
               <button
                 onClick={() => setPeriodMode('calendar')}
-                className={`text-xs px-3 py-1 rounded-md transition ${
-                  periodMode === 'calendar'
+                className={`text-xs px-3 py-1 rounded-md transition ${periodMode === 'calendar'
                     ? 'bg-white shadow text-blue-500 font-semibold'
                     : 'text-gray-500'
-                }`}>
+                  }`}>
                 1일~말일
               </button>
               <button
                 onClick={() => setPeriodMode('custom')}
-                className={`text-xs px-3 py-1 rounded-md transition ${
-                  periodMode === 'custom'
+                className={`text-xs px-3 py-1 rounded-md transition ${periodMode === 'custom'
                     ? 'bg-white shadow text-blue-500 font-semibold'
                     : 'text-gray-500'
-                }`}>
+                  }`}>
                 16일~15일
               </button>
             </div>
           </div>
-          {/*<p className="text-xm text-gray-400 mb-3 text-right">{label}</p>*/}
+          {/*<p className="text-base text-gray-400 mb-3 text-right">{label}</p>*/}
 
           {members.map((member) => {
             const isExpanded = expandedUser === member.user_id
@@ -552,64 +548,63 @@ const getTileContent = ({ date }: { date: Date }) => {
                     <span className="font-medium">
                       {member.profiles?.name || member.profiles?.email?.split('@')[0]}
                     </span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                      member.role === 'admin'
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${member.role === 'admin'
                         ? 'bg-blue-100 text-blue-600'
                         : 'bg-gray-100 text-gray-600'
-                    }`}>
+                      }`}>
                       {member.role === 'admin' ? '팀장' : '팀원'}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-  <div className="text-right">
-    <p className="text-sm font-medium text-gray-500">{label}</p>
-    <p className="font-bold text-blue-500">
-      {getMonthlyStats(member.user_id)}시간
-    </p>
-  </div>
-  <span className="text-sm text-gray-400">{isExpanded ? '▲' : '▼'}</span>
-</div>
+                    <div className="text-right">
+                      <p className="text-sm font-medium text-gray-500">{label}</p>
+                      <p className="font-bold text-blue-500">
+                        {getMonthlyStats(member.user_id)}시간
+                      </p>
+                    </div>
+                    <span className="text-sm text-gray-400">{isExpanded ? '▲' : '▼'}</span>
+                  </div>
                 </div>
 
                 {isExpanded && (
                   <div className="pb-4 px-1">
                     <div className="mb-3">
-  <p className="text-xs font-semibold text-gray-400 mb-2">주간 근무시간</p>
-  <div className="flex items-center gap-2">
-    <button
-      onClick={() => changeWeek(member.user_id, -1)}
-      className="px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm">
-      ◀
-    </button>
-    <span className="text-sm font-semibold flex-1 text-center text-gray-700">
-      {dayjs(currentWeek).startOf('isoWeek').format('MM/DD')} ~{' '}
-      {dayjs(currentWeek).endOf('isoWeek').format('MM/DD')}
-    </span>
-    <button
-      onClick={() => changeWeek(member.user_id, 1)}
-      className="px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm">
-      ▶
-    </button>
-  </div>
-</div>
+                      <p className="text-xs font-semibold text-gray-400 mb-2">주간 근무시간</p>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => changeWeek(member.user_id, -1)}
+                          className="px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm">
+                          ◀
+                        </button>
+                        <span className="text-sm font-semibold flex-1 text-center text-gray-700">
+                          {dayjs(currentWeek).startOf('isoWeek').format('MM/DD')} ~{' '}
+                          {dayjs(currentWeek).endOf('isoWeek').format('MM/DD')}
+                        </span>
+                        <button
+                          onClick={() => changeWeek(member.user_id, 1)}
+                          className="px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm">
+                          ▶
+                        </button>
+                      </div>
+                    </div>
 
                     <div className="flex gap-2 mb-3">
                       <div className="flex-1 bg-blue-50 rounded-lg p-3 text-center">
                         <p className="text-xs text-gray-500 mb-1">전체</p>
                         <p className="text-lg font-bold text-blue-500">
-                          {weeklyStats.total.toFixed(1)}시간
+                          {weeklyStats.total.toFixed(2)}시간
                         </p>
                       </div>
                       <div className="flex-1 bg-green-50 rounded-lg p-3 text-center">
                         <p className="text-xs text-gray-500 mb-1">평일</p>
                         <p className="text-lg font-bold text-green-500">
-                          {weeklyStats.weekday.toFixed(1)}시간
+                          {weeklyStats.weekday.toFixed(2)}시간
                         </p>
                       </div>
                       <div className="flex-1 bg-orange-50 rounded-lg p-3 text-center">
                         <p className="text-xs text-gray-500 mb-1">휴일</p>
                         <p className="text-lg font-bold text-orange-500">
-                          {weeklyStats.holiday.toFixed(1)}시간
+                          {weeklyStats.holiday.toFixed(2)}시간
                         </p>
                       </div>
                     </div>

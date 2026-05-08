@@ -14,10 +14,10 @@ export default function MyPage() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [isMaster, setIsMaster] = useState(false)
-const [currentPassword, setCurrentPassword] = useState('')
-const [newPassword, setNewPassword] = useState('')
-const [passwordMessage, setPasswordMessage] = useState('')
-const [passwordLoading, setPasswordLoading] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [passwordMessage, setPasswordMessage] = useState('')
+  const [passwordLoading, setPasswordLoading] = useState(false)
 
   useEffect(() => {
     const getUser = async () => {
@@ -31,17 +31,17 @@ const [passwordLoading, setPasswordLoading] = useState(false)
   }, [])
 
   const fetchProfile = async (userId: string) => {
-  const { data } = await supabase
-    .from('profiles')
-    .select('name, total_vacation, is_master')
-    .eq('id', userId)
-    .single()
-  if (data) {
-    setName(data.name || '')
-    setTotalVacation(data.total_vacation || 0)
-    if (data.is_master) setIsMaster(true)
+    const { data } = await supabase
+      .from('profiles')
+      .select('name, total_vacation, is_master')
+      .eq('id', userId)
+      .single()
+    if (data) {
+      setName(data.name || '')
+      setTotalVacation(data.total_vacation || 0)
+      if (data.is_master) setIsMaster(true)
+    }
   }
-}
 
   const fetchUsedVacation = async (userId: string) => {
     const thisYear = dayjs().year()
@@ -53,12 +53,12 @@ const [passwordLoading, setPasswordLoading] = useState(false)
       .lte('date', `${thisYear}-12-31`)
 
     if (data) {
-const used = data.reduce((acc, v) => {
-  if (v.type === 'annual') return acc + 1
-  if (v.type === 'morning' || v.type === 'afternoon') return acc + 0.5
-  if (v.type === 'special') return acc + 0  // 연차에 영향 없음
-  return acc
-}, 0)
+      const used = data.reduce((acc, v) => {
+        if (v.type === 'annual') return acc + 1
+        if (v.type === 'morning' || v.type === 'afternoon') return acc + 0.5
+        if (v.type === 'special') return acc + 0  // 연차에 영향 없음
+        return acc
+      }, 0)
       setUsedVacation(used)
     }
   }
@@ -78,46 +78,46 @@ const used = data.reduce((acc, v) => {
 
   const remaining = totalVacation - usedVacation
 
-    const handleLogout = async () => {
+  const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/login')
   }
 
   const handlePasswordChange = async () => {
-  if (!newPassword || newPassword.length < 6) {
-    setPasswordMessage('비밀번호는 6자리 이상이어야 해요.')
-    return
+    if (!newPassword || newPassword.length < 6) {
+      setPasswordMessage('비밀번호는 6자리 이상이어야 해요.')
+      return
+    }
+    setPasswordLoading(true)
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) setPasswordMessage('변경 실패: ' + error.message)
+    else {
+      setPasswordMessage('비밀번호가 변경됐어요!')
+      setNewPassword('')
+    }
+    setPasswordLoading(false)
   }
-  setPasswordLoading(true)
-  const { error } = await supabase.auth.updateUser({ password: newPassword })
-  if (error) setPasswordMessage('변경 실패: ' + error.message)
-  else {
-    setPasswordMessage('비밀번호가 변경됐어요!')
-    setNewPassword('')
-  }
-  setPasswordLoading(false)
-}
 
   return (
-<div className="min-h-screen bg-gray-50 p-2 sm:p-4 pb-28">
-  <div className="max-w-2xl mx-auto">
+    <div className="min-h-screen bg-gray-50 p-2 sm:p-4 pb-28">
+      <div className="max-w-2xl mx-auto">
 
         {/* 헤더 */}
         <div className="flex justify-between items-center mb-6">
-  <h1 className="text-2xl font-bold">마이페이지</h1>
-  <div className="flex gap-3">
-    {isMaster && (
-      <button onClick={() => router.push('/admin')}
-        className="text-sm text-red-500 hover:underline">
-        회원 관리
-      </button>
-    )}
-        <button onClick={handleLogout}
-      className="text-sm text-gray-500 hover:underline">
-      로그아웃
-    </button>
-  </div>
-</div>
+          <h1 className="text-2xl font-bold">마이페이지</h1>
+          <div className="flex gap-3">
+            {isMaster && (
+              <button onClick={() => router.push('/admin')}
+                className="text-sm text-red-500 hover:underline">
+                회원 관리
+              </button>
+            )}
+            <button onClick={handleLogout}
+              className="text-sm text-gray-500 hover:underline">
+              로그아웃
+            </button>
+          </div>
+        </div>
 
         {/* 프로필 설정 */}
         <div className="bg-white rounded-xl shadow p-4 mb-4">
@@ -201,28 +201,28 @@ const used = data.reduce((acc, v) => {
             <span>{totalVacation}일</span>
           </div>
         </div>
-      
-      {/* 비밀번호 변경 */}
-<div className="bg-white rounded-xl shadow p-4 mt-4">
-  <h2 className="font-semibold mb-4">비밀번호 변경</h2>
-  <div className="mb-3">
-    <label className="text-sm text-gray-500">새 비밀번호</label>
-    <input
-      type="password"
-      value={newPassword}
-      onChange={(e) => setNewPassword(e.target.value)}
-      placeholder="6자리 이상"
-      className="w-full border rounded-lg px-3 py-2 mt-1"
-    />
-  </div>
-  {passwordMessage && (
-    <p className="text-sm text-center text-blue-500 mb-3">{passwordMessage}</p>
-  )}
-  <button onClick={handlePasswordChange} disabled={passwordLoading}
-    className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50">
-    {passwordLoading ? '변경 중...' : '비밀번호 변경'}
-  </button>
-</div>
+
+        {/* 비밀번호 변경 */}
+        <div className="bg-white rounded-xl shadow p-4 mt-4">
+          <h2 className="font-semibold mb-4">비밀번호 변경</h2>
+          <div className="mb-3">
+            <label className="text-sm text-gray-500">새 비밀번호</label>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="6자리 이상"
+              className="w-full border rounded-lg px-3 py-2 mt-1"
+            />
+          </div>
+          {passwordMessage && (
+            <p className="text-sm text-center text-blue-500 mb-3">{passwordMessage}</p>
+          )}
+          <button onClick={handlePasswordChange} disabled={passwordLoading}
+            className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50">
+            {passwordLoading ? '변경 중...' : '비밀번호 변경'}
+          </button>
+        </div>
 
       </div>
     </div>
