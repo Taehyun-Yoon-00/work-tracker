@@ -145,7 +145,7 @@ const handleDeleteHoliday = async (id: string) => {
 
         {/* 헤더 */}
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">회원 관리</h1>
+          <h1 className="text-2xl font-bold">관리</h1>
           <button onClick={() => router.push('/mypage')}
             className="text-sm text-gray-500 hover:underline">
             ← 마이페이지
@@ -221,7 +221,7 @@ const handleDeleteHoliday = async (id: string) => {
       type="text"
       value={newHolidayName}
       onChange={(e) => setNewHolidayName(e.target.value)}
-      placeholder="명칭 (예: 석가탄신일 대체)"
+      placeholder="명칭 (예: 광복절 대체)"
       className="flex-1 border rounded-lg px-3 py-2 text-sm"
     />
     <button
