@@ -100,6 +100,24 @@ const fetchHolidays = async () => {
     fetchProfiles()
   }
   
+  const handleResetPassword = async (profile: any) => {
+  const confirmed = confirm(`"${profile.name || profile.email}" 의 비밀번호를 초기화할까요?`)
+  if (!confirmed) return
+
+  const res = await fetch('/api/admin/reset-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId: profile.id })
+  })
+  const data = await res.json()
+
+  if (data.error) {
+    setMessage('초기화 실패: ' + data.error)
+  } else {
+    setMessage(`임시 비밀번호: ${data.tempPassword} (사용자에게 전달해주세요)`)
+  }
+}
+
   const handleAddHoliday = async () => {
   if (!newHolidayDate || !newHolidayName) {
     setMessage('날짜와 이름을 모두 입력해주세요.')
@@ -170,12 +188,19 @@ const handleDeleteHoliday = async (id: string) => {
                   {profile.is_master ? '마스터 해제' : '마스터 지정'}
                 </button>
                 {!profile.is_master && (
+                  <>
+                      <button
+      onClick={() => handleResetPassword(profile)}
+      className="text-xs px-2 py-1 rounded-lg bg-yellow-50 text-yellow-600 hover:bg-yellow-100">
+      비밀번호 초기화
+    </button>
                   <button
                     onClick={() => handleDelete(profile)}
                     disabled={loading}
                     className="text-xs px-2 py-1 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200">
                     강제 탈퇴
                   </button>
+                  </>
                 )}
               </div>
             </div>

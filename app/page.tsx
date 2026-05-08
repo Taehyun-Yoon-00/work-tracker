@@ -330,14 +330,6 @@ const weekendHours = weeklyLogs
 <div className="flex justify-between items-center mb-6">
   <h1 className="text-2xl font-bold">근무시간 기록</h1>
   <div className="flex gap-3">
-    <button onClick={() => router.push('/mypage')}
-      className="text-sm text-blue-500 hover:underline">
-      마이페이지
-    </button>
-    <button onClick={() => router.push('/team')}
-      className="text-sm text-blue-500 hover:underline">
-      팀 관리
-    </button>
     <button onClick={handleLogout}
       className="text-sm text-gray-500 hover:underline">
       로그아웃
@@ -487,7 +479,7 @@ const weekendHours = weeklyLogs
     {!isLocked && (
       <button
         onClick={() => setIsNextDay(!isNextDay)}
-        className={`text-[10px] px-1.5 py-1 rounded-lg border transition shrink-0 ${
+        className={`text-[12px] px-1.5 py-1 rounded-lg border transition shrink-0 ${
           isNextDay
             ? 'bg-blue-500 text-white border-blue-500'
             : 'bg-white text-gray-400 border-gray-300'

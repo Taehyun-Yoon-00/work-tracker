@@ -438,7 +438,7 @@ const getTileContent = ({ date }: { date: Date }) => {
                   .filter((p) => p.commute_time === time)
                 return (
                   <div key={time} className="flex-1">
-                    <p className={`text-xs font-semibold mb-1 ${
+                    <p className={`text-xm font-semibold mb-1 ${
                       time === '8시' ? 'text-blue-500' : 'text-green-500'
                     }`}>{time}</p>
                     <div className="min-h-[40px]">
@@ -446,7 +446,7 @@ const getTileContent = ({ date }: { date: Date }) => {
                         <p className="text-xs text-gray-400">없음</p>
                       ) : (
                         planners.map((p) => (
-                          <p key={p.id} className="text-xs py-0.5">
+                          <p key={p.id} className="text-xm py-0.5">
                             {p.profiles?.name || p.profiles?.email?.split('@')[0]}
                           </p>
                         ))
@@ -470,13 +470,13 @@ const getTileContent = ({ date }: { date: Date }) => {
             </p>
             <div className="flex gap-4">
               <div className="flex-1">
-                <p className="text-xs font-semibold text-orange-500 mb-1">휴가</p>
+                <p className="text-xm font-semibold text-orange-500 mb-1">휴가</p>
                 {getVacationsOnDate(selectedCalendarDate || selectedRemoteDate!).length === 0 ? (
                   <p className="text-xs text-gray-400">없음</p>
                 ) : (
                   getVacationsOnDate(selectedCalendarDate || selectedRemoteDate!).map((v) => (
                     <div key={v.id} className="mb-1">
-                      <p className="text-xs font-medium">{getMemberName(v.user_id)}</p>
+                      <p className="text-xm font-medium">{getMemberName(v.user_id)}</p>
                       <p className="text-[10px] text-orange-400">
                         {v.type === 'annual' ? '연차' : v.type === 'morning' ? '오전반차' : '오후반차'}
                       </p>
@@ -485,12 +485,12 @@ const getTileContent = ({ date }: { date: Date }) => {
                 )}
               </div>
               <div className="flex-1">
-                <p className="text-xs font-semibold text-indigo-500 mb-1">원격근무</p>
+                <p className="text-xm font-semibold text-indigo-500 mb-1">원격근무</p>
                 {getRemoteOnDate(selectedCalendarDate || selectedRemoteDate!).length === 0 ? (
                   <p className="text-xs text-gray-400">없음</p>
                 ) : (
                   getRemoteOnDate(selectedCalendarDate || selectedRemoteDate!).map((r) => (
-                    <p key={r.id} className="text-xs py-0.5">
+                    <p key={r.id} className="text-xm py-0.5">
                       {getMemberName(r.user_id)}
                     </p>
                   ))

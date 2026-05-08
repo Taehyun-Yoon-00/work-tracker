@@ -92,6 +92,11 @@ export default function TeamPage() {
     return myTeams.some((t) => t.team_id === teamId)
   }
 
+    const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
+  
   return (
 <div className="min-h-screen bg-gray-50 p-2 sm:p-4 pb-28">
   <div className="max-w-2xl mx-auto">
@@ -99,10 +104,10 @@ export default function TeamPage() {
         {/* 헤더 */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold">팀 관리</h1>
-          <button onClick={() => router.push('/')}
-            className="text-sm text-gray-500 hover:underline">
-            ← 근무시간 기록
-          </button>
+    <button onClick={handleLogout}
+      className="text-sm text-gray-500 hover:underline">
+      로그아웃
+    </button>
         </div>
 
         {/* 팀 생성 */}
