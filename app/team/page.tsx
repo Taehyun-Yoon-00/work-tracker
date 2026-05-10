@@ -80,12 +80,45 @@ export default function TeamPage() {
   }
 
   const handleJoinRequest = async (teamId: string) => {
+    const { data: existing, error: fetchError } = await supabase
+      .from('team_requests')
+      .select('id, status')
+      .eq('team_id', teamId)
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (existing) {
+      if (existing.status === 'pending') {
+        setMessage('이미 가입 신청 중이에요. 팀장 승인을 기다려주세요.')
+        return
+      }
+      if (existing.status === 'rejected') {
+        const { error } = await supabase
+          .from('team_requests')
+          .update({ status: 'pending' })
+          .eq('id', existing.id)
+        if (error) setMessage('재신청 실패: ' + error.message)
+        else {
+          setMessage('가입 신청이 완료됐어요! 팀장 승인을 기다려주세요.')
+          fetchTeams(user.id)
+        }
+        return
+      }
+      if (existing.status === 'approved') {
+        setMessage('이미 팀원이에요.')
+        return
+      }
+    }
+
     const { error } = await supabase
       .from('team_requests')
       .insert({ team_id: teamId, user_id: user.id })
 
-    if (error) setMessage('이미 신청했거나 오류가 발생했어요.')
-    else setMessage('가입 신청이 완료됐어요! 팀장 승인을 기다려주세요.')
+    if (error) setMessage('오류: ' + error.message)
+    else {
+      setMessage('가입 신청이 완료됐어요! 팀장 승인을 기다려주세요.')
+      fetchTeams(user.id)
+    }
   }
 
   const isMyTeam = (teamId: string) => {

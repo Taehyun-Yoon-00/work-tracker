@@ -71,6 +71,13 @@ export default function TeamDetailPage() {
     fetchSubstituteHolidays()
 
   }, [])
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user) fetchTeamData(user.id)
+    }
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [user])
 
   useEffect(() => {
     if (members.length > 0) {
@@ -126,6 +133,8 @@ export default function TeamDetailPage() {
       .from('team_members')
       .select('*, profiles(id, email, name)')
       .eq('team_id', id)
+      .order('display_order', { ascending: true })
+      .order('created_at', { ascending: true })
 
     if (memberData) {
       setMembers(memberData)
@@ -406,8 +415,8 @@ export default function TeamDetailPage() {
                           selectedCommuteWeek === weekNumber ? null : weekNumber
                         )}
                         className={`text-[12px] px-1 py-1.5 rounded-lg border transition ${selectedCommuteWeek === weekNumber
-                            ? 'bg-purple-500 text-white border-purple-500'
-                            : 'bg-white text-purple-400 border-purple-300'
+                          ? 'bg-purple-500 text-white border-purple-500'
+                          : 'bg-white text-purple-400 border-purple-300'
                           }`}>
                         시차
                       </button>
@@ -517,16 +526,16 @@ export default function TeamDetailPage() {
               <button
                 onClick={() => setPeriodMode('calendar')}
                 className={`text-xs px-3 py-1 rounded-md transition ${periodMode === 'calendar'
-                    ? 'bg-white shadow text-blue-500 font-semibold'
-                    : 'text-gray-500'
+                  ? 'bg-white shadow text-blue-500 font-semibold'
+                  : 'text-gray-500'
                   }`}>
                 1일~말일
               </button>
               <button
                 onClick={() => setPeriodMode('custom')}
                 className={`text-xs px-3 py-1 rounded-md transition ${periodMode === 'custom'
-                    ? 'bg-white shadow text-blue-500 font-semibold'
-                    : 'text-gray-500'
+                  ? 'bg-white shadow text-blue-500 font-semibold'
+                  : 'text-gray-500'
                   }`}>
                 16일~15일
               </button>
@@ -549,8 +558,8 @@ export default function TeamDetailPage() {
                       {member.profiles?.name || member.profiles?.email?.split('@')[0]}
                     </span>
                     <span className={`text-xs px-2 py-0.5 rounded-full ${member.role === 'admin'
-                        ? 'bg-blue-100 text-blue-600'
-                        : 'bg-gray-100 text-gray-600'
+                      ? 'bg-blue-100 text-blue-600'
+                      : 'bg-gray-100 text-gray-600'
                       }`}>
                       {member.role === 'admin' ? '팀장' : '팀원'}
                     </span>

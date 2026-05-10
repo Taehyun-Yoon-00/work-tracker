@@ -12,6 +12,8 @@ export default function ManagePage() {
   const [members, setMembers] = useState<any[]>([])
   const [message, setMessage] = useState('')
   const [isMaster, setIsMaster] = useState(false)
+  const [orderMode, setOrderMode] = useState(false)
+  const [tempOrder, setTempOrder] = useState<{ [key: string]: number }>({})
 
   useEffect(() => {
     const getUser = async () => {
@@ -39,6 +41,8 @@ export default function ManagePage() {
       .from('team_members')
       .select('*, profiles(id, email, name)')
       .eq('team_id', id)
+      .order('display_order', { ascending: true })
+      .order('created_at', { ascending: true })
     if (memberData) {
       setMembers(memberData)
       // 팀장이 아니면 접근 차단
@@ -90,6 +94,16 @@ export default function ManagePage() {
     router.push('/team')
   }
 
+  const handleOrderSave = async () => {
+    for (const [memberId, order] of Object.entries(tempOrder)) {
+      await supabase.from('team_members')
+        .update({ display_order: order })
+        .eq('id', memberId)
+    }
+    setOrderMode(false)
+    fetchData(user.id)
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-2 sm:p-4 pb-28">
       <div className="max-w-2xl mx-auto">
@@ -111,43 +125,84 @@ export default function ManagePage() {
 
         {/* 팀원 목록 */}
         <div className="bg-white rounded-xl shadow p-4">
-          <h2 className="font-semibold mb-3">팀원 관리</h2>
+          <div className="flex justify-between items-center mb-3">
+            <h2 className="font-semibold">팀원 관리</h2>
+            <button
+              onClick={() => {
+                if (orderMode) {
+                  setOrderMode(false)
+                } else {
+                  const initialOrder: { [key: string]: number } = {}
+                  members.forEach((m, i) => { initialOrder[m.id] = m.display_order || i + 1 })
+                  setTempOrder(initialOrder)
+                  setOrderMode(true)
+                }
+              }}
+              className={`text-xs px-3 py-1 rounded-lg ${orderMode ? 'bg-gray-200 text-gray-600' : 'bg-blue-50 text-blue-500'
+                }`}>
+              {orderMode ? '취소' : '순서 변경'}
+            </button>
+          </div>
           {members.map((member) => (
             <div key={member.id}
               className="flex justify-between items-center py-3 border-b last:border-0">
-              <div>
-                <span className="font-medium">
-                  {member.profiles?.name || member.profiles?.email?.split('@')[0]}
-                </span>
-                <span className="text-xs text-gray-400 ml-1">
-                  {member.profiles?.email}
-                </span>
-                <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${member.role === 'admin'
-                    ? 'bg-blue-100 text-blue-600'
-                    : 'bg-gray-100 text-gray-600'
-                  }`}>
-                  {member.role === 'admin' ? '팀장' : '팀원'}
-                </span>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleToggleAdmin(member)}
-                  className={`text-xs px-3 py-1 rounded-lg ${member.role === 'admin'
-                      ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      : 'bg-blue-50 text-blue-500 hover:bg-blue-100'
-                    }`}>
-                  {member.role === 'admin' ? '팀장 해제' : '팀장 지정'}
-                </button>
-                {member.user_id !== user?.id && (
-                  <button
-                    onClick={() => handleKick(member)}
-                    className="text-xs px-3 py-1 rounded-lg bg-red-50 text-red-500 hover:bg-red-100">
-                    내보내기
-                  </button>
+              <div className="flex items-center gap-2">
+                {orderMode && (
+                  <input
+                    type="number"
+                    min="1"
+                    value={tempOrder[member.id] || ''}
+                    onChange={(e) => setTempOrder(prev => ({
+                      ...prev,
+                      [member.id]: parseInt(e.target.value)
+                    }))}
+                    className="w-10 border rounded px-1 py-0.5 text-sm text-center"
+                  />
                 )}
+                <div>
+                  <span className="font-medium">
+                    {member.profiles?.name || member.profiles?.email?.split('@')[0]}
+                  </span>
+                  <span className="text-xs text-gray-400 ml-1">
+                    {member.profiles?.email}
+                  </span>
+                  <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${member.role === 'admin'
+                      ? 'bg-blue-100 text-blue-600'
+                      : 'bg-gray-100 text-gray-600'
+                    }`}>
+                    {member.role === 'admin' ? '팀장' : '팀원'}
+                  </span>
+                </div>
               </div>
+              {!orderMode && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleToggleAdmin(member)}
+                    className={`text-xs px-3 py-1 rounded-lg ${member.role === 'admin'
+                        ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        : 'bg-blue-50 text-blue-500 hover:bg-blue-100'
+                      }`}>
+                    {member.role === 'admin' ? '팀장 해제' : '팀장 지정'}
+                  </button>
+                  {member.user_id !== user?.id && (
+                    <button
+                      onClick={() => handleKick(member)}
+                      className="text-xs px-3 py-1 rounded-lg bg-red-50 text-red-500 hover:bg-red-100">
+                      내보내기
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           ))}
+
+          {orderMode && (
+            <button
+              onClick={handleOrderSave}
+              className="w-full mt-3 bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 text-sm">
+              순서 저장
+            </button>
+          )}
         </div>
         {/* 팀 삭제 */}
         <div className="bg-red-50 rounded-xl shadow p-4 mt-4">
