@@ -44,19 +44,30 @@ export default function MyPage() {
   }
 
   const fetchUsedVacation = async (userId: string) => {
-    const thisYear = dayjs().year()
+    const now = dayjs()
+
+    // 4월 기준 연도 계산
+    // 현재가 4월 이후면 이번 년도 4월 ~ 다음 년도 3월
+    // 현재가 3월 이전이면 작년 4월 ~ 이번 년도 3월
+    const fiscalYearStart = now.month() >= 3
+      ? now.year()
+      : now.year() - 1
+
+    const startDate = `${fiscalYearStart}-04-01`
+    const endDate = `${fiscalYearStart + 1}-03-31`
+
     const { data } = await supabase
       .from('vacations')
       .select('type')
       .eq('user_id', userId)
-      .gte('date', `${thisYear}-01-01`)
-      .lte('date', `${thisYear}-12-31`)
+      .gte('date', startDate)
+      .lte('date', endDate)
 
     if (data) {
       const used = data.reduce((acc, v) => {
         if (v.type === 'annual') return acc + 1
         if (v.type === 'morning' || v.type === 'afternoon') return acc + 0.5
-        if (v.type === 'special') return acc + 0  // 연차에 영향 없음
+        if (v.type === 'special') return acc + 0
         return acc
       }, 0)
       setUsedVacation(used)
