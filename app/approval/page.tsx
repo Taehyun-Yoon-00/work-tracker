@@ -460,9 +460,9 @@ export default function ApprovalPage() {
                 {showRequestModal && (
                     <div className="fixed inset-0 bg-black/50 z-50 overflow-y-auto">
 
-                        <div className="min-h-full flex items-start sm:items-center justify-center p-3 sm:p-6">
+                        <div className="min-h-full flex items-center sm:items-center justify-center p-3 sm:p-6">
 
-                            <div className="bg-white rounded-2xl p-4 sm:p-6 w-full max-w-md my-4 sm:my-8">
+                            <div className="bg-white rounded-2xl p-4 sm:p-6 w-full max-w-md my-auto sm:my-8">
 
                                 <div className="flex justify-between items-center mb-4">
                                     <h3 className="font-semibold">
