@@ -458,346 +458,344 @@ export default function ApprovalPage() {
 
                 {/* 요청 모달 */}
                 {showRequestModal && (
-                    <div className="fixed inset-0 bg-black/50 z-50 overflow-y-auto">
+                    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-2">
 
-                        <div className="min-h-full flex items-center sm:items-center justify-center p-3 sm:p-6">
+                        <div className="bg-white rounded-2xl w-full max-w-md max-h-[90dvh] overflow-y-auto p-4 sm:p-6">
 
-                            <div className="bg-white rounded-2xl p-4 sm:p-6 w-full max-w-md my-auto sm:my-8">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="font-semibold">
+                                    결재 요청
+                                </h3>
 
-                                <div className="flex justify-between items-center mb-4">
-                                    <h3 className="font-semibold">
-                                        결재 요청
-                                    </h3>
+                                <button
+                                    onClick={resetModal}
+                                    className="text-gray-400 text-lg"
+                                >
+                                    ✕
+                                </button>
+                            </div>
 
-                                    <button
-                                        onClick={resetModal}
-                                        className="text-gray-400 text-lg"
-                                    >
-                                        ✕
-                                    </button>
-                                </div>
+                            {/* STEP1 */}
+                            {step === 1 && (
+                                <div>
+                                    <p className="text-sm text-gray-500 mb-3">
+                                        요청 유형을 선택해주세요
+                                    </p>
 
-                                {/* STEP1 */}
-                                {step === 1 && (
-                                    <div>
-                                        <p className="text-sm text-gray-500 mb-3">
-                                            요청 유형을 선택해주세요
-                                        </p>
-
-                                        <div className="flex gap-2">
-
-                                            <button
-                                                onClick={() => {
-                                                    setRequestType('vacation')
-                                                    setStep(2)
-                                                }}
-                                                className="flex-1 py-3 border-2 rounded-xl"
-                                            >
-                                                🌴 휴가
-                                            </button>
-
-                                            <button
-                                                onClick={() => {
-                                                    setRequestType('remote')
-                                                    setStep(2)
-                                                }}
-                                                className="flex-1 py-3 border-2 rounded-xl"
-                                            >
-                                                💻 원격근무
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* STEP2 */}
-                                {step === 2 && (
-                                    <div>
+                                    <div className="flex gap-2">
 
                                         <button
-                                            onClick={() => setStep(1)}
-                                            className="text-xs text-gray-400 mb-3"
+                                            onClick={() => {
+                                                setRequestType('vacation')
+                                                setStep(2)
+                                            }}
+                                            className="flex-1 py-3 border-2 rounded-xl"
                                         >
-                                            ← 뒤로
+                                            🌴 휴가
                                         </button>
 
-                                        {/* 팀 */}
-                                        <div className="mb-3">
-                                            <label className="text-sm text-gray-500">
+                                        <button
+                                            onClick={() => {
+                                                setRequestType('remote')
+                                                setStep(2)
+                                            }}
+                                            className="flex-1 py-3 border-2 rounded-xl"
+                                        >
+                                            💻 원격근무
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* STEP2 */}
+                            {step === 2 && (
+                                <div>
+
+                                    <button
+                                        onClick={() => setStep(1)}
+                                        className="text-xs text-gray-400 mb-3"
+                                    >
+                                        ← 뒤로
+                                    </button>
+
+                                    {/* 팀 */}
+                                    <div className="mb-3">
+                                        <label className="text-sm text-gray-500">
+                                            팀 선택
+                                        </label>
+
+                                        <select
+                                            value={selectedTeamId}
+                                            onChange={(e) =>
+                                                fetchApprovers(
+                                                    e.target.value
+                                                )
+                                            }
+                                            className="w-full border rounded-lg px-3 py-2 mt-1 text-sm"
+                                        >
+                                            <option value="">
                                                 팀 선택
-                                            </label>
+                                            </option>
 
-                                            <select
-                                                value={selectedTeamId}
-                                                onChange={(e) =>
-                                                    fetchApprovers(
-                                                        e.target.value
-                                                    )
-                                                }
-                                                className="w-full border rounded-lg px-3 py-2 mt-1 text-sm"
-                                            >
-                                                <option value="">
-                                                    팀 선택
+                                            {myTeams.map((t) => (
+                                                <option
+                                                    key={t.team_id}
+                                                    value={t.team_id}
+                                                >
+                                                    {t.teams?.name}
                                                 </option>
+                                            ))}
+                                        </select>
+                                    </div>
 
-                                                {myTeams.map((t) => (
-                                                    <option
-                                                        key={t.team_id}
-                                                        value={t.team_id}
-                                                    >
-                                                        {t.teams?.name}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
+                                    {/* 결재권자 */}
+                                    <div className="mb-4">
+                                        <label className="text-sm text-gray-500">
+                                            결재권자
+                                        </label>
 
-                                        {/* 결재권자 */}
-                                        <div className="mb-4">
+                                        <select
+                                            value={selectedApprover}
+                                            onChange={(e) =>
+                                                setSelectedApprover(
+                                                    e.target.value
+                                                )
+                                            }
+                                            className="w-full border rounded-lg px-3 py-2 mt-1 text-sm"
+                                        >
+                                            <option value="">
+                                                결재권자 선택
+                                            </option>
+
+                                            {approvers.map((a) => (
+                                                <option
+                                                    key={a.user_id}
+                                                    value={a.user_id}
+                                                >
+                                                    {a.profiles?.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* 날짜 그룹 */}
+                                    <div className="mb-4">
+
+                                        <div className="flex justify-between items-center mb-2">
+
                                             <label className="text-sm text-gray-500">
-                                                결재권자
+                                                날짜 선택
                                             </label>
 
-                                            <select
-                                                value={selectedApprover}
-                                                onChange={(e) =>
-                                                    setSelectedApprover(
-                                                        e.target.value
-                                                    )
+                                            <button
+                                                onClick={() =>
+                                                    setDateGroups([
+                                                        ...dateGroups,
+                                                        {
+                                                            dates: [],
+                                                            vacationType:
+                                                                'annual',
+                                                        },
+                                                    ])
                                                 }
-                                                className="w-full border rounded-lg px-3 py-2 mt-1 text-sm"
+                                                className="text-xs text-blue-500"
                                             >
-                                                <option value="">
-                                                    결재권자 선택
-                                                </option>
-
-                                                {approvers.map((a) => (
-                                                    <option
-                                                        key={a.user_id}
-                                                        value={a.user_id}
-                                                    >
-                                                        {a.profiles?.name}
-                                                    </option>
-                                                ))}
-                                            </select>
+                                                + 날짜 추가
+                                            </button>
                                         </div>
 
-                                        {/* 날짜 그룹 */}
-                                        <div className="mb-4">
+                                        {dateGroups.map((group, index) => (
+                                            <div
+                                                key={index}
+                                                className="mb-4 p-3 bg-gray-50 rounded-xl"
+                                            >
 
-                                            <div className="flex justify-between items-center mb-2">
+                                                <div className="flex justify-between items-center mb-2">
 
-                                                <label className="text-sm text-gray-500">
-                                                    날짜 선택
-                                                </label>
+                                                    <span className="text-xs text-gray-500">
+                                                        {index + 1}번째 그룹
+                                                    </span>
 
-                                                <button
-                                                    onClick={() =>
-                                                        setDateGroups([
-                                                            ...dateGroups,
-                                                            {
-                                                                dates: [],
-                                                                vacationType:
-                                                                    'annual',
-                                                            },
-                                                        ])
-                                                    }
-                                                    className="text-xs text-blue-500"
-                                                >
-                                                    + 날짜 추가
-                                                </button>
-                                            </div>
-
-                                            {dateGroups.map((group, index) => (
-                                                <div
-                                                    key={index}
-                                                    className="mb-4 p-3 bg-gray-50 rounded-xl"
-                                                >
-
-                                                    <div className="flex justify-between items-center mb-2">
-
-                                                        <span className="text-xs text-gray-500">
-                                                            {index + 1}번째 그룹
-                                                        </span>
-
-                                                        <button
-                                                            onClick={() =>
-                                                                setDateGroups(
-                                                                    dateGroups.filter(
-                                                                        (_, i) =>
-                                                                            i !==
-                                                                            index
-                                                                    )
+                                                    <button
+                                                        onClick={() =>
+                                                            setDateGroups(
+                                                                dateGroups.filter(
+                                                                    (_, i) =>
+                                                                        i !==
+                                                                        index
                                                                 )
-                                                            }
-                                                            className="text-xs text-red-400"
-                                                        >
-                                                            삭제
-                                                        </button>
+                                                            )
+                                                        }
+                                                        className="text-xs text-red-400"
+                                                    >
+                                                        삭제
+                                                    </button>
+                                                </div>
+
+                                                {/* 복수 날짜 */}
+                                                <div className="w-full overflow-x-auto">
+                                                    <DatePicker
+                                                        multiple
+                                                        portal
+                                                        portalTarget={document.body}
+                                                        zIndex={9999}
+                                                        value={group.dates}
+                                                        onChange={(dates: any) => {
+                                                            const updated = [...dateGroups]
+
+                                                            updated[index].dates = dates.map((d: any) =>
+                                                                d.format('YYYY-MM-DD')
+                                                            )
+
+                                                            setDateGroups(updated)
+                                                        }}
+                                                        format="YYYY-MM-DD"
+                                                        className="w-full text-sm"
+                                                    />
+                                                </div>
+
+                                                {/* 선택 날짜 */}
+                                                {group.dates.length > 0 && (
+                                                    <div className="flex flex-wrap gap-1 mt-3">
+                                                        {group.dates.map(
+                                                            (d, i) => (
+                                                                <span
+                                                                    key={i}
+                                                                    className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full"
+                                                                >
+                                                                    {dayjs(
+                                                                        d
+                                                                    ).format(
+                                                                        'MM/DD'
+                                                                    )}
+                                                                </span>
+                                                            )
+                                                        )}
                                                     </div>
+                                                )}
 
-                                                    {/* 복수 날짜 */}
-                                                    <div className="w-full overflow-x-auto">
-                                                        <DatePicker
-                                                            multiple
-                                                            portal
-                                                            portalTarget={document.body}
-                                                            zIndex={9999}
-                                                            value={group.dates}
-                                                            onChange={(dates: any) => {
-                                                                const updated = [...dateGroups]
+                                                {/* 휴가 타입 */}
+                                                {requestType ===
+                                                    'vacation' && (
+                                                        <div className="flex gap-1 mt-3">
 
-                                                                updated[index].dates = dates.map((d: any) =>
-                                                                    d.format('YYYY-MM-DD')
-                                                                )
+                                                            {[
+                                                                {
+                                                                    value:
+                                                                        'annual',
+                                                                    label: '연차',
+                                                                },
+                                                                {
+                                                                    value:
+                                                                        'morning',
+                                                                    label:
+                                                                        '오전반차',
+                                                                },
+                                                                {
+                                                                    value:
+                                                                        'afternoon',
+                                                                    label:
+                                                                        '오후반차',
+                                                                },
+                                                                {
+                                                                    value:
+                                                                        'special',
+                                                                    label:
+                                                                        '특휴/대휴',
+                                                                },
+                                                            ].map(
+                                                                ({
+                                                                    value,
+                                                                    label,
+                                                                }) => (
+                                                                    <button
+                                                                        key={value}
+                                                                        onClick={() => {
 
-                                                                setDateGroups(updated)
-                                                            }}
-                                                            format="YYYY-MM-DD"
-                                                            className="w-full text-sm"
-                                                        />
-                                                    </div>
+                                                                            const updated =
+                                                                                [
+                                                                                    ...dateGroups,
+                                                                                ]
 
-                                                    {/* 선택 날짜 */}
-                                                    {group.dates.length > 0 && (
-                                                        <div className="flex flex-wrap gap-1 mt-3">
-                                                            {group.dates.map(
-                                                                (d, i) => (
-                                                                    <span
-                                                                        key={i}
-                                                                        className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full"
+                                                                            updated[
+                                                                                index
+                                                                            ].vacationType =
+                                                                                value
+
+                                                                            setDateGroups(
+                                                                                updated
+                                                                            )
+                                                                        }}
+                                                                        className={`flex-1 py-1.5 rounded-lg text-xs border ${group.vacationType ===
+                                                                            value
+                                                                            ? 'bg-orange-500 text-white'
+                                                                            : 'bg-white'
+                                                                            }`}
                                                                     >
-                                                                        {dayjs(
-                                                                            d
-                                                                        ).format(
-                                                                            'MM/DD'
-                                                                        )}
-                                                                    </span>
+                                                                        {label}
+                                                                    </button>
                                                                 )
                                                             )}
                                                         </div>
                                                     )}
-
-                                                    {/* 휴가 타입 */}
-                                                    {requestType ===
-                                                        'vacation' && (
-                                                            <div className="flex gap-1 mt-3">
-
-                                                                {[
-                                                                    {
-                                                                        value:
-                                                                            'annual',
-                                                                        label: '연차',
-                                                                    },
-                                                                    {
-                                                                        value:
-                                                                            'morning',
-                                                                        label:
-                                                                            '오전반차',
-                                                                    },
-                                                                    {
-                                                                        value:
-                                                                            'afternoon',
-                                                                        label:
-                                                                            '오후반차',
-                                                                    },
-                                                                    {
-                                                                        value:
-                                                                            'special',
-                                                                        label:
-                                                                            '특휴/대휴',
-                                                                    },
-                                                                ].map(
-                                                                    ({
-                                                                        value,
-                                                                        label,
-                                                                    }) => (
-                                                                        <button
-                                                                            key={value}
-                                                                            onClick={() => {
-
-                                                                                const updated =
-                                                                                    [
-                                                                                        ...dateGroups,
-                                                                                    ]
-
-                                                                                updated[
-                                                                                    index
-                                                                                ].vacationType =
-                                                                                    value
-
-                                                                                setDateGroups(
-                                                                                    updated
-                                                                                )
-                                                                            }}
-                                                                            className={`flex-1 py-1.5 rounded-lg text-xs border ${group.vacationType ===
-                                                                                value
-                                                                                ? 'bg-orange-500 text-white'
-                                                                                : 'bg-white'
-                                                                                }`}
-                                                                        >
-                                                                            {label}
-                                                                        </button>
-                                                                    )
-                                                                )}
-                                                            </div>
-                                                        )}
-                                                </div>
-                                            ))}
-                                        </div>
-
-                                        {/* 사유 */}
-                                        {requestType === 'vacation' && (
-                                            <div className="mb-4">
-                                                <label className="text-sm text-gray-500">
-                                                    휴가 사유
-                                                </label>
-
-                                                <input
-                                                    type="text"
-                                                    value={memo}
-                                                    onChange={(e) =>
-                                                        setMemo(
-                                                            e.target.value
-                                                        )
-                                                    }
-                                                    className="w-full border rounded-lg px-3 py-2 mt-1 text-sm"
-                                                />
                                             </div>
-                                        )}
-
-                                        {message && (
-                                            <p className="text-xs text-red-500 mb-3">
-                                                {message}
-                                            </p>
-                                        )}
-
-                                        <button
-                                            onClick={handleSubmitRequest}
-                                            disabled={loading}
-                                            className="w-full bg-blue-500 text-white py-2 rounded-lg"
-                                        >
-                                            {loading
-                                                ? '요청 중...'
-                                                : '결재 요청'}
-                                        </button>
+                                        ))}
                                     </div>
-                                )}
-                            </div>
+
+                                    {/* 사유 */}
+                                    {requestType === 'vacation' && (
+                                        <div className="mb-4">
+                                            <label className="text-sm text-gray-500">
+                                                휴가 사유
+                                            </label>
+
+                                            <input
+                                                type="text"
+                                                value={memo}
+                                                onChange={(e) =>
+                                                    setMemo(
+                                                        e.target.value
+                                                    )
+                                                }
+                                                className="w-full border rounded-lg px-3 py-2 mt-1 text-sm"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {message && (
+                                        <p className="text-xs text-red-500 mb-3">
+                                            {message}
+                                        </p>
+                                    )}
+
+                                    <button
+                                        onClick={handleSubmitRequest}
+                                        disabled={loading}
+                                        className="w-full bg-blue-500 text-white py-2 rounded-lg"
+                                    >
+                                        {loading
+                                            ? '요청 중...'
+                                            : '결재 요청'}
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
+                    </div>
                 )}
-            </div>
-
-            {/* 하단 버튼 */}
-            <button
-                onClick={() => {
-                    setShowRequestModal(true)
-                    setStep(1)
-                    setMessage('')
-                }}
-                className="fixed bottom-24 right-4 bg-blue-500 text-white px-4 py-3 rounded-full shadow-lg z-40"
-            >
-                + 결재 요청
-            </button>
         </div>
+
+            {/* 하단 버튼 */ }
+    <button
+        onClick={() => {
+            setShowRequestModal(true)
+            setStep(1)
+            setMessage('')
+        }}
+        className="fixed bottom-24 right-4 bg-blue-500 text-white px-4 py-3 rounded-full shadow-lg z-40"
+    >
+        + 결재 요청
+    </button>
+        </div >
     )
 }
