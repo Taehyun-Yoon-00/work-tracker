@@ -94,8 +94,34 @@ export default function ApprovalPage() {
             memo: requestType === 'vacation' ? memo : null,
         })
 
-        if (error) setMessage('요청 실패: ' + error.message)
-        else {
+        if (error) {
+            setMessage('요청 실패: ' + error.message)
+        } else {
+            // 결재권자 이메일/이름 조회 후 알림 발송
+            const approverInfo = approvers.find((a) => a.user_id === selectedApprover)
+            if (approverInfo?.profiles?.email) {
+                const myProfile = await supabase
+                    .from('profiles')
+                    .select('name')
+                    .eq('id', user.id)
+                    .single()
+                const requesterName = myProfile.data?.name || user.email?.split('@')[0] || '팀원'
+                const approverName = approverInfo.profiles.name || approverInfo.profiles.email.split('@')[0]
+
+                fetch('/api/notify-approval', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        approverEmail: approverInfo.profiles.email,
+                        approverName,
+                        requesterName,
+                        type: requestType,
+                        dateEntries: flattenedEntries,
+                        memo: requestType === 'vacation' ? memo : undefined,
+                    }),
+                }).catch((e) => console.error('알림 메일 발송 실패:', e))
+            }
+
             resetModal()
             fetchRequests(user.id)
         }
