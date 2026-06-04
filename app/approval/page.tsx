@@ -36,10 +36,22 @@ export default function ApprovalPage() {
     }, [])
 
     const fetchRequests = async (userId: string) => {
+        // 내가 속한 팀 ID 목록 조회
+        const { data: myTeamData } = await supabase
+            .from('team_members')
+            .select('team_id')
+            .eq('user_id', userId)
+        const myTeamIds = myTeamData?.map((t) => t.team_id) ?? []
+
+        const orConditions = [`requester_id.eq.${userId}`, `approver_id.eq.${userId}`]
+        if (myTeamIds.length > 0) {
+            orConditions.push(`team_id.in.(${myTeamIds.join(',')})`)
+        }
+
         const { data } = await supabase
             .from('approval_requests')
             .select(`*, requester:profiles!approval_requests_requester_id_fkey(name,email), approver:profiles!approval_requests_approver_id_fkey(name,email), teams(name)`)
-            .or(`requester_id.eq.${userId},approver_id.eq.${userId}`)
+            .or(orConditions.join(','))
             .order('created_at', { ascending: false })
         if (data) setRequests(data)
     }
@@ -197,20 +209,28 @@ export default function ApprovalPage() {
                         <p className="text-sm text-gray-400 text-center py-4">결재 요청이 없어요.</p>
                     ) : (
                         filteredRequests.map((req) => {
-                            const isApprover = req.approver_id === user?.id
+                            const isRequester = req.requester_id === user?.id
                             const status = statusLabel(req.status)
                             return (
                                 <div key={req.id} onClick={() => setSelectedRequest(req)}
                                     className="py-3 border-b last:border-0 cursor-pointer hover:bg-gray-50">
                                     <div className="flex justify-between items-start">
                                         <div>
-                                            <div className="flex items-center gap-2 mb-1">
+                                            <div className="flex items-center gap-2 mb-1 flex-wrap">
                                                 <span className="text-sm font-medium">
                                                     {req.requester?.name || req.requester?.email?.split('@')[0]}
                                                 </span>
                                                 <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
                                                     {req.type === 'remote' ? '원격근무' : '휴가'}
                                                 </span>
+                                                {req.teams?.name && (
+                                                    <span className="text-xs bg-blue-50 text-blue-500 px-2 py-0.5 rounded-full">
+                                                        {req.teams.name}
+                                                    </span>
+                                                )}
+                                                {isRequester && (
+                                                    <span className="text-xs bg-orange-50 text-orange-400 px-2 py-0.5 rounded-full">내 요청</span>
+                                                )}
                                             </div>
                                             <p className="text-xs text-gray-400">
                                                 {req.dates && req.dates.length > 1

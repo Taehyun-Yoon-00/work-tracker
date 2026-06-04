@@ -164,7 +164,7 @@ export async function POST(req: NextRequest) {
       dateEntries.length > 1 ? ` 외 ${dateEntries.length - 1}일` : ''
 
     const { data, error } = await resend.emails.send({
-      from: '근무시간 기록 <noreply@tekor.co.kr>', // ← 본인 도메인으로 변경
+      from: '근무관리 결재요청 <noreply@tekor.co.kr>', // ← 본인 도메인으로 변경
       to: [approverEmail],
       subject: `[결재 요청] ${requesterName}님의 ${typeLabel} — ${firstDate}${subjectSuffix}`,
       html: buildEmailHtml({
