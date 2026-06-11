@@ -573,6 +573,7 @@ export default function Home() {
 
         {/* 주간 합산 */}
         <div className="bg-white rounded-xl shadow p-4 mb-8">
+          
           <h2 className="font-semibold mb-3">이번 주 근무시간</h2>
           <div className="flex gap-2 mb-3">
             <div className="flex-1 bg-blue-50 rounded-lg p-3 text-center">
