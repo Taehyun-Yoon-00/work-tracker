@@ -209,6 +209,14 @@ export default function TeamDetailPage() {
     return (diff / 60).toFixed(2)
   }
 
+  const sortByMemberOrder = <T extends { user_id: string }>(list: T[]): T[] => {
+    return [...list].sort((a, b) => {
+      const ai = members.findIndex((m) => m.user_id === a.user_id)
+      const bi = members.findIndex((m) => m.user_id === b.user_id)
+      return (ai === -1 ? 9999 : ai) - (bi === -1 ? 9999 : bi)
+    })
+  }
+
   const getMemberName = (userId: string) => {
     const member = members.find((m) => m.user_id === userId)
     return member?.profiles?.name || member?.profiles?.email?.split('@')[0] || '알 수 없음'
@@ -241,12 +249,12 @@ export default function TeamDetailPage() {
 
   const getVacationsOnDate = (date: Date) => {
     const dateStr = dayjs(date).format('YYYY-MM-DD')
-    return vacations.filter((v) => v.date === dateStr)
+    return sortByMemberOrder(vacations.filter((v) => v.date === dateStr))
   }
 
   const getRemoteOnDate = (date: Date) => {
     const dateStr = dayjs(date).format('YYYY-MM-DD')
-    return remoteWorks.filter((r) => r.date === dateStr)
+    return sortByMemberOrder(remoteWorks.filter((r) => r.date === dateStr))
   }
 
   const getTileContent = ({ date }: { date: Date }) => {
@@ -452,7 +460,7 @@ export default function TeamDetailPage() {
                               {planners.length === 0 ? (
                                 <p className="text-xs text-gray-400">없음</p>
                               ) : (
-                                planners.map((p) => (
+                                sortByMemberOrder(planners).map((p) => (
                                   <p key={p.id} className="text-base py-0.5">
                                     {p.profiles?.name || p.profiles?.email?.split('@')[0]}
                                   </p>
