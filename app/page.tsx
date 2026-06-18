@@ -141,12 +141,44 @@ export default function Home() {
       setIsLocked(true)
       setIsNextDay(data.is_next_day || false)
     } else {
-      setStartTime('')
-      setEndTime('')
-      setBreakMinutes('60')
-      setMemo('')
+      // 기록이 없으면 가장 최근에 "저장"한 기록을 기본값으로 채워줌
+      let lastLog = null
+      const { data: lastByCreated, error: createdErr } = await supabase
+        .from('work_logs')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (!createdErr && lastByCreated) {
+        lastLog = lastByCreated
+      } else {
+        // created_at 컬럼이 없는 경우 날짜 기준으로 폴백
+        const { data: lastByDate } = await supabase
+          .from('work_logs')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('date', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        lastLog = lastByDate
+      }
+
+      if (lastLog) {
+        setStartTime(lastLog.start_time.slice(0, 5))
+        setEndTime(lastLog.end_time.slice(0, 5))
+        setBreakMinutes(String(lastLog.break_minutes))
+        setMemo(lastLog.memo || '')
+        setIsNextDay(lastLog.is_next_day || false)
+      } else {
+        setStartTime('')
+        setEndTime('')
+        setBreakMinutes('60')
+        setMemo('')
+        setIsNextDay(false)
+      }
       setIsLocked(false)
-      setIsNextDay(false)
     }
   }
 
