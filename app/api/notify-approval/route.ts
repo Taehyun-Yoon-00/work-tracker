@@ -65,7 +65,7 @@ function buildEmailHtml({
         <!-- 헤더 -->
         <tr>
           <td style="background:#3b82f6;padding:28px 32px;">
-            <p style="margin:0;color:#dbeafe;font-size:13px;">근무시간 기록</p>
+            <p style="margin:0;color:#dbeafe;font-size:13px;">근태관리 시스템</p>
             <h1 style="margin:8px 0 0;color:#ffffff;font-size:22px;font-weight:700;">결재 요청이 도착했어요</h1>
           </td>
         </tr>
@@ -126,7 +126,7 @@ function buildEmailHtml({
         <!-- 푸터 -->
         <tr>
           <td style="padding:20px 32px;border-top:1px solid #f3f4f6;text-align:center;">
-            <p style="margin:0;color:#9ca3af;font-size:12px;">근무시간 기록 · 이 메일은 자동 발송되었습니다</p>
+            <p style="margin:0;color:#9ca3af;font-size:12px;">근태관리 시스템 · 이 메일은 자동 발송되었습니다</p>
           </td>
         </tr>
 

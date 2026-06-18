@@ -34,6 +34,7 @@ export default function Home() {
   const [monthlyVacations, setMonthlyVacations] = useState<any[]>([])
   const [isNextDay, setIsNextDay] = useState(false)
   const [substituteHolidays, setSubstituteHolidays] = useState<string[]>([])
+  const [viewedWeek, setViewedWeek] = useState<Date>(new Date())
 
   useEffect(() => {
     const getUser = async () => {
@@ -47,7 +48,6 @@ export default function Home() {
 
   useEffect(() => {
     if (user) {
-      fetchWeeklyLogs()
       fetchMonthlyLogs()
       fetchMonthlyVacations()
       fetchMonthCommutePlans()
@@ -57,9 +57,18 @@ export default function Home() {
     }
   }, [user, selectedDate])
 
+  useEffect(() => {
+    if (user) fetchWeeklyLogs()
+  }, [user, viewedWeek])
+
+  // 날짜를 클릭하면 보고 있는 주간도 그 날짜의 주로 동기화
+  useEffect(() => {
+    setViewedWeek(selectedDate)
+  }, [selectedDate])
+
   const fetchWeeklyLogs = async () => {
-    const startOfWeek = dayjs(selectedDate).startOf('isoWeek').format('YYYY-MM-DD')
-    const endOfWeek = dayjs(selectedDate).endOf('isoWeek').format('YYYY-MM-DD')
+    const startOfWeek = dayjs(viewedWeek).startOf('isoWeek').format('YYYY-MM-DD')
+    const endOfWeek = dayjs(viewedWeek).endOf('isoWeek').format('YYYY-MM-DD')
 
     const { data } = await supabase
       .from('work_logs')
@@ -573,8 +582,24 @@ export default function Home() {
 
         {/* 주간 합산 */}
         <div className="bg-white rounded-xl shadow p-4 mb-8">
-          
-          <h2 className="font-semibold mb-3">이번 주 근무시간</h2>
+
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="font-semibold flex-1">주간 근무시간</h2>
+            <button
+              onClick={() => setViewedWeek(dayjs(viewedWeek).subtract(1, 'week').toDate())}
+              className="px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm">
+              ◀
+            </button>
+            <span className="text-sm font-semibold text-gray-700">
+              {dayjs(viewedWeek).startOf('isoWeek').format('MM/DD')} ~{' '}
+              {dayjs(viewedWeek).endOf('isoWeek').format('MM/DD')}
+            </span>
+            <button
+              onClick={() => setViewedWeek(dayjs(viewedWeek).add(1, 'week').toDate())}
+              className="px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm">
+              ▶
+            </button>
+          </div>
           <div className="flex gap-2 mb-3">
             <div className="flex-1 bg-blue-50 rounded-lg p-3 text-center">
               <p className="text-xs text-gray-500 mb-1">전체</p>
@@ -590,7 +615,7 @@ export default function Home() {
             </div>
           </div>
           {weeklyLogs.length === 0 ? (
-            <p className="text-sm text-gray-400">이번 주 기록이 없어요.</p>
+            <p className="text-sm text-gray-400">이 주 기록이 없어요.</p>
           ) : (
             weeklyLogs.map((log) => (
               <div key={log.id} className="flex justify-between text-sm py-2 border-b">

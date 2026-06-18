@@ -44,12 +44,9 @@ export default function TeamDetailPage() {
         label: `${now.format('MM')}월 1일 ~ ${now.endOf('month').format('DD')}일`
       }
     } else {
-      const start = now.date() >= 16
-        ? now.startOf('month').date(16)
-        : now.subtract(1, 'month').startOf('month').date(16)
-      const end = now.date() >= 16
-        ? now.add(1, 'month').startOf('month').date(15)
-        : now.startOf('month').date(15)
+      // 달력이 표시 중인 "월"을 기준으로 고정: 전월 16일 ~ 해당 월 15일
+      const start = now.subtract(1, 'month').startOf('month').date(16)
+      const end = now.startOf('month').date(15)
       return {
         start: start.format('YYYY-MM-DD'),
         end: end.format('YYYY-MM-DD'),
