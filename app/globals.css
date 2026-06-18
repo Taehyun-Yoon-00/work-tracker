@@ -33,6 +33,12 @@ body {
   padding: 2px !important;
 }
 
+/* 반차 대각선 오버레이 위로 날짜 숫자가 보이도록 */
+.react-calendar__tile abbr {
+  position: relative;
+  z-index: 1;
+}
+
 /* 모바일 달력 */
 @media (max-width: 640px) {
   .react-calendar {

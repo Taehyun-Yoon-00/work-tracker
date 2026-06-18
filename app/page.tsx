@@ -294,12 +294,15 @@ export default function Home() {
     const dateStr = dayjs(date).format('YYYY-MM-DD')
     const isToday = dateStr === dayjs().format('YYYY-MM-DD')
     const hasLog = monthlyLogs.some((log) => log.date === dateStr)
-    const hasVacation = monthlyVacations.some((v) => v.date === dateStr)
+    const vacationOnDate = monthlyVacations.find((v) => v.date === dateStr)
+    const isHalfDay = vacationOnDate?.type === 'morning' || vacationOnDate?.type === 'afternoon'
     const isSubstitute = substituteHolidays.includes(dateStr)
 
-    let className = ''
-    if (hasLog && !isToday) className += '!bg-blue-100 rounded-lg '
-    if (hasVacation && !isToday) className += '!bg-orange-100 rounded-lg '
+    let className = 'relative '
+    // 반차인 날은 대각선 오버레이(getTileContent)가 색을 전부 담당하므로 button 자체 배경은 비움
+    if (hasLog && !isToday && !isHalfDay) className += '!bg-blue-100 rounded-lg '
+    if (vacationOnDate && !isHalfDay && !isToday) className += '!bg-orange-100 rounded-lg '
+    if (isHalfDay && !isToday) className += 'rounded-lg '
     if (day === 6) className += '!text-blue-500 font-semibold'
     else if (day === 0 || hd.isHoliday(date) || isSubstitute) className += '!text-red-500 font-semibold'
 
@@ -340,7 +343,31 @@ export default function Home() {
   }
 
   const getTileContent = ({ date }: { date: Date }) => {
-    return null
+    const dateStr = dayjs(date).format('YYYY-MM-DD')
+    const isToday = dateStr === dayjs().format('YYYY-MM-DD')
+    if (isToday) return null
+
+    const vacationOnDate = monthlyVacations.find((v) => v.date === dateStr)
+    if (!vacationOnDate) return null
+    if (vacationOnDate.type !== 'morning' && vacationOnDate.type !== 'afternoon') return null
+
+    const hasLog = monthlyLogs.some((log) => log.date === dateStr)
+    const workColor = hasLog ? '#dbeafe' /* blue-100 */ : '#ffffff'
+    const vacationColor = '#ffedd5' /* orange-100 */
+
+    // 오전반차: 좌상 주황, 우하 근무색 / 오후반차: 좌상 근무색, 우하 주황
+    const topLeft = vacationOnDate.type === 'morning' ? vacationColor : workColor
+    const bottomRight = vacationOnDate.type === 'morning' ? workColor : vacationColor
+
+    return (
+      <div
+        className="absolute inset-0 rounded-lg pointer-events-none"
+        style={{
+          background: `linear-gradient(to bottom right, ${topLeft} 49.5%, ${bottomRight} 50.5%)`,
+          zIndex: 0,
+        }}
+      />
+    )
   }
   const calcHours = (log: any) => {
     const start = dayjs(`2000-01-01 ${log.start_time}`)
