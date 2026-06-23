@@ -340,12 +340,12 @@ export default function TeamDetailPage() {
   const { label } = getPeriod()
 
   return (
-    <div className="min-h-screen bg-gray-50 p-2 pb-28">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-2 pb-28">
       <div className="max-w-2xl mx-auto">
 
         {/* 헤더 */}
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">{team?.name}</h1>
+          <h1 className="text-2xl font-bold dark:text-white">{team?.name}</h1>
           <div className="flex gap-3">
             {(isAdmin || isMaster) && (
               <button onClick={() => router.push(`/team/${id}/manage`)}
@@ -354,7 +354,7 @@ export default function TeamDetailPage() {
               </button>
             )}
             <button onClick={() => router.push('/team')}
-              className="text-sm text-gray-500 hover:underline">
+              className="text-sm text-gray-500 dark:text-gray-400 hover:underline">
               ← 팀 목록
             </button>
           </div>
@@ -362,14 +362,14 @@ export default function TeamDetailPage() {
 
         {/* 가입 신청 (팀장만) */}
         {(isAdmin || isMaster) && requests.length > 0 && (
-          <div className="bg-yellow-50 rounded-xl shadow p-4 mb-4">
-            <h2 className="font-semibold mb-3">가입 신청 ({requests.length})</h2>
+          <div className="bg-yellow-50 dark:bg-yellow-950 rounded-xl shadow p-4 mb-4">
+            <h2 className="font-semibold mb-3 dark:text-white">가입 신청 ({requests.length})</h2>
             {requests.map((req) => (
               <div key={req.id}
-                className="flex justify-between items-center py-2 border-b last:border-0">
+                className="flex justify-between items-center py-2 border-b dark:border-gray-700 last:border-0">
                 <div>
-                  <p className="text-sm font-medium">{req.profiles?.name || '이름 미설정'}</p>
-                  <p className="text-xs text-gray-400">{req.profiles?.email}</p>
+                  <p className="text-sm font-medium dark:text-gray-200">{req.profiles?.name || '이름 미설정'}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">{req.profiles?.email}</p>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => handleApprove(req.id, req.user_id)}
@@ -377,7 +377,7 @@ export default function TeamDetailPage() {
                     승인
                   </button>
                   <button onClick={() => handleReject(req.id)}
-                    className="text-xs bg-gray-200 px-3 py-1 rounded-lg hover:bg-gray-300">
+                    className="text-xs bg-gray-200 dark:bg-gray-700 dark:text-gray-300 px-3 py-1 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
                     거절
                   </button>
                 </div>
@@ -387,8 +387,8 @@ export default function TeamDetailPage() {
         )}
 
         {/* 달력 */}
-        <div className="bg-white rounded-xl shadow p-3 mb-4">
-          <h2 className="font-semibold mb-3">팀 캘린더</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-3 mb-4">
+          <h2 className="font-semibold mb-3 dark:text-white">팀 캘린더</h2>
           <div className="flex flex-col gap-3">
             {/* 달력 + 시차출근 버튼 */}
             <div className="flex items-start gap-2 ">
@@ -421,7 +421,7 @@ export default function TeamDetailPage() {
                         )}
                         className={`text-[12px] px-1 py-1.5 rounded-lg border transition ${selectedCommuteWeek === weekNumber
                           ? 'bg-purple-500 text-white border-purple-500'
-                          : 'bg-white text-purple-400 border-purple-300'
+                          : 'bg-white dark:bg-gray-700 text-purple-400 dark:text-purple-300 border-purple-300 dark:border-purple-700'
                           }`}>
                         시차
                       </button>
@@ -433,10 +433,10 @@ export default function TeamDetailPage() {
 
             {/* 리스트 - 달력 아래 */}
             {(selectedCalendarDate || selectedRemoteDate || selectedCommuteWeek) && (
-              <div className="border-t pt-3">
+              <div className="border-t dark:border-gray-700 pt-3">
                 {selectedCommuteWeek && (
                   <div>
-                    <p className="text-sm font-semibold mb-2">
+                    <p className="text-sm font-semibold mb-2 dark:text-gray-200">
                       {(() => {
                         const weeks = getWeeks(calendarMonth)
                         const idx = parseInt(selectedCommuteWeek) - 1
@@ -455,10 +455,10 @@ export default function TeamDetailPage() {
                               }`}>{time}</p>
                             <div className="min-h-[40px]">
                               {planners.length === 0 ? (
-                                <p className="text-xs text-gray-400">없음</p>
+                                <p className="text-xs text-gray-400 dark:text-gray-500">없음</p>
                               ) : (
                                 sortByMemberOrder(planners).map((p) => (
-                                  <p key={p.id} className="text-base py-0.5">
+                                  <p key={p.id} className="text-base py-0.5 dark:text-gray-200">
                                     {p.profiles?.name || p.profiles?.email?.split('@')[0]}
                                   </p>
                                 ))
@@ -469,7 +469,7 @@ export default function TeamDetailPage() {
                       })}
                     </div>
                     <button onClick={() => setSelectedCommuteWeek(null)}
-                      className="text-xs text-gray-400 hover:underline mt-2">
+                      className="text-xs text-gray-400 dark:text-gray-500 hover:underline mt-2">
                       닫기
                     </button>
                   </div>
@@ -477,18 +477,18 @@ export default function TeamDetailPage() {
 
                 {(selectedCalendarDate || selectedRemoteDate) && !selectedCommuteWeek && (
                   <div>
-                    <p className="text-sm font-semibold mb-2">
+                    <p className="text-sm font-semibold mb-2 dark:text-gray-200">
                       {dayjs(selectedCalendarDate || selectedRemoteDate!).format('MM월 DD일')}
                     </p>
                     <div className="flex gap-4">
                       <div className="flex-1">
                         <p className="text-base font-semibold text-orange-500 mb-1">휴가</p>
                         {getVacationsOnDate(selectedCalendarDate || selectedRemoteDate!).length === 0 ? (
-                          <p className="text-xs text-gray-400">없음</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500">없음</p>
                         ) : (
                           getVacationsOnDate(selectedCalendarDate || selectedRemoteDate!).map((v) => (
                             <div key={v.id} className="flex items-center gap-1 mb-1">
-                              <p className="text-base font-medium">{getMemberName(v.user_id)}</p>
+                              <p className="text-base font-medium dark:text-gray-200">{getMemberName(v.user_id)}</p>
                               <p className="text-[13px] text-orange-400">
                                 {v.type === 'annual' ? '연차' : v.type === 'special' ? '특휴/대휴' : v.type === 'morning' ? '오전반차' : '오후반차'}
                               </p>
@@ -499,10 +499,10 @@ export default function TeamDetailPage() {
                       <div className="flex-1">
                         <p className="text-base font-semibold text-indigo-500 mb-1">원격근무</p>
                         {getRemoteOnDate(selectedCalendarDate || selectedRemoteDate!).length === 0 ? (
-                          <p className="text-xs text-gray-400">없음</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500">없음</p>
                         ) : (
                           getRemoteOnDate(selectedCalendarDate || selectedRemoteDate!).map((r) => (
-                            <p key={r.id} className="text-base py-0.5">
+                            <p key={r.id} className="text-base py-0.5 dark:text-gray-200">
                               {getMemberName(r.user_id)}
                             </p>
                           ))
@@ -513,7 +513,7 @@ export default function TeamDetailPage() {
                       setSelectedCalendarDate(null)
                       setSelectedRemoteDate(null)
                     }}
-                      className="text-xs text-gray-400 hover:underline mt-2">
+                      className="text-xs text-gray-400 dark:text-gray-500 hover:underline mt-2">
                       닫기
                     </button>
                   </div>
@@ -524,23 +524,23 @@ export default function TeamDetailPage() {
         </div>
 
         {/* 팀원 리스트 */}
-        <div className="bg-white rounded-xl shadow p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4">
           <div className="flex justify-between items-center mb-3">
-            <h2 className="font-semibold">팀원 근무시간</h2>
-            <div className="flex bg-gray-100 rounded-lg p-0.5">
+            <h2 className="font-semibold dark:text-white">팀원 근무시간</h2>
+            <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
               <button
                 onClick={() => setPeriodMode('calendar')}
                 className={`text-xs px-3 py-1 rounded-md transition ${periodMode === 'calendar'
-                  ? 'bg-white shadow text-blue-500 font-semibold'
-                  : 'text-gray-500'
+                  ? 'bg-white dark:bg-gray-600 shadow text-blue-500 font-semibold'
+                  : 'text-gray-500 dark:text-gray-400'
                   }`}>
                 1일~말일
               </button>
               <button
                 onClick={() => setPeriodMode('custom')}
                 className={`text-xs px-3 py-1 rounded-md transition ${periodMode === 'custom'
-                  ? 'bg-white shadow text-blue-500 font-semibold'
-                  : 'text-gray-500'
+                  ? 'bg-white dark:bg-gray-600 shadow text-blue-500 font-semibold'
+                  : 'text-gray-500 dark:text-gray-400'
                   }`}>
                 16일~15일
               </button>
@@ -554,49 +554,49 @@ export default function TeamDetailPage() {
             const currentWeek = selectedWeek[member.user_id] || new Date()
 
             return (
-              <div key={member.user_id} className="border-b last:border-0">
+              <div key={member.user_id} className="border-b dark:border-gray-700 last:border-0">
                 <div
-                  className="flex justify-between items-center py-3 cursor-pointer hover:bg-gray-50 px-1"
+                  className="flex justify-between items-center py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 px-1"
                   onClick={() => handleExpandMember(member.user_id)}>
                   <div className="flex items-center gap-2">
-                    <span className="font-medium">
+                    <span className="font-medium dark:text-white">
                       {member.profiles?.name || member.profiles?.email?.split('@')[0]}
                     </span>
                     <span className={`text-xs px-2 py-0.5 rounded-full ${member.role === 'admin'
-                      ? 'bg-blue-100 text-blue-600'
-                      : 'bg-gray-100 text-gray-600'
+                      ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
                       }`}>
                       {member.role === 'admin' ? '팀장' : '팀원'}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="text-right">
-                      <p className="text-sm font-medium text-gray-500">{label}</p>
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{label}</p>
                       <p className="font-bold text-blue-500">
                         {getMonthlyStats(member.user_id)}시간
                       </p>
                     </div>
-                    <span className="text-sm text-gray-400">{isExpanded ? '▲' : '▼'}</span>
+                    <span className="text-sm text-gray-400 dark:text-gray-500">{isExpanded ? '▲' : '▼'}</span>
                   </div>
                 </div>
 
                 {isExpanded && (
                   <div className="pb-4 px-1">
                     <div className="mb-3">
-                      <p className="text-xs font-semibold text-gray-400 mb-2">주간 근무시간</p>
+                      <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 mb-2">주간 근무시간</p>
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => changeWeek(member.user_id, -1)}
-                          className="px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm">
+                          className="px-3 py-1 bg-gray-100 dark:bg-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm">
                           ◀
                         </button>
-                        <span className="text-sm font-semibold flex-1 text-center text-gray-700">
+                        <span className="text-sm font-semibold flex-1 text-center text-gray-700 dark:text-gray-300">
                           {dayjs(currentWeek).startOf('isoWeek').format('MM/DD')} ~{' '}
                           {dayjs(currentWeek).endOf('isoWeek').format('MM/DD')}
                         </span>
                         <button
                           onClick={() => changeWeek(member.user_id, 1)}
-                          className="px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm">
+                          className="px-3 py-1 bg-gray-100 dark:bg-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm">
                           ▶
                         </button>
                       </div>
@@ -604,19 +604,19 @@ export default function TeamDetailPage() {
 
                     <div className="flex gap-2 mb-3">
                       <div className="flex-1 bg-blue-50 rounded-lg p-3 text-center">
-                        <p className="text-xs text-gray-500 mb-1">전체</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">전체</p>
                         <p className="text-lg font-bold text-blue-500">
                           {weeklyStats.total.toFixed(2)}시간
                         </p>
                       </div>
                       <div className="flex-1 bg-green-50 rounded-lg p-3 text-center">
-                        <p className="text-xs text-gray-500 mb-1">평일</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">평일</p>
                         <p className="text-lg font-bold text-green-500">
                           {weeklyStats.weekday.toFixed(2)}시간
                         </p>
                       </div>
                       <div className="flex-1 bg-orange-50 rounded-lg p-3 text-center">
-                        <p className="text-xs text-gray-500 mb-1">휴일</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">휴일</p>
                         <p className="text-lg font-bold text-orange-500">
                           {weeklyStats.holiday.toFixed(2)}시간
                         </p>
@@ -624,14 +624,14 @@ export default function TeamDetailPage() {
                     </div>
 
                     {(isAdmin || isMaster) && (
-                      <div className="bg-gray-50 rounded-lg p-3">
-                        <p className="text-xs text-gray-500 mb-2 font-semibold">일별 상세</p>
+                      <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 font-semibold">일별 상세</p>
                         {(memberWeeklyLogs[member.user_id] || []).length === 0 ? (
-                          <p className="text-sm text-gray-400">이 주 기록이 없어요.</p>
+                          <p className="text-sm text-gray-400 dark:text-gray-500">이 주 기록이 없어요.</p>
                         ) : (
                           memberWeeklyLogs[member.user_id].map((log) => (
                             <div key={log.id}
-                              className="flex justify-between text-sm py-1 border-b last:border-0">
+                              className="flex justify-between text-sm py-1 border-b dark:border-gray-600 last:border-0 dark:text-gray-300">
                               <span>{dayjs(log.date).format('MM/DD (ddd)')}</span>
                               <span>{log.start_time} ~ {log.end_time}</span>
                               <span className="font-semibold">{calcHours(log)}시간</span>

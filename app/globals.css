@@ -5,20 +5,6 @@
   --foreground: #171717;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
@@ -39,27 +25,58 @@ body {
   z-index: 1;
 }
 
+/* 달력 다크모드 */
+@media (prefers-color-scheme: dark) {
+  .react-calendar {
+    background-color: #1f2937 !important;
+    border-color: #374151 !important;
+    color: #f9fafb !important;
+  }
+  .react-calendar__navigation button {
+    background-color: #1f2937 !important;
+    color: #f9fafb !important;
+  }
+  .react-calendar__navigation button:hover,
+  .react-calendar__navigation button:focus {
+    background-color: #374151 !important;
+  }
+  .react-calendar__month-view__weekdays__weekday {
+    color: #9ca3af !important;
+  }
+  .react-calendar__tile {
+    color: #f9fafb !important;
+    background-color: #1f2937 !important;
+  }
+  .react-calendar__tile:hover,
+  .react-calendar__tile:focus {
+    background-color: #374151 !important;
+  }
+  .react-calendar__tile--now {
+    background-color: #1d4ed8 !important;
+  }
+  .react-calendar__tile--active {
+    background-color: #2563eb !important;
+  }
+  /* 근무일/휴가일 배경은 getTileClassName에서 dark: 클래스로 직접 처리 */
+}
+
 /* 모바일 달력 */
 @media (max-width: 640px) {
   .react-calendar {
     width: 100% !important;
     font-size: 10px !important;
   }
-
   .react-calendar__tile {
     height: 32px !important;
     padding: 1px !important;
   }
-
   .react-calendar__navigation button {
     font-size: 11px !important;
     min-width: 28px !important;
     padding: 4px !important;
   }
-
   .react-calendar__month-view__weekdays__weekday {
     font-size: 9px !important;
     padding: 2px !important;
   }
 }
-
