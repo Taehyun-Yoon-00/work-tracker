@@ -131,20 +131,20 @@ export default function TeamPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-2 sm:p-4 pb-28">
+    <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
       <div className="max-w-2xl mx-auto">
 
         {/* 헤더 */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold dark:text-white">팀 관리</h1>
           <button onClick={handleLogout}
-            className="text-sm text-gray-500 dark:text-gray-400 hover:underline">
+            className="text-sm text-gray-500 dark:text-zinc-400 hover:underline">
             로그아웃
           </button>
         </div>
 
         {/* 팀 생성 */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4 mb-4">
+        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
           <h2 className="font-semibold mb-3 dark:text-white">새 팀 만들기</h2>
           <div className="flex gap-2">
             <input
@@ -152,7 +152,7 @@ export default function TeamPage() {
               placeholder="팀 이름"
               value={newTeamName}
               onChange={(e) => setNewTeamName(e.target.value)}
-              className="flex-1 border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+              className="flex-1 border rounded-lg px-3 py-2 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
             />
             <button onClick={handleCreateTeam} disabled={loading}
               className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50">
@@ -164,14 +164,14 @@ export default function TeamPage() {
 
         {/* 내 팀 목록 */}
         {myTeams.length > 0 && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4 mb-4">
+          <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
             <h2 className="font-semibold mb-3 dark:text-white">내 팀</h2>
             {myTeams.map((t) => (
               <div key={t.team_id}
-                className="flex justify-between items-center py-2 border-b dark:border-gray-700 last:border-0">
+                className="flex justify-between items-center py-2 border-b dark:border-zinc-700 last:border-0">
                 <div>
-                  <span className="font-medium dark:text-gray-200">{t.teams?.name}</span>
-                  <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${t.role === 'admin' ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                  <span className="font-medium dark:text-zinc-200">{t.teams?.name}</span>
+                  <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${t.role === 'admin' ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300' : 'bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-400'
                     }`}>
                     {t.role === 'admin' ? '팀장' : '팀원'}
                   </span>
@@ -186,15 +186,15 @@ export default function TeamPage() {
         )}
 
         {/* 전체 팀 목록 */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4">
+        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4">
           <h2 className="font-semibold mb-3 dark:text-white">전체 팀 목록</h2>
           {teams.length === 0 ? (
-            <p className="text-sm text-gray-400 dark:text-gray-500">아직 팀이 없어요.</p>
+            <p className="text-sm text-gray-400 dark:text-zinc-500">아직 팀이 없어요.</p>
           ) : (
             teams.map((team) => (
               <div key={team.id}
-                className="flex justify-between items-center py-2 border-b dark:border-gray-700 last:border-0">
-                <span className="font-medium dark:text-gray-200">{team.name}</span>
+                className="flex justify-between items-center py-2 border-b dark:border-zinc-700 last:border-0">
+                <span className="font-medium dark:text-zinc-200">{team.name}</span>
                 {isMyTeam(team.id) || isMaster ? (
                   <button onClick={() => router.push(`/team/${team.id}`)}
                     className="text-sm text-blue-500 hover:underline">
@@ -202,7 +202,7 @@ export default function TeamPage() {
                   </button>
                 ) : (
                   <button onClick={() => handleJoinRequest(team.id)}
-                    className="text-sm bg-gray-100 dark:bg-gray-700 dark:text-gray-300 px-3 py-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600">
+                    className="text-sm bg-gray-100 dark:bg-zinc-700 dark:text-zinc-300 px-3 py-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600">
                     가입 신청
                   </button>
                 )}

@@ -353,7 +353,7 @@ export default function Home() {
 
     const hasLog = monthlyLogs.some((log) => log.date === dateStr)
     const isDark = typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
-    const workColor = hasLog ? (isDark ? '#dcdee5' : '#dbeafe') : (isDark ? '#1f2937' : '#ffffff')
+    const workColor = hasLog ? (isDark ? '#172554' : '#dbeafe') : (isDark ? '#27272a' : '#ffffff')
     const vacationColor = isDark ? '#431407' : '#ffedd5'
 
     // 오전반차: 좌상 주황, 우하 근무색 / 오후반차: 좌상 근무색, 우하 주황
@@ -392,7 +392,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-2 sm:p-4 pb-28">
+    <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
       <div className="max-w-2xl mx-auto">
 
         {/* 헤더 */}
@@ -400,7 +400,7 @@ export default function Home() {
           <h1 className="text-2xl font-bold dark:text-white">근무시간 기록</h1>
           <div className="flex gap-3">
             <button onClick={handleLogout}
-              className="text-sm text-gray-500 dark:text-gray-400 hover:underline">
+              className="text-sm text-gray-500 dark:text-zinc-400 hover:underline">
               로그아웃
             </button>
           </div>
@@ -408,7 +408,7 @@ export default function Home() {
 
 
         {/* 달력 */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-3 mb-4">
+        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-3 mb-4">
           <div className="flex items-start gap-2 w-full">
             <div className="min-w-0">
               <Calendar
@@ -446,7 +446,7 @@ export default function Home() {
                           onClick={() => handleCommutePlan(weekNumber, '8시')}
                           className={`text-[12px] w-6 py-1.5 rounded-lg border transition ${plan === '8시'
                               ? 'bg-blue-500 text-white border-blue-500'
-                              : 'bg-white dark:bg-gray-700 text-gray-400 dark:text-gray-300 border-gray-300 dark:border-gray-500'
+                              : 'bg-white dark:bg-zinc-700 text-gray-400 dark:text-zinc-300 border-gray-300 dark:border-zinc-500'
                             }`}>
                           8시
                         </button>
@@ -454,7 +454,7 @@ export default function Home() {
                           onClick={() => handleCommutePlan(weekNumber, '9시')}
                           className={`text-[12px] w-6 py-1.5 rounded-lg border transition ${plan === '9시'
                               ? 'bg-green-500 text-white border-green-500'
-                              : 'bg-white dark:bg-gray-700 text-gray-400 dark:text-gray-300 border-gray-300 dark:border-gray-500'
+                              : 'bg-white dark:bg-zinc-700 text-gray-400 dark:text-zinc-300 border-gray-300 dark:border-zinc-500'
                             }`}>
                           9시
                         </button>
@@ -467,7 +467,7 @@ export default function Home() {
           </div>
         </div>
         {/* 근무시간 입력 */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4 mb-4">
+        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
           <div className="flex justify-between items-center mb-3">
             <h2 className="font-semibold dark:text-white">
               {dayjs(selectedDate).format('YYYY년 MM월 DD일')} 근무 입력
@@ -476,7 +476,7 @@ export default function Home() {
               <div className="flex gap-2">
                 <button
                   onClick={() => setIsLocked(false)}
-                  className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-3 py-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600">
+                  className="text-xs bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300 px-3 py-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600">
                   ✏️ 수정
                 </button>
                 <button
@@ -491,13 +491,13 @@ export default function Home() {
           <div className="flex gap-2 mb-2">
             <div className="flex gap-20 mb-2">
               <div className="flex-1">
-                <label className="text-sm text-gray-500 dark:text-gray-400">출근</label>
+                <label className="text-sm text-gray-500 dark:text-zinc-400">출근</label>
                 <div className="flex gap-1 mt-1">
                   <select
                     value={startTime ? startTime.split(':')[0] : ''}
                     onChange={(e) => setStartTime(`${e.target.value}:${startTime ? startTime.split(':')[1] : '00'}`)}
                     disabled={isLocked}
-                    className={`flex-1 border rounded-lg px-2 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 ${isLocked ? 'bg-gray-50 dark:bg-gray-900 text-gray-400' : ''}`}>
+                    className={`flex-1 border rounded-lg px-2 py-2 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}>
                     <option value="">시</option>
                     {Array.from({ length: 24 }, (_, i) => (
                       <option key={i} value={String(i).padStart(2, '0')}>
@@ -510,7 +510,7 @@ export default function Home() {
                     value={startTime ? startTime.split(':')[1] : ''}
                     onChange={(e) => setStartTime(`${startTime ? startTime.split(':')[0] : '00'}:${e.target.value}`)}
                     disabled={isLocked}
-                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 ${isLocked ? 'bg-gray-50 dark:bg-gray-900 text-gray-400' : ''}`}>
+                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}>
                     <option value="">분</option>
                     <option value="00">00</option>
                     <option value="15">15</option>
@@ -521,13 +521,13 @@ export default function Home() {
               </div>
 
               <div className="flex-1">
-                <label className="text-sm text-gray-500 dark:text-gray-400">퇴근</label>
+                <label className="text-sm text-gray-500 dark:text-zinc-400">퇴근</label>
                 <div className="flex gap-1 mt-1 items-center">
                   <select
                     value={endTime ? endTime.split(':')[0] : ''}
                     onChange={(e) => setEndTime(`${e.target.value}:${endTime ? endTime.split(':')[1] : '00'}`)}
                     disabled={isLocked}
-                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 ${isLocked ? 'bg-gray-50 dark:bg-gray-900 text-gray-400' : ''}`}>
+                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}>
                     <option value="">시</option>
                     {Array.from({ length: 24 }, (_, i) => (
                       <option key={i} value={String(i).padStart(2, '0')}>
@@ -540,7 +540,7 @@ export default function Home() {
                     value={endTime ? endTime.split(':')[1] : ''}
                     onChange={(e) => setEndTime(`${endTime ? endTime.split(':')[0] : '00'}:${e.target.value}`)}
                     disabled={isLocked}
-                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 ${isLocked ? 'bg-gray-50 dark:bg-gray-900 text-gray-400' : ''}`}>
+                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}>
                     <option value="">분</option>
                     <option value="00">00</option>
                     <option value="15">15</option>
@@ -552,7 +552,7 @@ export default function Home() {
                       onClick={() => setIsNextDay(!isNextDay)}
                       className={`text-[12px] px-1.5 py-1 rounded-lg border transition shrink-0 ${isNextDay
                           ? 'bg-blue-500 text-white border-blue-500'
-                          : 'bg-white dark:bg-gray-700 text-gray-400 dark:text-gray-300 border-gray-300 dark:border-gray-500'
+                          : 'bg-white dark:bg-zinc-700 text-gray-400 dark:text-zinc-300 border-gray-300 dark:border-zinc-500'
                         }`}>
                       익일
                     </button>
@@ -565,19 +565,19 @@ export default function Home() {
             </div>
           </div>
           <div className="mb-2">
-            <label className="text-sm text-gray-500 dark:text-gray-400">휴게시간 (분)</label>
+            <label className="text-sm text-gray-500 dark:text-zinc-400">휴게시간 (분)</label>
             <input type="number" value={breakMinutes}
               onChange={(e) => setBreakMinutes(e.target.value)}
               disabled={isLocked}
-              className={`w-full border rounded-lg px-3 py-2 mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 ${isLocked ? 'bg-gray-50 dark:bg-gray-900 text-gray-400' : ''
+              className={`w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''
                 }`} />
           </div>
           <div className="mb-3">
-            <label className="text-sm text-gray-500 dark:text-gray-400">메모</label>
+            <label className="text-sm text-gray-500 dark:text-zinc-400">메모</label>
             <input type="text" value={memo}
               onChange={(e) => setMemo(e.target.value)}
               disabled={isLocked}
-              className={`w-full border rounded-lg px-3 py-2 mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 ${isLocked ? 'bg-gray-50 dark:bg-gray-900 text-gray-400' : ''
+              className={`w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''
                 }`} />
           </div>
           {message && <p className="text-sm text-center text-blue-500 mb-2">{message}</p>}
@@ -589,7 +589,7 @@ export default function Home() {
           )}
         </div>
         {/* 휴가 입력 */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4 mb-4">
+        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
           <h2 className="font-semibold mb-3 dark:text-white">
             {dayjs(selectedDate).format('YYYY년 MM월 DD일')} 휴가
           </h2>
@@ -613,14 +613,14 @@ export default function Home() {
             ))}
           </div>
           {vacation && (
-            <p className="text-xs text-center text-gray-400 dark:text-gray-500 mt-2">
+            <p className="text-xs text-center text-gray-400 dark:text-zinc-500 mt-2">
               다시 누르면 취소돼요
             </p>
           )}
         </div>
 
         {/* 원격근무 */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4 mb-4">
+        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
           <h2 className="font-semibold mb-3 dark:text-white">
             {dayjs(selectedDate).format('YYYY년 MM월 DD일')} 원격근무
           </h2>
@@ -634,51 +634,51 @@ export default function Home() {
             {isRemote ? '✓ 원격근무' : '원격근무'}
           </button>
           {isRemote && (
-            <p className="text-xs text-center text-gray-400 dark:text-gray-500 mt-2">
+            <p className="text-xs text-center text-gray-400 dark:text-zinc-500 mt-2">
               다시 누르면 취소돼요
             </p>
           )}
         </div>
 
         {/* 주간 합산 */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4 mb-8">
+        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-8">
 
           <div className="flex items-center gap-2 mb-3">
             <h2 className="font-semibold flex-1 dark:text-white">주간 근무시간</h2>
             <button
               onClick={() => setViewedWeek(dayjs(viewedWeek).subtract(1, 'week').toDate())}
-              className="px-3 py-1 bg-gray-100 dark:bg-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm">
+              className="px-3 py-1 bg-gray-100 dark:bg-zinc-700 dark:text-zinc-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm">
               ◀
             </button>
-            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+            <span className="text-sm font-semibold text-gray-700 dark:text-zinc-300">
               {dayjs(viewedWeek).startOf('isoWeek').format('MM/DD')} ~{' '}
               {dayjs(viewedWeek).endOf('isoWeek').format('MM/DD')}
             </span>
             <button
               onClick={() => setViewedWeek(dayjs(viewedWeek).add(1, 'week').toDate())}
-              className="px-3 py-1 bg-gray-100 dark:bg-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm">
+              className="px-3 py-1 bg-gray-100 dark:bg-zinc-700 dark:text-zinc-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm">
               ▶
             </button>
           </div>
           <div className="flex gap-2 mb-3">
             <div className="flex-1 bg-blue-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">전체</p>
+              <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">전체</p>
               <p className="text-lg font-bold text-blue-500">{totalWeeklyHours.toFixed(2)}시간</p>
             </div>
             <div className="flex-1 bg-green-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">평일</p>
+              <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">평일</p>
               <p className="text-lg font-bold text-green-500">{weekdayHours.toFixed(2)}시간</p>
             </div>
             <div className="flex-1 bg-orange-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">휴일</p>
+              <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">휴일</p>
               <p className="text-lg font-bold text-orange-500">{weekendHours.toFixed(2)}시간</p>
             </div>
           </div>
           {weeklyLogs.length === 0 ? (
-            <p className="text-sm text-gray-400 dark:text-gray-500">이 주 기록이 없어요.</p>
+            <p className="text-sm text-gray-400 dark:text-zinc-500">이 주 기록이 없어요.</p>
           ) : (
             weeklyLogs.map((log) => (
-              <div key={log.id} className="flex justify-between text-sm py-2 border-b dark:border-gray-700 dark:text-gray-300">
+              <div key={log.id} className="flex justify-between text-sm py-2 border-b dark:border-zinc-700 dark:text-zinc-300">
                 <span>{dayjs(log.date).format('MM/DD (ddd)')}</span>
                 <span>{log.start_time} ~ {log.end_time}</span>
                 <span className="font-semibold">{calcHours(log)}시간</span>

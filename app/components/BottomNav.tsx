@@ -31,7 +31,7 @@ export default function BottomNav() {
   ]
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-50">
+    <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-zinc-800 border-t border-gray-200 dark:border-zinc-700 z-50">
       <div className="max-w-2xl mx-auto flex">
         {tabs.map((tab) => {
           const isActive = pathname === tab.path ||
@@ -41,7 +41,7 @@ export default function BottomNav() {
               key={tab.path}
               onClick={() => router.push(tab.path)}
               className={`flex-1 py-3 flex flex-col items-center gap-0.5 transition relative ${
-                isActive ? 'text-blue-500' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
+                isActive ? 'text-blue-500' : 'text-gray-400 dark:text-zinc-500 hover:text-gray-600 dark:hover:text-gray-300'
               }`}>
               <span className="text-xl relative">
                 {tab.icon}

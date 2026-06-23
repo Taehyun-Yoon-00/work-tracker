@@ -105,14 +105,14 @@ export default function ManagePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-2 sm:p-4 pb-28">
+    <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
       <div className="max-w-2xl mx-auto">
 
         {/* 헤더 */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold dark:text-white">{team?.name} 관리</h1>
           <button onClick={() => router.push(`/team/${id}`)}
-            className="text-sm text-gray-500 dark:text-gray-400 hover:underline">
+            className="text-sm text-gray-500 dark:text-zinc-400 hover:underline">
             ← 팀으로
           </button>
         </div>
@@ -124,7 +124,7 @@ export default function ManagePage() {
         )}
 
         {/* 팀원 목록 */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4">
+        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4">
           <div className="flex justify-between items-center mb-3">
             <h2 className="font-semibold dark:text-white">팀원 관리</h2>
             <button
@@ -138,14 +138,14 @@ export default function ManagePage() {
                   setOrderMode(true)
                 }
               }}
-              className={`text-xs px-3 py-1 rounded-lg ${orderMode ? 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300' : 'bg-blue-50 dark:bg-blue-900 text-blue-500'
+              className={`text-xs px-3 py-1 rounded-lg ${orderMode ? 'bg-gray-200 dark:bg-zinc-600 text-gray-600 dark:text-zinc-300' : 'bg-blue-50 dark:bg-blue-900 text-blue-500'
                 }`}>
               {orderMode ? '취소' : '순서 변경'}
             </button>
           </div>
           {members.map((member) => (
             <div key={member.id}
-              className="flex justify-between items-center py-3 border-b dark:border-gray-700 last:border-0">
+              className="flex justify-between items-center py-3 border-b dark:border-zinc-700 last:border-0">
               <div className="flex items-center gap-2">
                 {orderMode && (
                   <input
@@ -156,19 +156,19 @@ export default function ManagePage() {
                       ...prev,
                       [member.id]: parseInt(e.target.value)
                     }))}
-                    className="w-10 border rounded px-1 py-0.5 text-sm text-center dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+                    className="w-10 border rounded px-1 py-0.5 text-sm text-center dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
                   />
                 )}
                 <div>
-                  <span className="font-medium dark:text-gray-200">
+                  <span className="font-medium dark:text-zinc-200">
                     {member.profiles?.name || member.profiles?.email?.split('@')[0]}
                   </span>
-                  <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">
+                  <span className="text-xs text-gray-400 dark:text-zinc-500 ml-1">
                     {member.profiles?.email}
                   </span>
                   <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${member.role === 'admin'
                       ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                      : 'bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-400'
                     }`}>
                     {member.role === 'admin' ? '팀장' : '팀원'}
                   </span>
@@ -179,7 +179,7 @@ export default function ManagePage() {
                   <button
                     onClick={() => handleToggleAdmin(member)}
                     className={`text-xs px-3 py-1 rounded-lg ${member.role === 'admin'
-                        ? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200'
+                        ? 'bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300 hover:bg-gray-200'
                         : 'bg-blue-50 dark:bg-blue-900 text-blue-500 hover:bg-blue-100'
                       }`}>
                     {member.role === 'admin' ? '팀장 해제' : '팀장 지정'}
@@ -207,7 +207,7 @@ export default function ManagePage() {
         {/* 팀 삭제 */}
         <div className="bg-red-50 dark:bg-red-950 rounded-xl shadow p-4 mt-4">
           <h2 className="font-semibold text-red-500 mb-2">주의</h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">팀을 삭제하면 모든 팀 데이터가 삭제돼요.</p>
+          <p className="text-xs text-gray-500 dark:text-zinc-400 mb-3">팀을 삭제하면 모든 팀 데이터가 삭제돼요.</p>
           <button
             onClick={handleDeleteTeam}
             className="w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600">

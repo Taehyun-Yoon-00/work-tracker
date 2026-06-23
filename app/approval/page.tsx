@@ -179,7 +179,7 @@ export default function ApprovalPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-2 sm:p-4 pb-28">
+        <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
             <div className="max-w-2xl mx-auto">
 
                 {/* 헤더 */}
@@ -188,7 +188,7 @@ export default function ApprovalPage() {
                 </div>
 
                 {/* 필터 */}
-                <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5 mb-4">
+                <div className="flex bg-gray-100 dark:bg-zinc-700 rounded-lg p-0.5 mb-4">
                     {[
                         { value: 'all', label: '전체' },
                         { value: 'pending', label: '대기중' },
@@ -196,7 +196,7 @@ export default function ApprovalPage() {
                         { value: 'rejected', label: '반려' },
                     ].map(({ value, label }) => (
                         <button key={value} onClick={() => setFilterStatus(value)}
-                            className={`flex-1 text-xs py-1.5 rounded-md transition ${filterStatus === value ? 'bg-white dark:bg-gray-600 shadow text-blue-500 font-semibold' : 'text-gray-500 dark:text-gray-400'
+                            className={`flex-1 text-xs py-1.5 rounded-md transition ${filterStatus === value ? 'bg-white dark:bg-zinc-600 shadow text-blue-500 font-semibold' : 'text-gray-500 dark:text-zinc-400'
                                 }`}>
                             {label}
                         </button>
@@ -204,23 +204,23 @@ export default function ApprovalPage() {
                 </div>
 
                 {/* 리스트 */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4">
+                <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4">
                     {filteredRequests.length === 0 ? (
-                        <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">결재 요청이 없어요.</p>
+                        <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-4">결재 요청이 없어요.</p>
                     ) : (
                         filteredRequests.map((req) => {
                             const isRequester = req.requester_id === user?.id
                             const status = statusLabel(req.status)
                             return (
                                 <div key={req.id} onClick={() => setSelectedRequest(req)}
-                                    className="py-3 border-b dark:border-gray-700 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
+                                    className="py-3 border-b dark:border-zinc-700 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
                                     <div className="flex justify-between items-start">
                                         <div>
                                             <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                                <span className="text-sm font-medium dark:text-gray-200">
+                                                <span className="text-sm font-medium dark:text-zinc-200">
                                                     {req.requester?.name || req.requester?.email?.split('@')[0]}
                                                 </span>
-                                                <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full">
+                                                <span className="text-xs bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300 px-2 py-0.5 rounded-full">
                                                     {req.type === 'remote' ? '원격근무' : '휴가'}
                                                 </span>
                                                 {req.teams?.name && (
@@ -232,15 +232,15 @@ export default function ApprovalPage() {
                                                     <span className="text-xs bg-orange-50 text-orange-400 px-2 py-0.5 rounded-full">내 요청</span>
                                                 )}
                                             </div>
-                                            <p className="text-xs text-gray-400 dark:text-gray-500">
+                                            <p className="text-xs text-gray-400 dark:text-zinc-500">
                                                 {req.dates && req.dates.length > 1
                                                     ? `${dayjs(req.dates[0]).format('MM/DD')} 외 ${req.dates.length - 1}일`
                                                     : dayjs(req.date).format('YYYY년 MM월 DD일')}
                                             </p>
-                                            <p className="text-xs text-gray-400 dark:text-gray-500">
+                                            <p className="text-xs text-gray-400 dark:text-zinc-500">
                                                 결재권자: {req.approver?.name || req.approver?.email?.split('@')[0]}
                                             </p>
-                                            {req.memo && <p className="text-xs text-gray-400 dark:text-gray-500">사유: {req.memo}</p>}
+                                            {req.memo && <p className="text-xs text-gray-400 dark:text-zinc-500">사유: {req.memo}</p>}
                                         </div>
                                         <span className={`text-xs px-2 py-1 rounded-full ${status.color}`}>
                                             {status.text}
@@ -255,9 +255,9 @@ export default function ApprovalPage() {
                 {/* 승인 모달 */}
                 {selectedRequest && (
                     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-sm">
+                        <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 w-full max-w-sm">
                             <h3 className="font-semibold mb-3 dark:text-white">결재 처리</h3>
-                            <div className="mb-4 text-sm text-gray-600 dark:text-gray-300 space-y-2">
+                            <div className="mb-4 text-sm text-gray-600 dark:text-zinc-300 space-y-2">
                                 <p><span className="font-medium">신청자:</span> {selectedRequest.requester?.name || selectedRequest.requester?.email?.split('@')[0]}</p>
                                 <p><span className="font-medium">유형:</span> {selectedRequest.type === 'remote' ? '원격근무' : '휴가'}</p>
                                 <div>
@@ -299,7 +299,7 @@ export default function ApprovalPage() {
                                     </>
                                 )}
                                 <button onClick={() => setSelectedRequest(null)}
-                                    className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 py-2 rounded-lg text-sm">닫기</button>
+                                    className="flex-1 bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300 py-2 rounded-lg text-sm">닫기</button>
                             </div>
                         </div>
                     </div>
@@ -311,12 +311,12 @@ export default function ApprovalPage() {
                         className={`fixed inset-0 bg-black/50 z-50 flex justify-center p-2 sm:p-2 ${step === 1 ? 'items-center' : 'items-start'
                             }`}
                     >
-                        <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md max-h-[90dvh] flex flex-col">
+                        <div className="bg-white dark:bg-zinc-800 rounded-2xl w-full max-w-md max-h-[90dvh] flex flex-col">
 
                             {/* 헤더 */}
-                            <div className="flex justify-between items-center p-4 sm:p-6 pb-3 border-b dark:border-gray-700">
+                            <div className="flex justify-between items-center p-4 sm:p-6 pb-3 border-b dark:border-zinc-700">
                                 <h3 className="font-semibold dark:text-white">결재 요청</h3>
-                                <button onClick={resetModal} className="text-gray-400 dark:text-gray-500 text-lg">✕</button>
+                                <button onClick={resetModal} className="text-gray-400 dark:text-zinc-500 text-lg">✕</button>
                             </div>
 
                             {/* 스크롤 영역 */}
@@ -325,14 +325,14 @@ export default function ApprovalPage() {
                                 {/* STEP1 */}
                                 {step === 1 && (
                                     <div>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">요청 유형을 선택해주세요</p>
+                                        <p className="text-sm text-gray-500 dark:text-zinc-400 mb-3">요청 유형을 선택해주세요</p>
                                         <div className="flex gap-2">
                                             <button onClick={() => { setRequestType('vacation'); setStep(2) }}
-                                                className="flex-1 py-3 border-2 dark:border-gray-600 rounded-xl text-sm font-medium dark:text-gray-300 hover:border-blue-500 hover:text-blue-500 transition">
+                                                className="flex-1 py-3 border-2 dark:border-zinc-600 rounded-xl text-sm font-medium dark:text-zinc-300 hover:border-blue-500 hover:text-blue-500 transition">
                                                 🌴 휴가
                                             </button>
                                             <button onClick={() => { setRequestType('remote'); setStep(2) }}
-                                                className="flex-1 py-3 border-2 dark:border-gray-600 rounded-xl text-sm font-medium dark:text-gray-300 hover:border-blue-500 hover:text-blue-500 transition">
+                                                className="flex-1 py-3 border-2 dark:border-zinc-600 rounded-xl text-sm font-medium dark:text-zinc-300 hover:border-blue-500 hover:text-blue-500 transition">
                                                 💻 원격근무
                                             </button>
                                         </div>
@@ -342,13 +342,13 @@ export default function ApprovalPage() {
                                 {/* STEP2 */}
                                 {step === 2 && (
                                     <div>
-                                        <button onClick={() => setStep(1)} className="text-xs text-gray-400 dark:text-gray-500 mb-3">← 뒤로</button>
+                                        <button onClick={() => setStep(1)} className="text-xs text-gray-400 dark:text-zinc-500 mb-3">← 뒤로</button>
 
                                         {/* 팀 */}
                                         <div className="mb-3">
-                                            <label className="text-sm text-gray-500 dark:text-gray-400">팀 선택</label>
+                                            <label className="text-sm text-gray-500 dark:text-zinc-400">팀 선택</label>
                                             <select value={selectedTeamId} onChange={(e) => fetchApprovers(e.target.value)}
-                                                className="w-full border rounded-lg px-3 py-2 mt-1 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200">
+                                                className="w-full border rounded-lg px-3 py-2 mt-1 text-sm dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200">
                                                 <option value="">팀 선택</option>
                                                 {myTeams.map((t) => (
                                                     <option key={t.team_id} value={t.team_id}>{t.teams?.name}</option>
@@ -358,9 +358,9 @@ export default function ApprovalPage() {
 
                                         {/* 결재권자 */}
                                         <div className="mb-4">
-                                            <label className="text-sm text-gray-500 dark:text-gray-400">결재권자</label>
+                                            <label className="text-sm text-gray-500 dark:text-zinc-400">결재권자</label>
                                             <select value={selectedApprover} onChange={(e) => setSelectedApprover(e.target.value)}
-                                                className="w-full border rounded-lg px-3 py-2 mt-1 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200">
+                                                className="w-full border rounded-lg px-3 py-2 mt-1 text-sm dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200">
                                                 <option value="">결재권자 선택</option>
                                                 {approvers.map((a) => (
                                                     <option key={a.user_id} value={a.user_id}>
@@ -373,7 +373,7 @@ export default function ApprovalPage() {
                                         {/* 날짜 그룹 */}
                                         <div className="mb-4">
                                             <div className="flex justify-between items-center mb-2">
-                                                <label className="text-sm text-gray-500 dark:text-gray-400">날짜 선택</label>
+                                                <label className="text-sm text-gray-500 dark:text-zinc-400">날짜 선택</label>
                                                 <button
                                                     onClick={() => setDateGroups([...dateGroups, { dates: [], vacationType: 'annual' }])}
                                                     className="text-xs text-blue-500">
@@ -382,13 +382,13 @@ export default function ApprovalPage() {
                                             </div>
 
                                             {dateGroups.length === 0 && (
-                                                <p className="text-xs text-gray-400 dark:text-gray-500">날짜 추가 버튼을 눌러주세요</p>
+                                                <p className="text-xs text-gray-400 dark:text-zinc-500">날짜 추가 버튼을 눌러주세요</p>
                                             )}
 
                                             {dateGroups.map((group, index) => (
-                                                <div key={index} className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
+                                                <div key={index} className="mb-4 p-3 bg-gray-50 dark:bg-zinc-700 rounded-xl">
                                                     <div className="flex justify-between items-center mb-2">
-                                                        <span className="text-xs text-gray-500 dark:text-gray-400">{index + 1}번째 그룹</span>
+                                                        <span className="text-xs text-gray-500 dark:text-zinc-400">{index + 1}번째 그룹</span>
                                                         <button onClick={() => setDateGroups(dateGroups.filter((_, i) => i !== index))}
                                                             className="text-xs text-red-400">삭제</button>
                                                     </div>
@@ -432,7 +432,7 @@ export default function ApprovalPage() {
                                                                         updated[index].vacationType = value
                                                                         setDateGroups(updated)
                                                                     }}
-                                                                    className={`flex-1 py-1.5 rounded-lg text-xs border ${group.vacationType === value ? 'bg-orange-500 text-white' : 'bg-white dark:bg-gray-600 dark:text-gray-300'
+                                                                    className={`flex-1 py-1.5 rounded-lg text-xs border ${group.vacationType === value ? 'bg-orange-500 text-white' : 'bg-white dark:bg-zinc-600 dark:text-zinc-300'
                                                                         }`}>
                                                                     {label}
                                                                 </button>
@@ -446,9 +446,9 @@ export default function ApprovalPage() {
                                         {/* 사유 */}
                                         {requestType === 'vacation' && (
                                             <div className="mb-4">
-                                                <label className="text-sm text-gray-500 dark:text-gray-400">휴가 사유</label>
+                                                <label className="text-sm text-gray-500 dark:text-zinc-400">휴가 사유</label>
                                                 <input type="text" value={memo} onChange={(e) => setMemo(e.target.value)}
-                                                    className="w-full border rounded-lg px-3 py-2 mt-1 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200" />
+                                                    className="w-full border rounded-lg px-3 py-2 mt-1 text-sm dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200" />
                                             </div>
                                         )}
 
@@ -459,7 +459,7 @@ export default function ApprovalPage() {
 
                             {/* 고정 하단 버튼 */}
                             {step === 2 && (
-                                <div className="p-4 border-t dark:border-gray-700 bg-white dark:bg-gray-800 rounded-b-2xl">
+                                <div className="p-4 border-t dark:border-zinc-700 bg-white dark:bg-zinc-800 rounded-b-2xl">
                                     <button onClick={handleSubmitRequest} disabled={loading}
                                         className="w-full bg-blue-500 text-white py-2 rounded-lg text-sm disabled:opacity-50">
                                         {loading ? '요청 중...' : '결재 요청'}

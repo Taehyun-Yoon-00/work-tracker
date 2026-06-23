@@ -110,7 +110,7 @@ export default function MyPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-2 sm:p-4 pb-28">
+    <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
       <div className="max-w-2xl mx-auto">
 
         {/* 헤더 */}
@@ -124,34 +124,34 @@ export default function MyPage() {
               </button>
             )}
             <button onClick={handleLogout}
-              className="text-sm text-gray-500 dark:text-gray-400 hover:underline">
+              className="text-sm text-gray-500 dark:text-zinc-400 hover:underline">
               로그아웃
             </button>
           </div>
         </div>
 
         {/* 프로필 설정 */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4 mb-4">
+        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
           <h2 className="font-semibold mb-4 dark:text-white">프로필 설정</h2>
 
           <div className="mb-4">
-            <label className="text-sm text-gray-500 dark:text-gray-400">이메일</label>
-            <p className="text-sm font-medium mt-1 dark:text-gray-200">{user?.email}</p>
+            <label className="text-sm text-gray-500 dark:text-zinc-400">이메일</label>
+            <p className="text-sm font-medium mt-1 dark:text-zinc-200">{user?.email}</p>
           </div>
 
           <div className="mb-4">
-            <label className="text-sm text-gray-500 dark:text-gray-400">이름</label>
+            <label className="text-sm text-gray-500 dark:text-zinc-400">이름</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="이름을 입력해주세요"
-              className="w-full border rounded-lg px-3 py-2 mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+              className="w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
             />
           </div>
 
           <div className="mb-4">
-            <label className="text-sm text-gray-500 dark:text-gray-400">총 휴가 일수</label>
+            <label className="text-sm text-gray-500 dark:text-zinc-400">총 휴가 일수</label>
             <div className="flex items-center gap-2 mt-1">
               <input
                 type="number"
@@ -159,11 +159,11 @@ export default function MyPage() {
                 onChange={(e) => setTotalVacation(parseFloat(e.target.value))}
                 step="0.5"
                 min="0"
-                className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+                className="w-full border rounded-lg px-3 py-2 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
               />
-              <span className="text-sm text-gray-500 dark:text-gray-400 shrink-0">일</span>
+              <span className="text-sm text-gray-500 dark:text-zinc-400 shrink-0">일</span>
             </div>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+            <p className="text-xs text-gray-400 dark:text-zinc-500 mt-1">
               반차는 0.5일로 계산돼요
             </p>
           </div>
@@ -179,25 +179,25 @@ export default function MyPage() {
         </div>
 
         {/* 휴가 현황 */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4">
+        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4">
           <h2 className="font-semibold mb-4 dark:text-white">올해 휴가 현황</h2>
           <div className="flex gap-3 mb-4">
             <div className="flex-1 bg-blue-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">총 휴가</p>
+              <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">총 휴가</p>
               <p className="text-xl font-bold text-blue-500">{totalVacation}일</p>
             </div>
             <div className="flex-1 bg-orange-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">사용</p>
+              <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">사용</p>
               <p className="text-xl font-bold text-orange-500">{usedVacation}일</p>
             </div>
             <div className="flex-1 bg-green-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">잔여</p>
+              <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">잔여</p>
               <p className="text-xl font-bold text-green-500">{remaining}일</p>
             </div>
           </div>
 
           {/* 잔여 휴가 바 */}
-          <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-3">
+          <div className="w-full bg-gray-100 dark:bg-zinc-700 rounded-full h-3">
             <div
               className="bg-green-400 h-3 rounded-full transition-all"
               style={{
@@ -207,23 +207,23 @@ export default function MyPage() {
               }}
             />
           </div>
-          <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
+          <div className="flex justify-between text-xs text-gray-400 dark:text-zinc-500 mt-1">
             <span>0일</span>
             <span>{totalVacation}일</span>
           </div>
         </div>
 
         {/* 비밀번호 변경 */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4 mt-4">
+        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mt-4">
           <h2 className="font-semibold mb-4 dark:text-white">비밀번호 변경</h2>
           <div className="mb-3">
-            <label className="text-sm text-gray-500 dark:text-gray-400">새 비밀번호</label>
+            <label className="text-sm text-gray-500 dark:text-zinc-400">새 비밀번호</label>
             <input
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               placeholder="6자리 이상"
-              className="w-full border rounded-lg px-3 py-2 mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+              className="w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
             />
           </div>
           {passwordMessage && (

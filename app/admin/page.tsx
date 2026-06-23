@@ -140,14 +140,14 @@ export default function AdminPage() {
     fetchHolidays()
   }
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-2 sm:p-4 pb-28">
+    <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
       <div className="max-w-2xl mx-auto">
 
         {/* 헤더 */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold dark:text-white">관리</h1>
           <button onClick={() => router.push('/mypage')}
-            className="text-sm text-gray-500 dark:text-gray-400 hover:underline">
+            className="text-sm text-gray-500 dark:text-zinc-400 hover:underline">
             ← 마이페이지
           </button>
         </div>
@@ -159,14 +159,14 @@ export default function AdminPage() {
         )}
 
         {/* 회원 목록 */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4">
+        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4">
           <h2 className="font-semibold mb-3 dark:text-white">전체 회원 ({profiles.length}명)</h2>
           {profiles.map((profile) => (
             <div key={profile.id}
-              className="flex justify-between items-center py-3 border-b dark:border-gray-700 last:border-0">
+              className="flex justify-between items-center py-3 border-b dark:border-zinc-700 last:border-0">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-medium text-sm dark:text-gray-200">
+                  <span className="font-medium text-sm dark:text-zinc-200">
                     {profile.name || '이름 미설정'}
                   </span>
                   {profile.is_master && (
@@ -175,13 +175,13 @@ export default function AdminPage() {
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-gray-400 dark:text-gray-500">{profile.email}</p>
+                <p className="text-xs text-gray-400 dark:text-zinc-500">{profile.email}</p>
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => handleToggleMaster(profile)}
                   className={`text-xs px-2 py-1 rounded-lg ${profile.is_master
-                      ? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200'
+                      ? 'bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300 hover:bg-gray-200'
                       : 'bg-red-50 dark:bg-red-950 text-red-500 hover:bg-red-100'
                     }`}>
                   {profile.is_master ? '마스터 해제' : '마스터 지정'}
@@ -196,7 +196,7 @@ export default function AdminPage() {
                     <button
                       onClick={() => handleDelete(profile)}
                       disabled={loading}
-                      className="text-xs px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200">
+                      className="text-xs px-2 py-1 rounded-lg bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300 hover:bg-gray-200">
                       강제 탈퇴
                     </button>
                   </>
@@ -205,7 +205,7 @@ export default function AdminPage() {
             </div>
           ))}
           {/* 대체공휴일 관리 */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4 mt-4">
+          <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mt-4">
             <h2 className="font-semibold mb-3 dark:text-white">대체공휴일 관리</h2>
 
             {/* 추가 */}
@@ -214,14 +214,14 @@ export default function AdminPage() {
                 type="date"
                 value={newHolidayDate}
                 onChange={(e) => setNewHolidayDate(e.target.value)}
-                className="flex-1 border dark:border-gray-600 rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-gray-200"
+                className="flex-1 border dark:border-zinc-600 rounded-lg px-3 py-2 text-sm dark:bg-zinc-700 dark:text-zinc-200"
               />
               <input
                 type="text"
                 value={newHolidayName}
                 onChange={(e) => setNewHolidayName(e.target.value)}
                 placeholder="명칭 (예: 광복절 대체)"
-                className="flex-1 border dark:border-gray-600 rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-gray-200"
+                className="flex-1 border dark:border-zinc-600 rounded-lg px-3 py-2 text-sm dark:bg-zinc-700 dark:text-zinc-200"
               />
               <button
                 onClick={handleAddHoliday}
@@ -232,14 +232,14 @@ export default function AdminPage() {
 
             {/* 목록 */}
             {holidays.length === 0 ? (
-              <p className="text-sm text-gray-400 dark:text-gray-500">등록된 대체공휴일이 없어요.</p>
+              <p className="text-sm text-gray-400 dark:text-zinc-500">등록된 대체공휴일이 없어요.</p>
             ) : (
               holidays.map((h) => (
                 <div key={h.id}
-                  className="flex justify-between items-center py-2 border-b dark:border-gray-700 last:border-0">
+                  className="flex justify-between items-center py-2 border-b dark:border-zinc-700 last:border-0">
                   <div>
-                    <span className="text-sm font-medium dark:text-gray-200">{h.date}</span>
-                    <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">{h.name}</span>
+                    <span className="text-sm font-medium dark:text-zinc-200">{h.date}</span>
+                    <span className="text-xs text-gray-400 dark:text-zinc-500 ml-2">{h.name}</span>
                   </div>
                   <button
                     onClick={() => handleDeleteHoliday(h.id)}
