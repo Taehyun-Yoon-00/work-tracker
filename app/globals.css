@@ -28,12 +28,12 @@ body {
 /* 달력 다크모드 */
 @media (prefers-color-scheme: dark) {
   :root .react-calendar {
-    background-color: #27272a !important;
+    background-color: #333535 !important;
     border-color: #3f3f46 !important;
     color: #f9fafb !important;
   }
   :root .react-calendar__navigation button {
-    background-color: #27272a !important;
+    background-color: #333535 !important;
     color: #f9fafb !important;
   }
   :root .react-calendar__navigation button:hover,
@@ -45,7 +45,7 @@ body {
   }
   :root .react-calendar__tile {
     color: #f9fafb !important;
-    background-color: #27272a !important;
+    background-color: #333535 !important;
   }
   :root .react-calendar__tile:hover,
   :root .react-calendar__tile:focus {
