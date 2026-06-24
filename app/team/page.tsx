@@ -57,9 +57,22 @@ export default function TeamPage() {
     setLoading(true)
     setMessage('')
 
+    // 동일명 팀 존재 여부 확인
+    const { data: existingTeam } = await supabase
+      .from('teams')
+      .select('id')
+      .eq('name', newTeamName.trim())
+      .maybeSingle()
+
+    if (existingTeam) {
+      setMessage('이미 같은 이름의 팀이 있어요.')
+      setLoading(false)
+      return
+    }
+
     const { data: team, error } = await supabase
       .from('teams')
-      .insert({ name: newTeamName, created_by: user.id })
+      .insert({ name: newTeamName.trim(), created_by: user.id })
       .select()
       .single()
 
