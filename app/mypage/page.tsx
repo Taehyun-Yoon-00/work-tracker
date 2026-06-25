@@ -18,6 +18,9 @@ export default function MyPage() {
   const [newPassword, setNewPassword] = useState('')
   const [passwordMessage, setPasswordMessage] = useState('')
   const [passwordLoading, setPasswordLoading] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [showDeleteSection, setShowDeleteSection] = useState(false)
 
   useEffect(() => {
     const getUser = async () => {
@@ -45,14 +48,7 @@ export default function MyPage() {
 
   const fetchUsedVacation = async (userId: string) => {
     const now = dayjs()
-
-    // 4월 기준 연도 계산
-    // 현재가 4월 이후면 이번 년도 4월 ~ 다음 년도 3월
-    // 현재가 3월 이전이면 작년 4월 ~ 이번 년도 3월
-    const fiscalYearStart = now.month() >= 3
-      ? now.year()
-      : now.year() - 1
-
+    const fiscalYearStart = now.month() >= 3 ? now.year() : now.year() - 1
     const startDate = `${fiscalYearStart}-04-01`
     const endDate = `${fiscalYearStart + 1}-03-31`
 
@@ -87,8 +83,6 @@ export default function MyPage() {
     setLoading(false)
   }
 
-  const remaining = totalVacation - usedVacation
-
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/login')
@@ -108,6 +102,36 @@ export default function MyPage() {
     }
     setPasswordLoading(false)
   }
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirm !== user?.email) {
+      alert('이메일 주소가 일치하지 않아요.')
+      return
+    }
+
+    if (!confirm('정말로 탈퇴하시겠어요? 모든 데이터가 삭제되며 복구할 수 없어요.')) return
+
+    setDeleteLoading(true)
+
+    const res = await fetch('/api/admin/delete-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id }),
+    })
+
+    if (!res.ok) {
+      const data = await res.json()
+      alert('탈퇴 처리 중 오류가 발생했어요: ' + data.error)
+      setDeleteLoading(false)
+      return
+    }
+
+    await supabase.auth.signOut()
+    router.push('/login')
+    setDeleteLoading(false)
+  }
+
+  const remaining = totalVacation - usedVacation
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
@@ -163,14 +187,10 @@ export default function MyPage() {
               />
               <span className="text-sm text-gray-500 dark:text-zinc-400 shrink-0">일</span>
             </div>
-            <p className="text-xs text-gray-400 dark:text-zinc-500 mt-1">
-              반차는 0.5일로 계산돼요
-            </p>
+            <p className="text-xs text-gray-400 dark:text-zinc-500 mt-1">반차는 0.5일로 계산돼요</p>
           </div>
 
-          {message && (
-            <p className="text-sm text-center text-blue-500 mb-3">{message}</p>
-          )}
+          {message && <p className="text-sm text-center text-blue-500 mb-3">{message}</p>}
 
           <button onClick={handleSave} disabled={loading}
             className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50">
@@ -179,7 +199,7 @@ export default function MyPage() {
         </div>
 
         {/* 휴가 현황 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4">
+        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
           <h2 className="font-semibold mb-4 dark:text-white">올해 휴가 현황</h2>
           <div className="flex gap-3 mb-4">
             <div className="flex-1 bg-blue-50 rounded-lg p-3 text-center">
@@ -195,8 +215,6 @@ export default function MyPage() {
               <p className="text-xl font-bold text-green-500">{remaining}일</p>
             </div>
           </div>
-
-          {/* 잔여 휴가 바 */}
           <div className="w-full bg-gray-100 dark:bg-zinc-700 rounded-full h-3">
             <div
               className="bg-green-400 h-3 rounded-full transition-all"
@@ -214,7 +232,7 @@ export default function MyPage() {
         </div>
 
         {/* 비밀번호 변경 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mt-4">
+        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
           <h2 className="font-semibold mb-4 dark:text-white">비밀번호 변경</h2>
           <div className="mb-3">
             <label className="text-sm text-gray-500 dark:text-zinc-400">새 비밀번호</label>
@@ -233,6 +251,40 @@ export default function MyPage() {
             className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50">
             {passwordLoading ? '변경 중...' : '비밀번호 변경'}
           </button>
+        </div>
+
+        {/* 회원 탈퇴 */}
+        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4">
+          <div className="flex justify-between items-center">
+            <h2 className="font-semibold dark:text-white">회원 탈퇴</h2>
+            <button
+              onClick={() => setShowDeleteSection(!showDeleteSection)}
+              className="text-sm text-red-400 hover:text-red-600">
+              {showDeleteSection ? '닫기' : '탈퇴하기'}
+            </button>
+          </div>
+
+          {showDeleteSection && (
+            <div className="mt-4">
+              <p className="text-sm text-gray-500 dark:text-zinc-400 mb-3">
+                탈퇴하면 모든 근무 기록, 휴가, 팀 정보가 삭제되며 복구할 수 없어요.<br />
+                확인을 위해 이메일 주소를 입력해주세요.
+              </p>
+              <input
+                type="text"
+                value={deleteConfirm}
+                onChange={(e) => setDeleteConfirm(e.target.value)}
+                placeholder={user?.email}
+                className="w-full border border-red-200 rounded-lg px-3 py-2 mb-3 dark:bg-zinc-700 dark:border-red-900 dark:text-zinc-200"
+              />
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleteLoading || deleteConfirm !== user?.email}
+                className="w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 disabled:opacity-40">
+                {deleteLoading ? '처리 중...' : '회원 탈퇴'}
+              </button>
+            </div>
+          )}
         </div>
 
       </div>

@@ -13,6 +13,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'userId is required' }, { status: 400 })
   }
 
+  // 관련 데이터 삭제 (Admin 권한으로 RLS 우회)
+  await supabaseAdmin.from('work_logs').delete().eq('user_id', userId)
+  await supabaseAdmin.from('vacations').delete().eq('user_id', userId)
+  await supabaseAdmin.from('remote_works').delete().eq('user_id', userId)
+  await supabaseAdmin.from('commute_plans').delete().eq('user_id', userId)
+  await supabaseAdmin.from('team_members').delete().eq('user_id', userId)
+  await supabaseAdmin.from('team_requests').delete().eq('user_id', userId)
+  await supabaseAdmin.from('approval_requests').delete().eq('requester_id', userId)
+  await supabaseAdmin.from('profiles').delete().eq('id', userId)
+
+  // Auth 계정 삭제
   const { error } = await supabaseAdmin.auth.admin.deleteUser(userId)
 
   if (error) {
