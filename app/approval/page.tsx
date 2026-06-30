@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useRouter } from 'next/navigation'
 import { useAppBadge } from '../hooks/useAppBadge'
+import { usePushSubscription } from '../hooks/usePushSubscription'
 import ApprovalList from '../components/approval/ApprovalList'
 import ApprovalDetailModal from '../components/approval/ApprovalDetailModal'
 import RequestModal from '../components/approval/RequestModal'
@@ -161,6 +162,7 @@ export default function ApprovalPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             emailType: 'request',
+            approverId: selectedApprover,
             approverEmail: approverInfo.profiles.email,
             approverName,
             requesterName,
@@ -204,6 +206,7 @@ export default function ApprovalPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             emailType: 'result',
+            requesterId: req.requester_id,
             requesterEmail,
             requesterName,
             approverName,
@@ -268,6 +271,7 @@ export default function ApprovalPage() {
     (r) => r.approver_id === user?.id && r.status === 'pending'
   ).length
   useAppBadge(pendingCount)
+  usePushSubscription(user?.id)
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
