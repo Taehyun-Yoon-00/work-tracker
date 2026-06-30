@@ -5,9 +5,9 @@ import { supabase } from '../lib/supabase'
 import { useRouter } from 'next/navigation'
 import { useAppBadge } from '../hooks/useAppBadge'
 import { usePushSubscription } from '../hooks/usePushSubscription'
-import ApprovalList from './components/ApprovalList'
-import ApprovalDetailModal from './components/ApprovalDetailModal'
-import RequestModal from './components/RequestModal'
+import ApprovalList from '../components/approval/ApprovalList'
+import ApprovalDetailModal from '../components/approval/ApprovalDetailModal'
+import RequestModal from '../components/approval/RequestModal'
 
 const CC_STORAGE_KEY = 'approval_cc_history'
 
