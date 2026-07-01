@@ -44,7 +44,7 @@ export default function ApprovalPage() {
   const [selectedRequest, setSelectedRequest] = useState<any>(null)
   const [memo, setMemo] = useState('')
 
-  // CC 관련
+  // CC ・・ｨ
   const [ccInput, setCcInput] = useState('')
   const [ccList, setCcList] = useState<string[]>([])
   const [existingCcList, setExistingCcList] = useState<string[]>([])
@@ -125,13 +125,13 @@ export default function ApprovalPage() {
   const removeCc = (email: string) => setCcList(ccList.filter((e) => e !== email))
 
   const handleSubmitRequest = async () => {
-    if (!requestType || !selectedApprover || !selectedTeamId) { setMessage('모든 항목을 입력해주세요.'); return }
-    if (dateGroups.length === 0) { setMessage('날짜를 추가해주세요.'); return }
+    if (!requestType || !selectedApprover || !selectedTeamId) { setMessage('・ｨ・ 﨑ｭ・ｩ・・・・･﨑ｴ・ｼ・ｸ・・'); return }
+    if (dateGroups.length === 0) { setMessage('・・罹･ｼ ・緋ｰ﨑ｴ・ｼ・ｸ・・'); return }
     const flattenedEntries = dateGroups.flatMap((group) =>
       group.dates.map((date) => ({ date, vacationType: group.vacationType }))
     )
-    if (flattenedEntries.length === 0) { setMessage('날짜를 선택해주세요.'); return }
-    if (requestType === 'holiday' && !memo.trim()) { setMessage('출근 사유를 입력해주세요.'); return }
+    if (flattenedEntries.length === 0) { setMessage('・・罹･ｼ ・夋晨紛・ｼ・ｸ・・'); return }
+    if (requestType === 'holiday' && !memo.trim()) { setMessage('・懋ｷｼ ・ｬ・・ｼ ・・･﨑ｴ・ｼ・ｸ・・'); return }
 
     setLoading(true)
     setMessage('')
@@ -149,7 +149,7 @@ export default function ApprovalPage() {
     })
 
     if (error) {
-      setMessage('요청 실패: ' + error.message)
+      setMessage('・肥ｲｭ ・､甯ｨ: ' + error.message)
     } else {
       const approverInfo = approvers.find((a) => a.user_id === selectedApprover)
       if (approverInfo?.profiles?.email) {
@@ -171,7 +171,7 @@ export default function ApprovalPage() {
             memo: (requestType === 'vacation' || requestType === 'holiday') ? memo : undefined,
             ccEmails: ccList,
           }),
-        }).catch((e) => console.error('알림 메일 발송 실패:', e))
+        }).catch((e) => console.error('・誤ｦｼ ・肥攵 ・懍・ ・､甯ｨ:', e))
 
         if (ccList.length > 0) saveCcHistory(ccList)
       }
@@ -217,7 +217,7 @@ export default function ApprovalPage() {
             actionAt: now,
             ccEmails: mergedCc,
           }),
-        }).catch((e) => console.error('결과 메일 발송 실패:', e))
+        }).catch((e) => console.error('・ｰ・ｼ ・肥攵 ・懍・ ・､甯ｨ:', e))
       }
     }
 
@@ -266,7 +266,7 @@ export default function ApprovalPage() {
     setDateGroups(updated)
   }
 
-  // 내가 결재권자인 대기 건수 → PWA 아이콘 뱃지
+  // ・ｴ・ ・ｰ・ｬ・護梵・ｸ ・・ｰ ・ｴ・・竊・PWA ・・擽・・・・ｧ
   const pendingCount = requests.filter(
     (r) => r.approver_id === user?.id && r.status === 'pending'
   ).length
@@ -278,7 +278,7 @@ export default function ApprovalPage() {
       <div className="max-w-2xl mx-auto">
 
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold dark:text-white">결재</h1>
+          <h1 className="text-2xl font-bold dark:text-white">・ｰ・ｬ</h1>
         </div>
 
         <ApprovalList
@@ -349,7 +349,7 @@ export default function ApprovalPage() {
         onClick={() => { setShowRequestModal(true); setStep(1); setMessage('') }}
         className="fixed bottom-24 right-4 bg-blue-500 text-white px-4 py-3 rounded-full shadow-lg z-40 text-sm font-medium"
       >
-        + 결재 요청
+        + ・ｰ・ｬ ・肥ｲｭ
       </button>
     </div>
   )
