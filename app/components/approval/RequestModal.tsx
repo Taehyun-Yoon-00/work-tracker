@@ -4,7 +4,7 @@ import DatePicker from 'react-multi-date-picker'
 function typeLabel(type: string) {
   if (type === 'vacation') return { text: '휴가', style: 'bg-orange-50 text-orange-500' }
   if (type === 'remote') return { text: '원격근무', style: 'bg-purple-50 text-purple-500' }
-  if (type === 'holiday') return { text: '휴일출근', style: 'bg-red-50 text-red-500' }
+  if (type === 'holiday') return { text: '휴일근무', style: 'bg-red-50 text-red-500' }
   return { text: type, style: 'bg-gray-100 text-gray-500' }
 }
 
@@ -114,7 +114,7 @@ export default function RequestModal({
                   onClick={() => onSelectType('holiday')}
                   className="w-full py-3 border-2 dark:border-zinc-600 rounded-xl text-sm font-medium dark:text-zinc-300 hover:border-red-400 hover:text-red-500 transition text-left px-4"
                 >
-                  🏢 휴일출근
+                  🏢 휴일근무
                 </button>
               </div>
             </div>
@@ -255,7 +255,7 @@ export default function RequestModal({
                 ))}
               </div>
 
-              {/* 사유 입력 (휴가 / 휴일출근) */}
+              {/* 사유 입력 (휴가 / 휴일근무) */}
               {(requestType === 'vacation' || requestType === 'holiday') && (
                 <div className="mb-4">
                   <label className="text-sm text-gray-500 dark:text-zinc-400">
