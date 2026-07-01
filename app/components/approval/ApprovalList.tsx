@@ -27,13 +27,13 @@ export default function ApprovalList({
 
   return (
     <>
-      {/* EEE ú±E„° */}
+      {/* ìƒíƒœ í•„í„° */}
       <div className="flex bg-gray-100 dark:bg-zinc-700 rounded-lg p-0.5 mb-2">
         {[
-          { value: 'all', label: 'EE²´' },
-          { value: 'pending', label: 'E€E°EE },
-          { value: 'approved', label: 'E¹E¸' },
-          { value: 'rejected', label: 'E˜ë ¤' },
+          { value: 'all', label: 'ì „ì²´' },
+          { value: 'pending', label: 'ëŒ€ê¸°ì¤‘' },
+          { value: 'approved', label: 'ìŠ¹ì¸' },
+          { value: 'rejected', label: 'ë°˜ë ¤' },
         ].map(({ value, label }) => (
           <button
             key={value}
@@ -49,12 +49,12 @@ export default function ApprovalList({
         ))}
       </div>
 
-      {/* E ú´Eú±E„° */}
+      {/* ìœ í˜• í•„í„° */}
       <div className="flex gap-1.5 mb-4 flex-wrap">
         {[
           {
             value: 'all',
-            label: 'EE²´',
+            label: 'ì „ì²´',
             style:
               filterType === 'all'
                 ? 'bg-gray-700 text-white'
@@ -62,7 +62,7 @@ export default function ApprovalList({
           },
           {
             value: 'vacation',
-            label: 'ğŸŒ´ ú¸´E€',
+            label: 'ğŸŒ´ íœ´ê°€',
             style:
               filterType === 'vacation'
                 ? 'bg-orange-500 text-white'
@@ -70,7 +70,7 @@ export default function ApprovalList({
           },
           {
             value: 'remote',
-            label: 'ğŸ’» Eê²©E¼E´',
+            label: 'ğŸ’» ì›ê²©ê·¼ë¬´',
             style:
               filterType === 'remote'
                 ? 'bg-purple-500 text-white'
@@ -78,7 +78,7 @@ export default function ApprovalList({
           },
           {
             value: 'holiday',
-            label: 'ğŸ¢ ú¸´E¼Eœê·¼',
+            label: 'ğŸ¢ íœ´ì¼ê·¼ë¬´',
             style:
               filterType === 'holiday'
                 ? 'bg-red-500 text-white'
@@ -95,11 +95,11 @@ export default function ApprovalList({
         ))}
       </div>
 
-      {/* E´EEE©EE*/}
+      {/* ì¹´ë“œ ëª©ë¡ */}
       <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4">
         {filteredRequests.length === 0 ? (
           <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-4">
-            E°E¬ E”ì²­E´ EE–´EE
+            ê²°ì¬ ìš”ì²­ì´ ì—†ì–´ìš”.
           </p>
         ) : (
           filteredRequests.map((req) => (

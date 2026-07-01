@@ -1,17 +1,17 @@
 import dayjs from 'dayjs'
 
 function typeLabel(type: string) {
-  if (type === 'vacation') return { text: 'ú¸´E€', style: 'bg-orange-50 text-orange-500' }
-  if (type === 'remote') return { text: 'Eê²©E¼E´', style: 'bg-purple-50 text-purple-500' }
-  if (type === 'holiday') return { text: 'ú¸´E¼Eœê·¼', style: 'bg-red-50 text-red-500' }
+  if (type === 'vacation') return { text: 'íœ´ê°€', style: 'bg-orange-50 text-orange-500' }
+  if (type === 'remote') return { text: 'ì›ê²©ê·¼ë¬´', style: 'bg-purple-50 text-purple-500' }
+  if (type === 'holiday') return { text: 'íœ´ì¼ê·¼ë¬´', style: 'bg-red-50 text-red-500' }
   return { text: type, style: 'bg-gray-100 text-gray-500' }
 }
 
 function vacationTypeLabel(type: string) {
-  if (type === 'annual') return 'E°E¨'
-  if (type === 'morning') return 'E¤EE°˜ì°¨'
-  if (type === 'afternoon') return 'E¤ú·E°˜ì°¨'
-  if (type === 'special') return 'ú¦¹ú¸´/E€ú¸´'
+  if (type === 'annual') return 'ì—°ì°¨'
+  if (type === 'morning') return 'ì˜¤ì „ë°˜ì°¨'
+  if (type === 'afternoon') return 'ì˜¤í›„ë°˜ì°¨'
+  if (type === 'special') return 'íŠ¹íœ´/ëŒ€íœ´'
   return type
 }
 
@@ -52,25 +52,25 @@ export default function ApprovalDetailModal({
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 w-full max-w-sm max-h-[90dvh] overflow-y-auto">
-        <h3 className="font-semibold mb-3 dark:text-white">E°E¬ E˜ë¦¬</h3>
+        <h3 className="font-semibold mb-3 dark:text-white">ê²°ì¬ ì²˜ë¦¬</h3>
 
         <div className="mb-4 text-sm text-gray-600 dark:text-zinc-300 space-y-2">
           <p>
-            <span className="font-medium">E E­EE</span>{' '}
+            <span className="font-medium">ì‹ ì²­ì:</span>{' '}
             {selectedRequest.requester?.name || selectedRequest.requester?.email?.split('@')[0]}
           </p>
           <p>
-            <span className="font-medium">E ú´E</span>{' '}
+            <span className="font-medium">ìœ í˜•:</span>{' '}
             <span className={`text-xs px-2 py-0.5 rounded-full ${type.style}`}>
               {type.text}
             </span>
           </p>
           <div>
-            <span className="font-medium">E EE</span>
+            <span className="font-medium">ë‚ ì§œ:</span>
             <ul className="mt-2 space-y-1">
               {selectedRequest.date_entries?.map((entry: any, i: number) => (
                 <li key={i} className="text-xs">
-                  {dayjs(entry.date).format('MMEEDDE¼')}
+                  {dayjs(entry.date).format('MMì›” DDì¼')}
                   {selectedRequest.type === 'vacation' && (
                     <span className="ml-1 text-orange-500">
                       ({vacationTypeLabel(entry.vacationType)})
@@ -83,26 +83,26 @@ export default function ApprovalDetailModal({
           {selectedRequest.memo && (
             <p>
               <span className="font-medium">
-                {selectedRequest.type === 'holiday' ? 'Eœê·¼ E¬E :' : 'E¬E :'}
+                {selectedRequest.type === 'holiday' ? 'ì¶œê·¼ ì‚¬ìœ :' : 'ì‚¬ìœ :'}
               </span>{' '}
               {selectedRequest.memo}
             </p>
           )}
           {selectedRequest.status === 'approved' && selectedRequest.approved_at && (
             <p className="text-green-500 text-xs">
-              E¹E¸E¼: {dayjs(selectedRequest.approved_at).format('YYYY-MM-DD HH:mm')}
+              ìŠ¹ì¸ì¼: {dayjs(selectedRequest.approved_at).format('YYYY-MM-DD HH:mm')}
             </p>
           )}
           {selectedRequest.status === 'rejected' && selectedRequest.rejected_at && (
             <p className="text-red-400 text-xs">
-              E˜ë ¤E¼: {dayjs(selectedRequest.rejected_at).format('YYYY-MM-DD HH:mm')}
+              ë°˜ë ¤ì¼: {dayjs(selectedRequest.rejected_at).format('YYYY-MM-DD HH:mm')}
             </p>
           )}
 
-          {/* CC EE ¥ (E°E¬EŒì + pending EEEE¼ EŒë§E */}
+          {/* CC ì…ë ¥ (ê²°ì¬ê¶Œì + pending ìƒíƒœì¼ ë•Œë§Œ) */}
           {isApprover && selectedRequest.status === 'pending' && (
             <div className="mt-3">
-              <p className="font-medium mb-1">E¸E° (CC)</p>
+              <p className="font-medium mb-1">ì°¸ì¡° (CC)</p>
               <div className="relative">
                 <div className="flex gap-1">
                   <input
@@ -115,14 +115,14 @@ export default function ApprovalDetailModal({
                         onAddCcEmail(ccInput)
                       }
                     }}
-                    placeholder="E´E”ì¼ EE ¥ ú·EEnter"
+                    placeholder="ì´ë©”ì¼ ì…ë ¥ í›„ Enter"
                     className="flex-1 border rounded-lg px-2 py-1.5 text-xs dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
                   />
                   <button
                     onClick={() => onAddCcEmail(ccInput)}
                     className="text-xs bg-gray-100 dark:bg-zinc-700 px-2 py-1.5 rounded-lg dark:text-zinc-300"
                   >
-                    E”ê°€
+                    ì¶”ê°€
                   </button>
                 </div>
                 {showCcSuggestions && (
@@ -151,7 +151,7 @@ export default function ApprovalDetailModal({
                         onClick={() => onRemoveCc(email)}
                         className="text-blue-400 hover:text-blue-600"
                       >
-                        ÃE
+                        Ã—
                       </button>
                     </span>
                   ))}
@@ -159,7 +159,7 @@ export default function ApprovalDetailModal({
               )}
               {existingCcList.length > 0 && (
                 <div className="mt-2">
-                  <p className="text-xs text-gray-400 mb-1">E´EECC</p>
+                  <p className="text-xs text-gray-400 mb-1">ì´ì „ CC</p>
                   <div className="flex flex-wrap gap-1">
                     {existingCcList.map((email: string) => (
                       <span
@@ -171,7 +171,7 @@ export default function ApprovalDetailModal({
                           onClick={() => onRemoveExistingCc(email)}
                           className="text-gray-400 hover:text-red-400 ml-0.5"
                         >
-                          ÃE
+                          Ã—
                         </button>
                       </span>
                     ))}
@@ -191,13 +191,13 @@ export default function ApprovalDetailModal({
                     onClick={() => onApprove(selectedRequest.id, 'approved')}
                     className="flex-1 bg-green-500 text-white py-2 rounded-lg text-sm"
                   >
-                    E¹E¸
+                    ìŠ¹ì¸
                   </button>
                   <button
                     onClick={() => onApprove(selectedRequest.id, 'rejected')}
                     className="flex-1 bg-red-500 text-white py-2 rounded-lg text-sm"
                   >
-                    E˜ë ¤
+                    ë°˜ë ¤
                   </button>
                 </>
               )}
@@ -206,7 +206,7 @@ export default function ApprovalDetailModal({
                   onClick={() => onApprove(selectedRequest.id, 'pending')}
                   className="flex-1 bg-yellow-500 text-white py-2 rounded-lg text-sm"
                 >
-                  E¹E¸ E¨EE
+                  ìŠ¹ì¸ ì·¨ì†Œ
                 </button>
               )}
               {selectedRequest.status === 'rejected' && (
@@ -214,7 +214,7 @@ export default function ApprovalDetailModal({
                   onClick={() => onApprove(selectedRequest.id, 'pending')}
                   className="flex-1 bg-yellow-500 text-white py-2 rounded-lg text-sm"
                 >
-                  E˜ë ¤ E¨EE
+                  ë°˜ë ¤ ì·¨ì†Œ
                 </button>
               )}
             </>
@@ -223,7 +223,7 @@ export default function ApprovalDetailModal({
             onClick={onClose}
             className="flex-1 bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300 py-2 rounded-lg text-sm"
           >
-            E«E°
+            ë‹«ê¸°
           </button>
         </div>
       </div>

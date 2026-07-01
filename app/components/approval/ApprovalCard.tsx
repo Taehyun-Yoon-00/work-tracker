@@ -1,16 +1,16 @@
 import dayjs from 'dayjs'
 
 function statusLabel(status: string) {
-  if (status === 'pending') return { text: 'E¹E¸ E€E°EE, color: 'text-yellow-500 bg-yellow-50' }
-  if (status === 'approved') return { text: 'E¹E¸', color: 'text-green-500 bg-green-50' }
-  if (status === 'rejected') return { text: 'E˜ë ¤', color: 'text-red-500 bg-red-50' }
+  if (status === 'pending') return { text: 'ìŠ¹ì¸ ëŒ€ê¸°ì¤‘', color: 'text-yellow-500 bg-yellow-50' }
+  if (status === 'approved') return { text: 'ìŠ¹ì¸', color: 'text-green-500 bg-green-50' }
+  if (status === 'rejected') return { text: 'ë°˜ë ¤', color: 'text-red-500 bg-red-50' }
   return { text: status, color: '' }
 }
 
 function typeLabel(type: string) {
-  if (type === 'vacation') return { text: 'ú¸´E€', style: 'bg-orange-50 text-orange-500' }
-  if (type === 'remote') return { text: 'Eê²©E¼E´', style: 'bg-purple-50 text-purple-500' }
-  if (type === 'holiday') return { text: 'ú¸´E¼Eœê·¼', style: 'bg-red-50 text-red-500' }
+  if (type === 'vacation') return { text: 'íœ´ê°€', style: 'bg-orange-50 text-orange-500' }
+  if (type === 'remote') return { text: 'ì›ê²©ê·¼ë¬´', style: 'bg-purple-50 text-purple-500' }
+  if (type === 'holiday') return { text: 'íœ´ì¼ê·¼ë¬´', style: 'bg-red-50 text-red-500' }
   return { text: type, style: 'bg-gray-100 text-gray-500' }
 }
 
@@ -46,29 +46,29 @@ export default function ApprovalCard({ req, userId, onClick }: ApprovalCardProps
             )}
             {isRequester && (
               <span className="text-xs bg-orange-50 text-orange-400 px-2 py-0.5 rounded-full">
-                E´ E”ì²­
+                ë‚´ ìš”ì²­
               </span>
             )}
           </div>
           <p className="text-xs text-gray-400 dark:text-zinc-500">
             {req.dates && req.dates.length > 1
-              ? `${dayjs(req.dates[0]).format('MM/DD')} E¸ ${req.dates.length - 1}E¼`
-              : dayjs(req.date).format('YYYYEEMMEEDDE¼')}
+              ? `${dayjs(req.dates[0]).format('MM/DD')} ì™¸ ${req.dates.length - 1}ì¼`
+              : dayjs(req.date).format('YYYYë…„ MMì›” DDì¼')}
           </p>
           <p className="text-xs text-gray-400 dark:text-zinc-500">
-            E°E¬EŒì: {req.approver?.name || req.approver?.email?.split('@')[0]}
+            ê²°ì¬ê¶Œì: {req.approver?.name || req.approver?.email?.split('@')[0]}
           </p>
           {req.memo && (
-            <p className="text-xs text-gray-400 dark:text-zinc-500">E¬E : {req.memo}</p>
+            <p className="text-xs text-gray-400 dark:text-zinc-500">ì‚¬ìœ : {req.memo}</p>
           )}
           {req.status === 'approved' && req.approved_at && (
             <p className="text-xs text-green-500 mt-0.5">
-              E¹E¸E¼: {dayjs(req.approved_at).format('YYYY-MM-DD HH:mm')}
+              ìŠ¹ì¸ì¼: {dayjs(req.approved_at).format('YYYY-MM-DD HH:mm')}
             </p>
           )}
           {req.status === 'rejected' && req.rejected_at && (
             <p className="text-xs text-red-400 mt-0.5">
-              E˜ë ¤E¼: {dayjs(req.rejected_at).format('YYYY-MM-DD HH:mm')}
+              ë°˜ë ¤ì¼: {dayjs(req.rejected_at).format('YYYY-MM-DD HH:mm')}
             </p>
           )}
         </div>

@@ -16,7 +16,7 @@ webpush.setVapidDetails(
 const TYPE_LABEL: Record<string, string> = {
   vacation: '휴가',
   remote: '원격근무',
-  holiday: '휴일출근',
+  holiday: '휴일근무',
 }
 
 export async function POST(req: NextRequest) {

@@ -7,7 +7,7 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://work-tracker-ebon.ve
 const TYPE_LABEL: Record<string, string> = {
   vacation: '휴가',
   remote: '원격근무',
-  holiday: '휴일출근',
+  holiday: '휴일근무',
 }
 
 const TYPE_COLOR: Record<string, { bg: string; text: string }> = {
