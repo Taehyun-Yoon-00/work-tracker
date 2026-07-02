@@ -170,8 +170,9 @@ function buildApprovedEmailHtml({ requesterName, approverName, type, dateEntries
     .map((d) => `<li style="margin:4px 0;color:#374151;">${d}</li>`)
     .join('')
 
-  const date = new Date(actionAt)
-  const actionDateStr = `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일 ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`
+  // UTC → 한국 시간(UTC+9) 변환
+  const date = new Date(new Date(actionAt).getTime() + 9 * 60 * 60 * 1000)
+  const actionDateStr = `${date.getUTCFullYear()}년 ${date.getUTCMonth() + 1}월 ${date.getUTCDate()}일 ${date.getUTCHours().toString().padStart(2, '0')}:${date.getUTCMinutes().toString().padStart(2, '0')}`
 
   return `<!DOCTYPE html>
 <html lang="ko"><head><meta charset="UTF-8"></head>
@@ -249,7 +250,7 @@ export async function POST(req: NextRequest) {
       if (!approverEmail) return NextResponse.json({ error: 'approverEmail 누락' }, { status: 400 })
 
       const { error } = await resend.emails.send({
-        from: '근무관리 시스템 <noreply@tekor.co.kr>',
+        from: '근무관리 결재요청 <noreply@tekor.co.kr>',
         to: [approverEmail],
         cc: ccEmails?.length ? ccEmails : undefined,
         subject: `[결재 요청] ${requesterName}님의 ${typeLabel} — ${firstDate}${subjectSuffix}`,
@@ -272,7 +273,7 @@ export async function POST(req: NextRequest) {
 
       const statusText = status === 'approved' ? '승인' : '반려'
       const { error } = await resend.emails.send({
-        from: '근무관리 시스템 <noreply@tekor.co.kr>',
+        from: '근무관리 결재요청 <noreply@tekor.co.kr>',
         to: [requesterEmail],
         cc: ccEmails?.length ? ccEmails : undefined,
         subject: `[결재 ${statusText}] ${requesterName}님의 ${typeLabel} — ${firstDate}${subjectSuffix}`,
