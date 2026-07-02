@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useRouter } from 'next/navigation'
 import { useAppBadge } from '../hooks/useAppBadge'
+import { usePushSubscription } from '../hooks/usePushSubscription'
 import ApprovalList from '../components/approval/ApprovalList'
 import ApprovalDetailModal from '../components/approval/ApprovalDetailModal'
 import RequestModal from '../components/approval/RequestModal'
@@ -161,6 +162,7 @@ export default function ApprovalPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             emailType: 'request',
+            approverId: selectedApprover,
             approverEmail: approverInfo.profiles.email,
             approverName,
             requesterName,
@@ -180,13 +182,18 @@ export default function ApprovalPage() {
   }
 
   const handleApprove = async (requestId: string, status: string) => {
-    const now = new Date().toISOString()
     const updateData: any = { status }
-    if (status === 'approved') updateData.approved_at = now
-    if (status === 'rejected') updateData.rejected_at = now
+    if (status === 'approved') updateData.approved_at = new Date().toISOString()
+    if (status === 'rejected') updateData.rejected_at = new Date().toISOString()
     if (status === 'pending') { updateData.approved_at = null; updateData.rejected_at = null }
 
-    await supabase.from('approval_requests').update(updateData).eq('id', requestId)
+    // DB에 저장 후 실제 저장된 시간값을 가져옴 → 앱과 메일이 동일한 값 사용
+    const { data: updated } = await supabase
+      .from('approval_requests')
+      .update(updateData)
+      .eq('id', requestId)
+      .select('approved_at, rejected_at')
+      .single()
 
     if (status === 'approved' || status === 'rejected') {
       const req = selectedRequest
@@ -194,6 +201,9 @@ export default function ApprovalPage() {
       const requesterName = req.requester?.name || req.requester?.email?.split('@')[0]
       const myProfile = await supabase.from('profiles').select('name').eq('id', user.id).single()
       const approverName = myProfile.data?.name || user.email?.split('@')[0]
+
+      // DB에서 반환된 실제 저장 시간 사용
+      const actionAt = status === 'approved' ? updated?.approved_at : updated?.rejected_at
 
       if (requesterEmail) {
         const mergedCc = Array.from(new Set([...existingCcList, ...ccList]))
@@ -204,6 +214,7 @@ export default function ApprovalPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             emailType: 'result',
+            requesterId: req.requester_id,
             requesterEmail,
             requesterName,
             approverName,
@@ -211,7 +222,7 @@ export default function ApprovalPage() {
             dateEntries: req.date_entries,
             memo: req.memo,
             status,
-            actionAt: now,
+            actionAt,
             ccEmails: mergedCc,
           }),
         }).catch((e) => console.error('결과 메일 발송 실패:', e))
@@ -268,6 +279,7 @@ export default function ApprovalPage() {
     (r) => r.approver_id === user?.id && r.status === 'pending'
   ).length
   useAppBadge(pendingCount)
+  usePushSubscription(user?.id)
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
