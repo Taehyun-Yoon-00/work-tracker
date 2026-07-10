@@ -11,12 +11,6 @@ export default function TopNav() {
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUserId(user?.id)
-    }
-    getUser()
-
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUserId(session?.user?.id)
     })
@@ -29,38 +23,51 @@ export default function TopNav() {
   useAppBadge(unreadCount)
 
   return (
-    <div className="fixed top-0 left-0 right-0 bg-white dark:bg-zinc-800 border-b border-gray-200 dark:border-zinc-700 z-40">
-      <div className="max-w-2xl mx-auto relative flex items-center justify-center h-14 px-4">
-        <img src="/logo/toray-logo.png" alt="TORAY" className="h-6 w-auto" />
+    <div className="fixed top-0 inset-x-0 h-11 bg-white dark:bg-zinc-800 border-b border-gray-200 dark:border-zinc-700 z-40">
+      <img
+        src="/logo/toray-logo.png"
+        alt="TORAY"
+        className="h-[90px] w-auto absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+      />
 
-        {userId && (
-          <button
-            onClick={() => {
-              if (!open) refetch()
-              setOpen((v) => !v)
-            }}
-            aria-label="알림"
-            className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-zinc-700 transition relative"
+      {userId && (
+        <button
+          onClick={() => {
+            if (!open) refetch()
+            setOpen((v) => !v)
+          }}
+          aria-label="알림"
+          className="absolute right-4 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-full text-gray-500 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-700 hover:text-gray-700 dark:hover:text-white transition"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="w-5 h-5"
           >
-            <span className="text-xl">🔔</span>
-            {unreadCount > 0 && (
-              <span className="absolute top-0.5 right-0.5 bg-red-500 text-white text-[10px] rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center font-bold">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
-          </button>
-        )}
+            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+          </svg>
+          {unreadCount > 0 && (
+            <span className="absolute top-0.5 right-0.5 bg-red-500 text-white text-[10px] rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center font-bold">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+        </button>
+      )}
 
-        {open && userId && (
-          <NotificationCenter
-            notifications={notifications}
-            loading={loading}
-            onMarkAsRead={markAsRead}
-            onMarkAllAsRead={markAllAsRead}
-            onClose={() => setOpen(false)}
-          />
-        )}
-      </div>
+      {open && userId && (
+        <NotificationCenter
+          notifications={notifications}
+          loading={loading}
+          onMarkAsRead={markAsRead}
+          onMarkAllAsRead={markAllAsRead}
+          onClose={() => setOpen(false)}
+        />
+      )}
     </div>
   )
 }

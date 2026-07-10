@@ -49,7 +49,7 @@ export default function NotificationCenter({
       {/* 바깥 영역 클릭 시 닫힘 */}
       <div className="fixed inset-0 z-40" onClick={onClose} />
 
-      <div className="absolute right-2 top-full mt-2 w-80 max-w-[90vw] max-h-[70vh] overflow-y-auto bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-lg z-50">
+      <div className="absolute right-4 top-full mt-2 w-80 max-w-[90vw] max-h-[70vh] overflow-y-auto bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-lg z-50">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-zinc-700">
           <h3 className="font-semibold text-sm dark:text-white">알림</h3>
           {hasUnread && (

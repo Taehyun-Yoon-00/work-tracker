@@ -28,6 +28,34 @@ export function useNotifications(userId: string | undefined) {
   useEffect(() => {
     if (!userId) return
     fetchNotifications()
+
+    // 실시간 반영: 다른 곳에서 알림이 새로 생기거나(INSERT) 읽음 처리되면(UPDATE) 바로 목록/뱃지에 반영
+    const channel = supabase
+      .channel(`notifications-${userId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `receiver_id=eq.${userId}` },
+        (payload) => {
+          const created = payload.new as Notification
+          setNotifications((prev) => {
+            if (prev.some((n) => n.id === created.id)) return prev
+            return [created, ...prev]
+          })
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'notifications', filter: `receiver_id=eq.${userId}` },
+        (payload) => {
+          const updated = payload.new as Notification
+          setNotifications((prev) => prev.map((n) => (n.id === updated.id ? updated : n)))
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId])
 
