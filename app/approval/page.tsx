@@ -3,7 +3,6 @@
 import { Suspense, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { usePushSubscription } from '../hooks/usePushSubscription'
 import ApprovalList from '../components/approval/ApprovalList'
 import ApprovalDetailModal from '../components/approval/ApprovalDetailModal'
 import RequestModal from '../components/approval/RequestModal'
@@ -283,8 +282,6 @@ function ApprovalPageContent() {
     const found = requests.find((r) => r.id === requestId)
     if (found) handleCardClick(found)
   }, [searchParams, requests])
-
-  usePushSubscription(user?.id)
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">

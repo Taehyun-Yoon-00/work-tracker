@@ -1,14 +1,11 @@
-// public/sw.js
-// 알림(Notification) Push 수신 + 앱 아이콘 뱃지 업데이트를 담당하는 Service Worker
-// 뱃지 값은 "읽지 않은 Notification 개수" 기준입니다.
-
-self.addEventListener('install', () => {
-  self.skipWaiting()
-})
-
-self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim())
-})
+// worker/index.js
+// next-pwa(GenerateSW)가 자동 생성하는 서비스워커에 합쳐지는 "커스텀" 부분입니다.
+// 여기 있는 코드는 next.config.ts의 customWorkerSrc 설정을 통해
+// 빌드 시 public/sw.js 안으로 함께 번들링됩니다.
+//
+// 주의: next build를 할 때마다 next-pwa가 public/sw.js 전체를 다시 생성하므로,
+// public/sw.js 파일을 직접 수정하면 다음 빌드에서 그 수정 내용이 사라집니다.
+// push/notificationclick 관련 로직은 반드시 이 파일에서 관리하세요.
 
 self.addEventListener('push', (event) => {
   if (!event.data) return
@@ -23,8 +20,8 @@ self.addEventListener('push', (event) => {
   const title = data.title || '근무관리 시스템'
   const options = {
     body: data.body || '',
-    icon: data.icon || '/icon-192.png',
-    badge: data.badge || '/icon-192.png',
+    icon: data.icon || '/icons/icon-192x192.png',
+    badge: data.badge || '/icons/icon-192x192.png',
     data: { url: data.url || '/approval' },
   }
 

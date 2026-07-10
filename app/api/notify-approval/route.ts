@@ -194,15 +194,16 @@ export async function POST(req: NextRequest) {
     if (emailType === 'request') {
       if (!approverEmail) return NextResponse.json({ error: 'approverEmail 누락' }, { status: 400 })
 
-      const { error } = await resend.emails.send({
+      const { error: emailError } = await resend.emails.send({
         from: '근무관리 결재요청 <noreply@tekor.co.kr>',
         to: [approverEmail],
         cc: ccEmails?.length ? ccEmails : undefined,
         subject: `[결재 요청] ${requesterName}님의 ${typeLabel} — ${firstDate}${subjectSuffix}`,
         html: buildRequestEmailHtml({ requesterName, approverName, type, dateEntries, memo }),
       })
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      if (emailError) console.error('결재 요청 메일 발송 실패:', emailError.message)
 
+      // 이메일 발송 성공 여부와 무관하게 앱 내 알림/푸시는 항상 발송
       // Notification 생성 → DB 저장 → Push 발송 → Badge 업데이트
       if (approverId) {
         await notifyAndPush(supabaseAdmin, {
@@ -214,19 +215,24 @@ export async function POST(req: NextRequest) {
         })
       }
 
+      if (emailError) {
+        return NextResponse.json({ success: true, emailError: emailError.message }, { status: 200 })
+      }
+
     } else if (emailType === 'result') {
       if (!requesterEmail) return NextResponse.json({ error: 'requesterEmail 누락' }, { status: 400 })
 
       const statusText = status === 'approved' ? '승인' : '반려'
-      const { error } = await resend.emails.send({
+      const { error: emailError } = await resend.emails.send({
         from: '근무관리 결재요청 <noreply@tekor.co.kr>',
         to: [requesterEmail],
         cc: ccEmails?.length ? ccEmails : undefined,
         subject: `[결재 ${statusText}] ${requesterName}님의 ${typeLabel} — ${firstDate}${subjectSuffix}`,
         html: buildApprovedEmailHtml({ requesterName, approverName, type, dateEntries, memo, status, actionAt }),
       })
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      if (emailError) console.error('결재 결과 메일 발송 실패:', emailError.message)
 
+      // 이메일 발송 성공 여부와 무관하게 앱 내 알림/푸시는 항상 발송
       // Notification 생성 → DB 저장 → Push 발송 → Badge 업데이트
       if (requesterId) {
         await notifyAndPush(supabaseAdmin, {
@@ -236,6 +242,10 @@ export async function POST(req: NextRequest) {
           title: `결재가 ${statusText}됐어요`,
           message: `${typeLabel} 요청 — ${firstDate}${subjectSuffix}`,
         })
+      }
+
+      if (emailError) {
+        return NextResponse.json({ success: true, emailError: emailError.message }, { status: 200 })
       }
     }
 

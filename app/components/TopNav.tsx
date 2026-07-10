@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAppBadge } from '../hooks/useAppBadge'
 import { useNotifications } from '../hooks/useNotifications'
+import { usePushSubscription } from '../hooks/usePushSubscription'
 import NotificationCenter from './notifications/NotificationCenter'
 
 export default function TopNav() {
@@ -21,6 +22,9 @@ export default function TopNav() {
 
   // App Badge는 "읽지 않은 Notification 개수" 기준
   useAppBadge(unreadCount)
+
+  // 어느 페이지에 있든(로그인 직후부터) 푸시 구독이 되도록 여기서 호출
+  usePushSubscription(userId)
 
   return (
     <div className="fixed top-0 inset-x-0 h-11 bg-white dark:bg-zinc-800 border-b border-gray-200 dark:border-zinc-700 z-40">
