@@ -150,10 +150,6 @@ export default function TeamPage() {
         {/* 헤더 */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold dark:text-white">팀 관리</h1>
-          <button onClick={handleLogout}
-            className="text-sm text-gray-500 dark:text-zinc-400 hover:underline">
-            로그아웃
-          </button>
         </div>
 
         {/* 팀 생성 */}

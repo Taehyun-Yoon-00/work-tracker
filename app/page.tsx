@@ -398,12 +398,6 @@ export default function Home() {
         {/* 헤더 */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold dark:text-white">근무시간 기록</h1>
-          <div className="flex gap-3">
-            <button onClick={handleLogout}
-              className="text-sm text-gray-500 dark:text-zinc-400 hover:underline">
-              로그아웃
-            </button>
-          </div>
         </div>
 
 
