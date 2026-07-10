@@ -53,8 +53,21 @@ export function useNotifications(userId: string | undefined) {
       )
       .subscribe()
 
+    // 모바일 브라우저는 화면이 꺼지거나 앱이 백그라운드로 가면
+    // Realtime WebSocket 연결을 강제로 끊어버림.
+    // 다시 포그라운드로 돌아왔을 때 최신 상태를 강제로 다시 받아온다.
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchNotifications()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleVisibilityChange)
+
     return () => {
       supabase.removeChannel(channel)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleVisibilityChange)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId])
