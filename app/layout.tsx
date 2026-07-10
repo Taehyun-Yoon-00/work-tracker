@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
+import TopNav from './components/TopNav'
 import BottomNav from './components/BottomNav'
 
 const geistSans = Geist({
@@ -38,7 +39,8 @@ export default function RootLayout({
         <meta name="theme-color" content="#3b82f6" />
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
-      <body className="min-h-full flex flex-col pb-20">
+      <body className="min-h-full flex flex-col pt-14 pb-20">
+        <TopNav />
         {children}
         <BottomNav />
       </body>

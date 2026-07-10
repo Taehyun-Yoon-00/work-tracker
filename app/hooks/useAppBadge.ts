@@ -1,11 +1,11 @@
 import { useEffect } from 'react'
 
-export function useAppBadge(pendingCount: number) {
+export function useAppBadge(count: number) {
   useEffect(() => {
     if (!('setAppBadge' in navigator)) return
 
-    if (pendingCount > 0) {
-      navigator.setAppBadge(pendingCount).catch(() => {})
+    if (count > 0) {
+      navigator.setAppBadge(count).catch(() => {})
     } else {
       navigator.clearAppBadge().catch(() => {})
     }
@@ -13,5 +13,5 @@ export function useAppBadge(pendingCount: number) {
     return () => {
       navigator.clearAppBadge().catch(() => {})
     }
-  }, [pendingCount])
+  }, [count])
 }

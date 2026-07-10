@@ -1,9 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { useRouter } from 'next/navigation'
-import { useAppBadge } from '../hooks/useAppBadge'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { usePushSubscription } from '../hooks/usePushSubscription'
 import ApprovalList from '../components/approval/ApprovalList'
 import ApprovalDetailModal from '../components/approval/ApprovalDetailModal'
@@ -25,8 +24,9 @@ function saveCcHistory(emails: string[]) {
   localStorage.setItem(CC_STORAGE_KEY, JSON.stringify(merged))
 }
 
-export default function ApprovalPage() {
+function ApprovalPageContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [user, setUser] = useState<any>(null)
   const [requests, setRequests] = useState<any[]>([])
   const [filterStatus, setFilterStatus] = useState<string>('all')
@@ -136,7 +136,7 @@ export default function ApprovalPage() {
     setLoading(true)
     setMessage('')
 
-    const { error } = await supabase.from('approval_requests').insert({
+    const { data: inserted, error } = await supabase.from('approval_requests').insert({
       requester_id: user.id,
       approver_id: selectedApprover,
       team_id: selectedTeamId,
@@ -146,7 +146,7 @@ export default function ApprovalPage() {
       date_entries: flattenedEntries,
       memo: (requestType === 'vacation' || requestType === 'holiday') ? memo : null,
       cc_emails: ccList.length > 0 ? ccList : null,
-    })
+    }).select('id').single()
 
     if (error) {
       setMessage('요청 실패: ' + error.message)
@@ -162,6 +162,7 @@ export default function ApprovalPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             emailType: 'request',
+            approvalId: inserted?.id,
             approverId: selectedApprover,
             approverEmail: approverInfo.profiles.email,
             approverName,
@@ -214,6 +215,7 @@ export default function ApprovalPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             emailType: 'result',
+            approvalId: requestId,
             requesterId: req.requester_id,
             requesterEmail,
             requesterName,
@@ -274,11 +276,14 @@ export default function ApprovalPage() {
     setDateGroups(updated)
   }
 
-  // 내가 결재권자인 대기 건수 → PWA 아이콘 뱃지
-  const pendingCount = requests.filter(
-    (r) => r.approver_id === user?.id && r.status === 'pending'
-  ).length
-  useAppBadge(pendingCount)
+  // 알림센터에서 특정 결재로 딥링크된 경우 해당 상세 모달을 자동으로 열어줌
+  useEffect(() => {
+    const requestId = searchParams.get('requestId')
+    if (!requestId || requests.length === 0) return
+    const found = requests.find((r) => r.id === requestId)
+    if (found) handleCardClick(found)
+  }, [searchParams, requests])
+
   usePushSubscription(user?.id)
 
   return (
@@ -360,5 +365,13 @@ export default function ApprovalPage() {
         + 결재 요청
       </button>
     </div>
+  )
+}
+
+export default function ApprovalPage() {
+  return (
+    <Suspense fallback={null}>
+      <ApprovalPageContent />
+    </Suspense>
   )
 }

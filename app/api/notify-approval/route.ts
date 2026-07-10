@@ -1,21 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
-import webpush from 'web-push'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '../../lib/supabaseAdmin'
+import { notifyAndPush } from '../../lib/notifications'
 
 const resend = new Resend(process.env.RESEND_API_KEY!)
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://work-tracker-ebon.vercel.app'
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
-webpush.setVapidDetails(
-  process.env.VAPID_MAILTO!,
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-)
 
 const TYPE_LABEL: Record<string, string> = {
   vacation: '휴가',
@@ -34,50 +23,6 @@ const VACATION_TYPE_LABEL: Record<string, string> = {
   morning: '오전반차',
   afternoon: '오후반차',
   special: '특휴/대휴',
-}
-
-// push 발송 (서버리스 함수 내부에서 직접 호출 - 자기 자신 fetch 불필요)
-async function sendPushToUser(userId: string, title: string, body: string, type: string) {
-  try {
-    const { data: subs } = await supabaseAdmin
-      .from('push_subscriptions')
-      .select('id, subscription')
-      .eq('user_id', userId)
-
-    if (!subs || subs.length === 0) return
-
-    const { count: pendingCount } = await supabaseAdmin
-      .from('approval_requests')
-      .select('id', { count: 'exact', head: true })
-      .eq('approver_id', userId)
-      .eq('status', 'pending')
-
-    const payload = JSON.stringify({
-      title,
-      body,
-      url: '/approval',
-      pendingCount: pendingCount ?? 0,
-    })
-
-    const staleSubIds: string[] = []
-    await Promise.all(
-      subs.map(async (s: any) => {
-        try {
-          await webpush.sendNotification(s.subscription, payload)
-        } catch (err: any) {
-          if (err?.statusCode === 404 || err?.statusCode === 410) {
-            staleSubIds.push(s.id)
-          }
-        }
-      })
-    )
-
-    if (staleSubIds.length > 0) {
-      await supabaseAdmin.from('push_subscriptions').delete().in('id', staleSubIds)
-    }
-  } catch (err) {
-    console.error('push 발송 실패:', err)
-  }
 }
 
 function formatDateEntries(type: string, dateEntries: { date: string; vacationType?: string }[]): string {
@@ -234,7 +179,7 @@ function buildApprovedEmailHtml({ requesterName, approverName, type, dateEntries
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { emailType = 'request', approverId, approverEmail, approverName, requesterId, requesterName, requesterEmail, type, dateEntries, memo, ccEmails, status, actionAt } = body
+    const { emailType = 'request', approvalId, approverId, approverEmail, approverName, requesterId, requesterName, requesterEmail, type, dateEntries, memo, ccEmails, status, actionAt } = body
 
     if (!type || !dateEntries?.length) {
       return NextResponse.json({ error: '필수 파라미터가 누락됐어요.' }, { status: 400 })
@@ -258,14 +203,15 @@ export async function POST(req: NextRequest) {
       })
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-      // 결재권자에게 push 알림 (직접 인라인 호출)
+      // Notification 생성 → DB 저장 → Push 발송 → Badge 업데이트
       if (approverId) {
-        await sendPushToUser(
-          approverId,
-          '결재 요청이 도착했어요',
-          `${requesterName}님의 ${typeLabel} 요청 — ${firstDate}${subjectSuffix}`,
-          type
-        )
+        await notifyAndPush(supabaseAdmin, {
+          receiverId: approverId,
+          approvalId,
+          type: 'REQUEST',
+          title: '결재 요청이 도착했어요',
+          message: `${requesterName}님의 ${typeLabel} 요청 — ${firstDate}${subjectSuffix}`,
+        })
       }
 
     } else if (emailType === 'result') {
@@ -281,14 +227,15 @@ export async function POST(req: NextRequest) {
       })
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-      // 요청자에게 push 알림 (직접 인라인 호출)
+      // Notification 생성 → DB 저장 → Push 발송 → Badge 업데이트
       if (requesterId) {
-        await sendPushToUser(
-          requesterId,
-          `결재가 ${statusText}됐어요`,
-          `${typeLabel} 요청 — ${firstDate}${subjectSuffix}`,
-          type
-        )
+        await notifyAndPush(supabaseAdmin, {
+          receiverId: requesterId,
+          approvalId,
+          type: status === 'approved' ? 'APPROVED' : 'REJECTED',
+          title: `결재가 ${statusText}됐어요`,
+          message: `${typeLabel} 요청 — ${firstDate}${subjectSuffix}`,
+        })
       }
     }
 

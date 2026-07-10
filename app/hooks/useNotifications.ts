@@ -1,0 +1,61 @@
+import { useCallback, useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase'
+import type { Notification } from '../lib/types'
+
+/**
+ * 로그인한 사용자의 Notification 목록/읽지 않은 개수를 관리하는 훅.
+ * - 최신순 목록
+ * - 읽지 않은 개수 (App Badge 기준)
+ * - 클릭 시 읽음 처리
+ */
+export function useNotifications(userId: string | undefined) {
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const fetchNotifications = async () => {
+    if (!userId) return
+    setLoading(true)
+    const { data } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('receiver_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(50)
+    if (data) setNotifications(data as Notification[])
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    if (!userId) return
+    fetchNotifications()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId])
+
+  const markAsRead = useCallback(async (notificationId: string) => {
+    if (!userId) return
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n))
+    )
+    await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('id', notificationId)
+      .eq('receiver_id', userId)
+  }, [userId])
+
+  const markAllAsRead = useCallback(async () => {
+    if (!userId) return
+    const unreadIds = notifications.filter((n) => !n.is_read).map((n) => n.id)
+    if (unreadIds.length === 0) return
+    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
+    await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('receiver_id', userId)
+      .in('id', unreadIds)
+  }, [userId, notifications])
+
+  const unreadCount = notifications.filter((n) => !n.is_read).length
+
+  return { notifications, unreadCount, loading, refetch: fetchNotifications, markAsRead, markAllAsRead }
+}

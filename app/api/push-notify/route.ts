@@ -1,17 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import webpush from 'web-push'
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
-webpush.setVapidDetails(
-  process.env.VAPID_MAILTO!,
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-)
+import { supabaseAdmin } from '../../lib/supabaseAdmin'
+import { sendPushToUser } from '../../lib/notifications'
 
 const TYPE_LABEL: Record<string, string> = {
   vacation: '휴가',
@@ -19,6 +8,9 @@ const TYPE_LABEL: Record<string, string> = {
   holiday: '휴일출근',
 }
 
+// 범용 push 발송 엔드포인트. 뱃지 값은 항상 "읽지 않은 Notification 개수" 기준입니다.
+// (이 엔드포인트는 Notification 행을 만들지 않으므로, Notification 생성이 필요한 흐름은
+//  notify-approval을 사용하세요.)
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
@@ -28,59 +20,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'userId 누락' }, { status: 400 })
     }
 
-    // 해당 유저의 모든 구독 가져오기
-    const { data: subs, error: subError } = await supabaseAdmin
-      .from('push_subscriptions')
-      .select('id, subscription')
-      .eq('user_id', userId)
-
-    if (subError) {
-      return NextResponse.json({ error: subError.message }, { status: 500 })
-    }
-
-    if (!subs || subs.length === 0) {
-      // 구독 정보가 없으면 조용히 종료 (push를 못 받을 뿐, 에러는 아님)
-      return NextResponse.json({ success: true, sent: 0 })
-    }
-
-    // 뱃지에 표시할 현재 pending 건수 계산 (해당 유저가 결재권자인 건)
-    const { count: pendingCount } = await supabaseAdmin
-      .from('approval_requests')
-      .select('id', { count: 'exact', head: true })
-      .eq('approver_id', userId)
-      .eq('status', 'pending')
-
-    const payload = JSON.stringify({
-      title: title || '근무관리 시스템',
-      body: message || (type ? `${TYPE_LABEL[type] ?? type} 결재 요청이 도착했어요.` : '새 알림이 도착했어요.'),
-      url: url || '/approval',
-      pendingCount: pendingCount ?? 0,
-    })
-
-    let sent = 0
-    const staleSubIds: string[] = []
-
-    await Promise.all(
-      subs.map(async (s) => {
-        try {
-          await webpush.sendNotification(s.subscription, payload)
-          sent++
-        } catch (err: any) {
-          // 만료되거나 무효화된 구독은 정리 대상으로 표시
-          if (err?.statusCode === 404 || err?.statusCode === 410) {
-            staleSubIds.push(s.id)
-          } else {
-            console.error('push 발송 실패:', err?.message || err)
-          }
-        }
-      })
+    await sendPushToUser(
+      supabaseAdmin,
+      userId,
+      title || '근무관리 시스템',
+      message || (type ? `${TYPE_LABEL[type] ?? type} 결재 요청이 도착했어요.` : '새 알림이 도착했어요.'),
+      url || '/approval'
     )
 
-    if (staleSubIds.length > 0) {
-      await supabaseAdmin.from('push_subscriptions').delete().in('id', staleSubIds)
-    }
-
-    return NextResponse.json({ success: true, sent })
+    return NextResponse.json({ success: true })
   } catch (err) {
     console.error('push-notify error:', err)
     return NextResponse.json({ error: '서버 오류가 발생했어요.' }, { status: 500 })
