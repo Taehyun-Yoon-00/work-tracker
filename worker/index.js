@@ -25,19 +25,22 @@ self.addEventListener('push', (event) => {
     data: { url: data.url || '/approval' },
   }
 
-  const tasks = [self.registration.showNotification(title, options)]
+  event.waitUntil(
+    (async () => {
+      // iOS(WebKit)는 앱이 완전히 종료된 상태에서 setAppBadge와 showNotification을
+      // 동시에(Promise.all) 호출하면 배지 반영이 누락되는 경우가 보고되어 있음.
+      // showNotification이 끝난 뒤 순차적으로 setAppBadge를 호출하도록 변경.
+      await self.registration.showNotification(title, options)
 
-  // unreadCount(읽지 않은 Notification 개수)가 함께 전달되면 앱 아이콘 뱃지도 갱신
-  // (Service Worker 안에는 navigator가 없으므로 self.registration.setAppBadge 사용)
-  if (typeof data.unreadCount === 'number') {
-    if (data.unreadCount > 0) {
-      tasks.push(self.registration.setAppBadge(data.unreadCount))
-    } else {
-      tasks.push(self.registration.clearAppBadge())
-    }
-  }
-
-  event.waitUntil(Promise.all(tasks))
+      if (typeof data.unreadCount === 'number') {
+        if (data.unreadCount > 0) {
+          await self.registration.setAppBadge(data.unreadCount)
+        } else {
+          await self.registration.clearAppBadge()
+        }
+      }
+    })()
+  )
 })
 
 self.addEventListener('notificationclick', (event) => {
