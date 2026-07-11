@@ -281,6 +281,9 @@ function ApprovalPageContent() {
     if (!requestId || requests.length === 0) return
     const found = requests.find((r) => r.id === requestId)
     if (found) handleCardClick(found)
+    // 한 번 연 뒤에는 URL에서 requestId를 지워서, requests가 다시 갱신될 때마다
+    // (승인/반려 후 refetch 등) 이 effect가 재실행돼 모달이 또 열리는 걸 방지
+    router.replace('/approval', { scroll: false })
   }, [searchParams, requests])
 
   return (
