@@ -196,13 +196,13 @@ export default function ApprovalDetailModal({
             <>
               <button
                 onClick={() => onEdit(selectedRequest)}
-                className="flex-1 bg-blue-500 text-white py-2 rounded-lg text-sm"
+                className="flex-1 bg-sky-400 text-white py-2 rounded-lg text-sm"
               >
                 수정
               </button>
               <button
                 onClick={() => onCancel(selectedRequest.id)}
-                className="flex-1 bg-red-500 text-white py-2 rounded-lg text-sm"
+                className="flex-1 bg-amber-400 text-white py-2 rounded-lg text-sm"
               >
                 취소
               </button>
