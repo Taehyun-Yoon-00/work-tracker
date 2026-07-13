@@ -16,6 +16,7 @@ interface DateGroup {
 interface RequestModalProps {
   step: number
   requestType: string
+  isEditing?: boolean
   dateGroups: DateGroup[]
   selectedTeamId: string
   selectedApprover: string
@@ -47,6 +48,7 @@ interface RequestModalProps {
 export default function RequestModal({
   step,
   requestType,
+  isEditing = false,
   dateGroups,
   selectedTeamId,
   selectedApprover,
@@ -84,7 +86,7 @@ export default function RequestModal({
     >
       <div className="bg-white dark:bg-zinc-800 rounded-2xl w-full max-w-md max-h-[90dvh] flex flex-col">
         <div className="flex justify-between items-center p-4 sm:p-6 pb-3 border-b dark:border-zinc-700">
-          <h3 className="font-semibold dark:text-white">결재 요청</h3>
+          <h3 className="font-semibold dark:text-white">{isEditing ? '결재 요청 수정' : '결재 요청'}</h3>
           <button onClick={onClose} className="text-gray-400 dark:text-zinc-500 text-lg">
             ✕
           </button>
@@ -123,12 +125,14 @@ export default function RequestModal({
           {/* Step 2: 상세 입력 */}
           {step === 2 && (
             <div>
-              <button
-                onClick={onBack}
-                className="text-xs text-gray-400 dark:text-zinc-500 mb-3"
-              >
-                ← 뒤로
-              </button>
+              {!isEditing && (
+                <button
+                  onClick={onBack}
+                  className="text-xs text-gray-400 dark:text-zinc-500 mb-3"
+                >
+                  ← 뒤로
+                </button>
+              )}
 
               {/* 선택된 유형 표시 */}
               <div className="mb-4">
@@ -348,7 +352,7 @@ export default function RequestModal({
               disabled={loading}
               className="w-full bg-blue-500 text-white py-2 rounded-lg text-sm disabled:opacity-50"
             >
-              {loading ? '요청 중...' : '결재 요청'}
+              {loading ? (isEditing ? '저장 중...' : '요청 중...') : (isEditing ? '수정 완료' : '결재 요청')}
             </button>
           </div>
         )}

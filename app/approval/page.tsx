@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { usePushSubscription } from '../hooks/usePushSubscription'
 import ApprovalList from '../components/approval/ApprovalList'
 import ApprovalDetailModal from '../components/approval/ApprovalDetailModal'
 import RequestModal from '../components/approval/RequestModal'
@@ -42,6 +43,7 @@ function ApprovalPageContent() {
   const [message, setMessage] = useState('')
   const [selectedRequest, setSelectedRequest] = useState<any>(null)
   const [memo, setMemo] = useState('')
+  const [editingRequestId, setEditingRequestId] = useState<string | null>(null)
 
   // CC 관련
   const [ccInput, setCcInput] = useState('')
@@ -134,6 +136,34 @@ function ApprovalPageContent() {
 
     setLoading(true)
     setMessage('')
+
+    if (editingRequestId) {
+      // 수정: pending 상태의 내 요청 내용만 갱신. 알림/메일은 보내지 않음
+      // (나중에 승인될 때 이미 최신 내용으로 메일이 나가므로 별도 연동 불필요)
+      const { error } = await supabase
+        .from('approval_requests')
+        .update({
+          approver_id: selectedApprover,
+          team_id: selectedTeamId,
+          date: flattenedEntries[0].date,
+          dates: flattenedEntries.map((e) => e.date),
+          date_entries: flattenedEntries,
+          memo: (requestType === 'vacation' || requestType === 'holiday') ? memo : null,
+          cc_emails: ccList.length > 0 ? ccList : null,
+        })
+        .eq('id', editingRequestId)
+        .eq('requester_id', user.id)
+        .eq('status', 'pending')
+
+      if (error) {
+        setMessage('수정 실패: ' + error.message)
+      } else {
+        resetModal()
+        fetchRequests(user.id)
+      }
+      setLoading(false)
+      return
+    }
 
     const { data: inserted, error } = await supabase.from('approval_requests').insert({
       requester_id: user.id,
@@ -237,6 +267,55 @@ function ApprovalPageContent() {
     fetchRequests(user.id)
   }
 
+  // pending 요청의 날짜/사유를 그룹 단위 편집 폼(dateGroups)으로 되돌림
+  const buildDateGroupsFromEntries = (entries: any[], type: string) => {
+    if (!entries || entries.length === 0) return []
+    if (type !== 'vacation') {
+      return [{ dates: entries.map((e: any) => e.date), vacationType: 'annual' }]
+    }
+    const map = new Map<string, string[]>()
+    entries.forEach((e: any) => {
+      const vt = e.vacationType || 'annual'
+      if (!map.has(vt)) map.set(vt, [])
+      map.get(vt)!.push(e.date)
+    })
+    return Array.from(map.entries()).map(([vacationType, dates]) => ({ vacationType, dates }))
+  }
+
+  const handleEditRequest = async (req: any) => {
+    setSelectedRequest(null)
+    setEditingRequestId(req.id)
+    setRequestType(req.type)
+    setDateGroups(buildDateGroupsFromEntries(req.date_entries, req.type))
+    setMemo(req.memo || '')
+    setCcList(req.cc_emails || [])
+    setCcInput('')
+
+    await fetchApprovers(req.team_id)
+    setSelectedApprover(req.approver_id)
+
+    setStep(2)
+    setMessage('')
+    setShowRequestModal(true)
+  }
+
+  const handleCancelRequest = async (requestId: string) => {
+    if (!confirm('이 요청을 취소할까요?')) return
+    // 취소는 알림/메일 없이 상태만 변경 (이력은 남김)
+    await supabase
+      .from('approval_requests')
+      .update({ status: 'cancelled' })
+      .eq('id', requestId)
+      .eq('requester_id', user.id)
+      .eq('status', 'pending')
+
+    setSelectedRequest(null)
+    setCcList([])
+    setCcInput('')
+    setExistingCcList([])
+    fetchRequests(user.id)
+  }
+
   const resetModal = () => {
     setShowRequestModal(false)
     setStep(1)
@@ -249,6 +328,7 @@ function ApprovalPageContent() {
     setMessage('')
     setCcList([])
     setCcInput('')
+    setEditingRequestId(null)
   }
 
   const handleCardClick = (req: any) => {
@@ -281,10 +361,9 @@ function ApprovalPageContent() {
     if (!requestId || requests.length === 0) return
     const found = requests.find((r) => r.id === requestId)
     if (found) handleCardClick(found)
-    // 한 번 연 뒤에는 URL에서 requestId를 지워서, requests가 다시 갱신될 때마다
-    // (승인/반려 후 refetch 등) 이 effect가 재실행돼 모달이 또 열리는 걸 방지
-    router.replace('/approval', { scroll: false })
   }, [searchParams, requests])
+
+  usePushSubscription(user?.id)
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
@@ -320,6 +399,8 @@ function ApprovalPageContent() {
               setExistingCcList(existingCcList.filter((e) => e !== email))
             }
             onApprove={handleApprove}
+            onEdit={handleEditRequest}
+            onCancel={handleCancelRequest}
             onClose={handleDetailClose}
           />
         )}
@@ -328,6 +409,7 @@ function ApprovalPageContent() {
           <RequestModal
             step={step}
             requestType={requestType}
+            isEditing={!!editingRequestId}
             dateGroups={dateGroups}
             selectedTeamId={selectedTeamId}
             selectedApprover={selectedApprover}
@@ -359,7 +441,7 @@ function ApprovalPageContent() {
       </div>
 
       <button
-        onClick={() => { setShowRequestModal(true); setStep(1); setMessage('') }}
+        onClick={() => { setEditingRequestId(null); setShowRequestModal(true); setStep(1); setMessage('') }}
         className="fixed bottom-24 right-4 bg-blue-500 text-white px-4 py-3 rounded-full shadow-lg z-40 text-sm font-medium"
       >
         + 결재 요청

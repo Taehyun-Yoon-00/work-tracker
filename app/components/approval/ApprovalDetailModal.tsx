@@ -28,6 +28,8 @@ interface ApprovalDetailModalProps {
   onRemoveCc: (email: string) => void
   onRemoveExistingCc: (email: string) => void
   onApprove: (requestId: string, status: string) => void
+  onEdit: (req: any) => void
+  onCancel: (requestId: string) => void
   onClose: () => void
 }
 
@@ -44,10 +46,14 @@ export default function ApprovalDetailModal({
   onRemoveCc,
   onRemoveExistingCc,
   onApprove,
+  onEdit,
+  onCancel,
   onClose,
 }: ApprovalDetailModalProps) {
   const type = typeLabel(selectedRequest.type)
   const isApprover = selectedRequest.approver_id === user?.id
+  const isRequester = selectedRequest.requester_id === user?.id
+  const canEditOrCancel = isRequester && selectedRequest.status === 'pending'
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -97,6 +103,9 @@ export default function ApprovalDetailModal({
             <p className="text-red-400 text-xs">
               반려일: {dayjs(selectedRequest.rejected_at).format('YYYY-MM-DD HH:mm')}
             </p>
+          )}
+          {selectedRequest.status === 'cancelled' && (
+            <p className="text-gray-400 text-xs">요청자가 취소한 요청이에요.</p>
           )}
 
           {/* CC 입력 (결재권자 + pending 상태일 때만) */}
@@ -183,6 +192,22 @@ export default function ApprovalDetailModal({
         </div>
 
         <div className="flex gap-2">
+          {canEditOrCancel && (
+            <>
+              <button
+                onClick={() => onEdit(selectedRequest)}
+                className="flex-1 bg-blue-500 text-white py-2 rounded-lg text-sm"
+              >
+                수정
+              </button>
+              <button
+                onClick={() => onCancel(selectedRequest.id)}
+                className="flex-1 bg-red-500 text-white py-2 rounded-lg text-sm"
+              >
+                취소
+              </button>
+            </>
+          )}
           {isApprover && (
             <>
               {selectedRequest.status === 'pending' && (

@@ -4,6 +4,7 @@ function statusLabel(status: string) {
   if (status === 'pending') return { text: '승인 대기중', color: 'text-yellow-500 bg-yellow-50' }
   if (status === 'approved') return { text: '승인', color: 'text-green-500 bg-green-50' }
   if (status === 'rejected') return { text: '반려', color: 'text-red-500 bg-red-50' }
+  if (status === 'cancelled') return { text: '취소됨', color: 'text-gray-400 bg-gray-100' }
   return { text: status, color: '' }
 }
 

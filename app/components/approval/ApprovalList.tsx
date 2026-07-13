@@ -34,6 +34,7 @@ export default function ApprovalList({
           { value: 'pending', label: '대기중' },
           { value: 'approved', label: '승인' },
           { value: 'rejected', label: '반려' },
+          { value: 'cancelled', label: '취소' },
         ].map(({ value, label }) => (
           <button
             key={value}
