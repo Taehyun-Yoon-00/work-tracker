@@ -1,12 +1,16 @@
 import ApprovalCard from './ApprovalCard'
+import DateRangeFilter from './DateRangeFilter'
 
 interface ApprovalListProps {
   requests: any[]
   userId: string
   filterStatus: string
   filterType: string
+  dateRangeStart: string
+  dateRangeEnd: string
   onFilterStatusChange: (value: string) => void
   onFilterTypeChange: (value: string) => void
+  onDateRangeChange: (start: string, end: string) => void
   onCardClick: (req: any) => void
 }
 
@@ -15,35 +19,48 @@ export default function ApprovalList({
   userId,
   filterStatus,
   filterType,
+  dateRangeStart,
+  dateRangeEnd,
   onFilterStatusChange,
   onFilterTypeChange,
+  onDateRangeChange,
   onCardClick,
 }: ApprovalListProps) {
   const filteredRequests = requests.filter((r) => {
-    const statusMatch = filterStatus === 'all' || r.status === filterStatus
+    const statusMatch =
+      filterStatus === 'all'
+        ? true
+        : filterStatus === 'mine'
+          ? r.requester_id === userId
+          : filterStatus === 'pending'
+            ? r.status === 'pending'
+            : filterStatus === 'completed'
+              ? ['approved', 'rejected', 'cancelled'].includes(r.status)
+              : true
     const typeMatch = filterType === 'all' || r.type === filterType
     return statusMatch && typeMatch
   })
 
   return (
     <>
+      {/* 기간 선택 */}
+      <DateRangeFilter startDate={dateRangeStart} endDate={dateRangeEnd} onApply={onDateRangeChange} />
+
       {/* 상태 필터 */}
       <div className="flex bg-gray-100 dark:bg-zinc-700 rounded-lg p-0.5 mb-2">
         {[
           { value: 'all', label: '전체' },
+          { value: 'mine', label: '내요청' },
           { value: 'pending', label: '대기중' },
-          { value: 'approved', label: '승인' },
-          { value: 'rejected', label: '반려' },
-          { value: 'cancelled', label: '취소' },
+          { value: 'completed', label: '완료' },
         ].map(({ value, label }) => (
           <button
             key={value}
             onClick={() => onFilterStatusChange(value)}
-            className={`flex-1 text-xs py-1.5 rounded-md transition ${
-              filterStatus === value
-                ? 'bg-white dark:bg-zinc-600 shadow text-blue-500 font-semibold'
-                : 'text-gray-500 dark:text-zinc-400'
-            }`}
+            className={`flex-1 text-xs py-1.5 rounded-md transition ${filterStatus === value
+              ? 'bg-white dark:bg-zinc-600 shadow text-blue-500 font-semibold'
+              : 'text-gray-500 dark:text-zinc-400'
+              }`}
           >
             {label}
           </button>

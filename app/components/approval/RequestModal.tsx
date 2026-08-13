@@ -220,6 +220,7 @@ export default function RequestModal({
                       }}
                       format="YYYY-MM-DD"
                       className="w-full text-sm"
+                      months={Array.from({ length: 12 }, (_, i) => String(i + 1))}
                     />
                     {group.dates.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-3">

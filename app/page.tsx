@@ -9,6 +9,8 @@ import dayjs from 'dayjs'
 import isoWeek from 'dayjs/plugin/isoWeek'
 dayjs.extend(isoWeek)
 import Holidays from 'date-holidays'
+import WorkMattersEditor, { MatterEntry, WorkCategory, emptyMatterEntry } from './components/worklog/WorkMattersEditor'
+import { recordMatterUsage } from './lib/matterHistory'
 
 const hd = new Holidays('KR')
 
@@ -20,6 +22,7 @@ export default function Home() {
   const [endTime, setEndTime] = useState('')
   const [breakMinutes, setBreakMinutes] = useState('60')
   const [memo, setMemo] = useState('')
+  const [matters, setMatters] = useState<MatterEntry[]>([emptyMatterEntry()])
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [weeklyLogs, setWeeklyLogs] = useState<any[]>([])
@@ -32,6 +35,7 @@ export default function Home() {
   const [remoteLoading, setRemoteLoading] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [monthlyVacations, setMonthlyVacations] = useState<any[]>([])
+  const [monthlyRemoteWorks, setMonthlyRemoteWorks] = useState<any[]>([])
   const [isNextDay, setIsNextDay] = useState(false)
   const [substituteHolidays, setSubstituteHolidays] = useState<string[]>([])
   const [viewedWeek, setViewedWeek] = useState<Date>(new Date())
@@ -50,6 +54,7 @@ export default function Home() {
     if (user) {
       fetchMonthlyLogs()
       fetchMonthlyVacations()
+      fetchMonthlyRemoteWorks()
       fetchMonthCommutePlans()
       fetchVacation(selectedDate)
       fetchDayLog(selectedDate)
@@ -106,6 +111,18 @@ export default function Home() {
     if (data) setMonthlyVacations(data)
   }
 
+  const fetchMonthlyRemoteWorks = async () => {
+    const startOfMonth = dayjs(selectedDate).startOf('month').format('YYYY-MM-DD')
+    const endOfMonth = dayjs(selectedDate).endOf('month').format('YYYY-MM-DD')
+    const { data } = await supabase
+      .from('remote_works')
+      .select('date')
+      .eq('user_id', user.id)
+      .gte('date', startOfMonth)
+      .lte('date', endOfMonth)
+    if (data) setMonthlyRemoteWorks(data)
+  }
+
   const fetchSubstituteHolidays = async () => {
     const { data } = await supabase
       .from('substitute_holidays')
@@ -125,6 +142,27 @@ export default function Home() {
   }
 
 
+  const fetchMattersFor = async (workLogId: string): Promise<MatterEntry[]> => {
+    const { data } = await supabase
+      .from('work_log_matters')
+      .select('*')
+      .eq('work_log_id', workLogId)
+      .order('sort_order', { ascending: true })
+
+    if (!data || data.length === 0) return [emptyMatterEntry()]
+    return data.map((m: any) => ({
+      key: m.id,
+      category: m.category as WorkCategory,
+      hours: String(m.hours),
+      matter: {
+        place: m.matter_place || '',
+        division: m.matter_division || '',
+        content: m.matter_content || '',
+        costCode: m.matter_cost_code || '',
+      },
+    }))
+  }
+
   const fetchDayLog = async (date: Date) => {
     const { data } = await supabase
       .from('work_logs')
@@ -140,6 +178,7 @@ export default function Home() {
       setMemo(data.memo || '')
       setIsLocked(true)
       setIsNextDay(data.is_next_day || false)
+      setMatters(await fetchMattersFor(data.id))
     } else {
       // 기록이 없으면 가장 최근에 "저장"한 기록을 기본값으로 채워줌
       let lastLog = null
@@ -171,12 +210,16 @@ export default function Home() {
         setBreakMinutes(String(lastLog.break_minutes))
         setMemo(lastLog.memo || '')
         setIsNextDay(lastLog.is_next_day || false)
+        // 안건 세부 내용은 이어서 쓰되, key/시간은 새 항목으로 취급(그대로 저장 안 되게)
+        const carried = await fetchMattersFor(lastLog.id)
+        setMatters(carried.map((m) => ({ ...m, key: Math.random().toString(36).slice(2) })))
       } else {
         setStartTime('')
         setEndTime('')
         setBreakMinutes('60')
         setMemo('')
         setIsNextDay(false)
+        setMatters([emptyMatterEntry()])
       }
       setIsLocked(false)
     }
@@ -216,6 +259,7 @@ export default function Home() {
       }, { onConflict: 'user_id,date' })
       setIsRemote(true)
     }
+    fetchMonthlyRemoteWorks()
     setRemoteLoading(false)
   }
 
@@ -235,32 +279,113 @@ export default function Home() {
         type,
       }, { onConflict: 'user_id,date' })
       setVacation(type)
+
+      // 연차를 선택하면 근무입력은 비활성화되고, 이미 저장된 근무기록이 있다면 자동으로 삭제한다
+      if (type === 'annual'||type === 'special') {
+        await supabase.from('work_logs')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('date', dayjs(selectedDate).format('YYYY-MM-DD'))
+        setStartTime('')
+        setEndTime('')
+        setBreakMinutes('60')
+        setMemo('')
+        setIsNextDay(false)
+        setMatters([emptyMatterEntry()])
+        setIsLocked(false)
+        setMessage('')
+        fetchWeeklyLogs()
+        fetchMonthlyLogs()
+      }
     }
     setVacationLoading(false)
   }
+  // 연차인 날은 근무입력을 아예 막는다 (저장되어 있어도 자동으로 지움)
+  const isAnnualVacation = vacation === 'annual'||vacation === 'special'
+  const workInputDisabled = isLocked || isAnnualVacation
+  const calcCurrentTotalHours = () => {
+    if (!startTime || !endTime) return 0
+    const start = dayjs(`2000-01-01 ${startTime}`)
+    const end = dayjs(`2000-01-0${isNextDay ? '2' : '1'} ${endTime}`)
+    const diff = end.diff(start, 'minute') - (parseInt(breakMinutes) || 0)
+    return Math.round((diff / 60) * 100) / 100
+  }
+
   const handleSave = async () => {
+    if (isAnnualVacation) {
+      setMessage('연차인 날은 근무 입력을 저장할 수 없어요.')
+      return
+    }
     if (!startTime || !endTime) {
       setMessage('출근/퇴근 시간을 입력해주세요.')
       return
     }
+    if (matters.length === 0) {
+      setMessage('안건을 1개 이상 추가해주세요.')
+      return
+    }
+    for (const m of matters) {
+      if (!m.hours || parseFloat(m.hours) <= 0) {
+        setMessage('모든 안건에 시간을 입력해주세요.')
+        return
+      }
+      if (m.category === '청구안건' && !m.matter.content && !m.matter.place) {
+        setMessage('청구 안건의 장소 또는 내용을 입력해주세요.')
+        return
+      }
+    }
+    const sumHours = matters.reduce((acc, m) => acc + (parseFloat(m.hours) || 0), 0)
+    const total = calcCurrentTotalHours()
+    if (Math.abs(total - sumHours) > 0.01) {
+      setMessage('안건별 시간 합계가 총 근무시간과 일치하지 않아요.')
+      return
+    }
+
     setLoading(true)
     setMessage('')
 
-    const { error } = await supabase.from('work_logs').upsert({
-      user_id: user.id,
-      date: dayjs(selectedDate).format('YYYY-MM-DD'),
-      start_time: startTime,
-      end_time: endTime,
-      break_minutes: parseInt(breakMinutes),
-      memo,
-      is_next_day: isNextDay,
-    }, { onConflict: 'user_id,date' })
+    const { data: savedLog, error } = await supabase
+      .from('work_logs')
+      .upsert({
+        user_id: user.id,
+        date: dayjs(selectedDate).format('YYYY-MM-DD'),
+        start_time: startTime,
+        end_time: endTime,
+        break_minutes: parseInt(breakMinutes),
+        memo,
+        is_next_day: isNextDay,
+      }, { onConflict: 'user_id,date' })
+      .select('id')
+      .single()
 
-    if (error) setMessage('저장 실패: ' + error.message)
-    else {
+    if (error || !savedLog) {
+      setMessage('저장 실패: ' + (error?.message || '알 수 없는 오류'))
+      setLoading(false)
+      return
+    }
+
+    // 기존 안건들을 지우고 지금 입력된 안건들로 교체
+    await supabase.from('work_log_matters').delete().eq('work_log_id', savedLog.id)
+    const { error: mattersError } = await supabase.from('work_log_matters').insert(
+      matters.map((m, idx) => ({
+        work_log_id: savedLog.id,
+        category: m.category,
+        hours: parseFloat(m.hours),
+        matter_place: m.category === '청구안건' ? m.matter.place || null : null,
+        matter_division: m.category === '청구안건' ? m.matter.division || null : null,
+        matter_content: m.category === '청구안건' ? m.matter.content || null : null,
+        matter_cost_code: m.category === '청구안건' ? m.matter.costCode || null : null,
+        sort_order: idx,
+      }))
+    )
+
+    if (mattersError) {
+      setMessage('저장 실패: ' + mattersError.message)
+    } else {
       setMessage('저장 완료!')
       setIsLocked(true)
       fetchWeeklyLogs()
+      matters.filter((m) => m.category === '청구안건').forEach((m) => recordMatterUsage(m.matter))
     }
     setLoading(false)
   }
@@ -277,6 +402,7 @@ export default function Home() {
     setBreakMinutes('60')
     setMemo('')
     setIsLocked(false)
+    setMatters([emptyMatterEntry()])
     setMessage('')
     fetchWeeklyLogs()
     fetchMonthlyLogs()
@@ -345,11 +471,22 @@ export default function Home() {
   const getTileContent = ({ date }: { date: Date }) => {
     const dateStr = dayjs(date).format('YYYY-MM-DD')
     const isToday = dateStr === dayjs().format('YYYY-MM-DD')
-    if (isToday) return null
+    const isRemoteOnDate = monthlyRemoteWorks.some((r) => r.date === dateStr)
+
+    // 원격근무 표시: 해당 날짜칸 왼쪽위에 작은 동그라미 (원격근무 버튼과 동일한 인디고 색)
+    const remoteDot = isRemoteOnDate ? (
+      <span
+        className="absolute top-0.5 left-0.5 w-1.5 h-1.5 rounded-full bg-indigo-500 pointer-events-none"
+        style={{ zIndex: 1 }}
+      />
+    ) : null
+
+    if (isToday) return remoteDot
 
     const vacationOnDate = monthlyVacations.find((v) => v.date === dateStr)
-    if (!vacationOnDate) return null
-    if (vacationOnDate.type !== 'morning' && vacationOnDate.type !== 'afternoon') return null
+    if (!vacationOnDate || (vacationOnDate.type !== 'morning' && vacationOnDate.type !== 'afternoon')) {
+      return remoteDot
+    }
 
     const hasLog = monthlyLogs.some((log) => log.date === dateStr)
     const isDark = typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -361,13 +498,16 @@ export default function Home() {
     const bottomRight = vacationOnDate.type === 'morning' ? workColor : vacationColor
 
     return (
-      <div
-        className="absolute inset-0 rounded-lg pointer-events-none"
-        style={{
-          background: `linear-gradient(to bottom right, ${topLeft} 49.5%, ${bottomRight} 50.5%)`,
-          zIndex: 0,
-        }}
-      />
+      <>
+        <div
+          className="absolute inset-0 rounded-lg pointer-events-none"
+          style={{
+            background: `linear-gradient(to bottom right, ${topLeft} 49.5%, ${bottomRight} 50.5%)`,
+            zIndex: 0,
+          }}
+        />
+        {remoteDot}
+      </>
     )
   }
   const calcHours = (log: any) => {
@@ -398,6 +538,12 @@ export default function Home() {
         {/* 헤더 */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold dark:text-white">근무시간 기록</h1>
+          <div className="flex gap-3">
+            <button onClick={handleLogout}
+              className="text-sm text-gray-500 dark:text-zinc-400 hover:underline">
+              로그아웃
+            </button>
+          </div>
         </div>
 
 
@@ -466,7 +612,7 @@ export default function Home() {
             <h2 className="font-semibold dark:text-white">
               {dayjs(selectedDate).format('YYYY년 MM월 DD일')} 근무 입력
             </h2>
-            {isLocked && (
+            {isLocked && !isAnnualVacation && (
               <div className="flex gap-2">
                 <button
                   onClick={() => setIsLocked(false)}
@@ -482,6 +628,11 @@ export default function Home() {
               </div>
             )}
           </div>
+          {isAnnualVacation && (
+            <p className="text-xs text-orange-500 mb-3">
+              연차인 날은 근무 입력을 할 수 없어요. 저장된 근무기록이 있었다면 자동으로 삭제됐어요.
+            </p>
+          )}
           <div className="flex gap-2 mb-2">
             <div className="flex gap-20 mb-2">
               <div className="flex-1">
@@ -490,8 +641,8 @@ export default function Home() {
                   <select
                     value={startTime ? startTime.split(':')[0] : ''}
                     onChange={(e) => setStartTime(`${e.target.value}:${startTime ? startTime.split(':')[1] : '00'}`)}
-                    disabled={isLocked}
-                    className={`flex-1 border rounded-lg px-2 py-2 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}>
+                    disabled={workInputDisabled}
+                    className={`flex-1 border rounded-lg px-2 py-2 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${workInputDisabled ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}>
                     <option value="">시</option>
                     {Array.from({ length: 24 }, (_, i) => (
                       <option key={i} value={String(i).padStart(2, '0')}>
@@ -503,8 +654,8 @@ export default function Home() {
                   <select
                     value={startTime ? startTime.split(':')[1] : ''}
                     onChange={(e) => setStartTime(`${startTime ? startTime.split(':')[0] : '00'}:${e.target.value}`)}
-                    disabled={isLocked}
-                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}>
+                    disabled={workInputDisabled}
+                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${workInputDisabled ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}>
                     <option value="">분</option>
                     <option value="00">00</option>
                     <option value="15">15</option>
@@ -520,8 +671,8 @@ export default function Home() {
                   <select
                     value={endTime ? endTime.split(':')[0] : ''}
                     onChange={(e) => setEndTime(`${e.target.value}:${endTime ? endTime.split(':')[1] : '00'}`)}
-                    disabled={isLocked}
-                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}>
+                    disabled={workInputDisabled}
+                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${workInputDisabled ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}>
                     <option value="">시</option>
                     {Array.from({ length: 24 }, (_, i) => (
                       <option key={i} value={String(i).padStart(2, '0')}>
@@ -533,15 +684,15 @@ export default function Home() {
                   <select
                     value={endTime ? endTime.split(':')[1] : ''}
                     onChange={(e) => setEndTime(`${endTime ? endTime.split(':')[0] : '00'}:${e.target.value}`)}
-                    disabled={isLocked}
-                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}>
+                    disabled={workInputDisabled}
+                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${workInputDisabled ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}>
                     <option value="">분</option>
                     <option value="00">00</option>
                     <option value="15">15</option>
                     <option value="30">30</option>
                     <option value="45">45</option>
                   </select>
-                  {!isLocked && (
+                  {!workInputDisabled && (
                     <button
                       onClick={() => setIsNextDay(!isNextDay)}
                       className={`text-[12px] px-1.5 py-1 rounded-lg border transition shrink-0 ${isNextDay
@@ -558,24 +709,30 @@ export default function Home() {
               </div>
             </div>
           </div>
+          <WorkMattersEditor
+            entries={matters}
+            onChange={setMatters}
+            totalHours={calcCurrentTotalHours()}
+            disabled={workInputDisabled}
+          />
           <div className="mb-2">
             <label className="text-sm text-gray-500 dark:text-zinc-400">휴게시간 (분)</label>
             <input type="number" value={breakMinutes}
               onChange={(e) => setBreakMinutes(e.target.value)}
-              disabled={isLocked}
-              className={`w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''
+              disabled={workInputDisabled}
+              className={`w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${workInputDisabled ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''
                 }`} />
           </div>
           <div className="mb-3">
             <label className="text-sm text-gray-500 dark:text-zinc-400">메모</label>
             <input type="text" value={memo}
               onChange={(e) => setMemo(e.target.value)}
-              disabled={isLocked}
-              className={`w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''
+              disabled={workInputDisabled}
+              className={`w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${workInputDisabled ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''
                 }`} />
           </div>
           {message && <p className="text-sm text-center text-blue-500 mb-2">{message}</p>}
-          {!isLocked && (
+          {!workInputDisabled && (
             <button onClick={handleSave} disabled={loading}
               className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50">
               {loading ? '저장 중...' : '저장'}

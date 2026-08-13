@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
+import dayjs from 'dayjs'
 import { usePushSubscription } from '../hooks/usePushSubscription'
 import ApprovalList from '../components/approval/ApprovalList'
 import ApprovalDetailModal from '../components/approval/ApprovalDetailModal'
@@ -31,6 +32,8 @@ function ApprovalPageContent() {
   const [requests, setRequests] = useState<any[]>([])
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterType, setFilterType] = useState<string>('all')
+  const [dateRangeStart, setDateRangeStart] = useState<string>(dayjs().startOf('month').format('YYYY-MM-DD'))
+  const [dateRangeEnd, setDateRangeEnd] = useState<string>(dayjs().endOf('month').format('YYYY-MM-DD'))
   const [showRequestModal, setShowRequestModal] = useState(false)
   const [step, setStep] = useState(1)
   const [requestType, setRequestType] = useState<string>('')
@@ -57,13 +60,13 @@ function ApprovalPageContent() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
       setUser(user)
-      fetchRequests(user.id)
+      fetchRequests(user.id, dateRangeStart, dateRangeEnd)
       fetchMyTeams(user.id)
     }
     getUser()
   }, [])
 
-  const fetchRequests = async (userId: string) => {
+  const fetchRequests = async (userId: string, rangeStart: string, rangeEnd: string) => {
     const { data: myTeamData } = await supabase
       .from('team_members')
       .select('team_id')
@@ -77,8 +80,16 @@ function ApprovalPageContent() {
       .from('approval_requests')
       .select(`*, requester:profiles!approval_requests_requester_id_fkey(name,email), approver:profiles!approval_requests_approver_id_fkey(name,email), teams(name)`)
       .or(orConditions.join(','))
+      .gte('created_at', dayjs(rangeStart).startOf('day').toISOString())
+      .lte('created_at', dayjs(rangeEnd).endOf('day').toISOString())
       .order('created_at', { ascending: false })
     if (data) setRequests(data)
+  }
+
+  const handleDateRangeChange = (start: string, end: string) => {
+    setDateRangeStart(start)
+    setDateRangeEnd(end)
+    if (user) fetchRequests(user.id, start, end)
   }
 
   const fetchMyTeams = async (userId: string) => {
@@ -159,7 +170,7 @@ function ApprovalPageContent() {
         setMessage('수정 실패: ' + error.message)
       } else {
         resetModal()
-        fetchRequests(user.id)
+        fetchRequests(user.id, dateRangeStart, dateRangeEnd)
       }
       setLoading(false)
       return
@@ -206,7 +217,7 @@ function ApprovalPageContent() {
         if (ccList.length > 0) saveCcHistory(ccList)
       }
       resetModal()
-      fetchRequests(user.id)
+      fetchRequests(user.id, dateRangeStart, dateRangeEnd)
     }
     setLoading(false)
   }
@@ -264,7 +275,7 @@ function ApprovalPageContent() {
     setCcList([])
     setCcInput('')
     setExistingCcList([])
-    fetchRequests(user.id)
+    fetchRequests(user.id, dateRangeStart, dateRangeEnd)
   }
 
   // pending 요청의 날짜/사유를 그룹 단위 편집 폼(dateGroups)으로 되돌림
@@ -313,7 +324,97 @@ function ApprovalPageContent() {
     setCcList([])
     setCcInput('')
     setExistingCcList([])
-    fetchRequests(user.id)
+    fetchRequests(user.id, dateRangeStart, dateRangeEnd)
+  }
+
+  // 요청자: 이미 승인된 건에 대한 취소 요청
+  const handleRequestCancelApproval = async (requestId: string) => {
+    if (!confirm('이미 승인된 건이에요. 취소를 요청할까요?')) return
+
+    await supabase
+      .from('approval_requests')
+      .update({ cancel_requested: true, cancel_requested_at: new Date().toISOString() })
+      .eq('id', requestId)
+      .eq('requester_id', user.id)
+      .eq('status', 'approved')
+
+    const req = selectedRequest
+    const approverEmail = req?.approver?.email
+    if (approverEmail) {
+      const myProfile = await supabase.from('profiles').select('name').eq('id', user.id).single()
+      const requesterName = myProfile.data?.name || user.email?.split('@')[0] || '팀원'
+      const approverName = req.approver?.name || req.approver?.email?.split('@')[0]
+
+      fetch('/api/notify-approval', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          emailType: 'cancel_request',
+          approvalId: requestId,
+          approverId: req.approver_id,
+          approverEmail,
+          approverName,
+          requesterName,
+          type: req.type,
+          dateEntries: req.date_entries,
+        }),
+      }).catch((e) => console.error('취소 요청 메일 발송 실패:', e))
+    }
+
+    setSelectedRequest(null)
+    setCcList([])
+    setCcInput('')
+    setExistingCcList([])
+    fetchRequests(user.id, dateRangeStart, dateRangeEnd)
+  }
+
+  // 결재권자: 취소 요청을 승인(=건을 취소 처리)하거나 거절
+  const handleResolveCancelRequest = async (requestId: string, approve: boolean) => {
+    const confirmMsg = approve ? '취소 요청을 승인할까요? 이 건은 취소 처리돼요.' : '취소 요청을 거절할까요?'
+    if (!confirm(confirmMsg)) return
+
+    const updateData: any = { cancel_requested: false }
+    if (approve) {
+      updateData.status = 'cancelled'
+      updateData.cancelled_at = new Date().toISOString()
+    }
+
+    await supabase
+      .from('approval_requests')
+      .update(updateData)
+      .eq('id', requestId)
+      .eq('approver_id', user.id)
+      .eq('status', 'approved')
+
+    const req = selectedRequest
+    const requesterEmail = req?.requester?.email
+    if (requesterEmail) {
+      const myProfile = await supabase.from('profiles').select('name').eq('id', user.id).single()
+      const approverName = myProfile.data?.name || user.email?.split('@')[0]
+      const requesterName = req.requester?.name || req.requester?.email?.split('@')[0]
+
+      fetch('/api/notify-approval', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          emailType: 'cancel_result',
+          approvalId: requestId,
+          requesterId: req.requester_id,
+          requesterEmail,
+          requesterName,
+          approverName,
+          type: req.type,
+          dateEntries: req.date_entries,
+          cancelApproved: approve,
+        }),
+      }).catch((e) => console.error('취소 요청 결과 메일 발송 실패:', e))
+    }
+
+    setSelectedRequest(null)
+    setCcList([])
+    setCcInput('')
+    setExistingCcList([])
+    fetchRequests(user.id, dateRangeStart, dateRangeEnd)
   }
 
   const resetModal = () => {
@@ -378,8 +479,11 @@ function ApprovalPageContent() {
           userId={user?.id ?? ''}
           filterStatus={filterStatus}
           filterType={filterType}
+          dateRangeStart={dateRangeStart}
+          dateRangeEnd={dateRangeEnd}
           onFilterStatusChange={setFilterStatus}
           onFilterTypeChange={setFilterType}
+          onDateRangeChange={handleDateRangeChange}
           onCardClick={handleCardClick}
         />
 
@@ -401,6 +505,8 @@ function ApprovalPageContent() {
             onApprove={handleApprove}
             onEdit={handleEditRequest}
             onCancel={handleCancelRequest}
+            onRequestCancelApproval={handleRequestCancelApproval}
+            onResolveCancelRequest={handleResolveCancelRequest}
             onClose={handleDetailClose}
           />
         )}

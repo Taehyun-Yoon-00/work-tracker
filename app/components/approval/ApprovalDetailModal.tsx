@@ -30,6 +30,8 @@ interface ApprovalDetailModalProps {
   onApprove: (requestId: string, status: string) => void
   onEdit: (req: any) => void
   onCancel: (requestId: string) => void
+  onRequestCancelApproval: (requestId: string) => void
+  onResolveCancelRequest: (requestId: string, approve: boolean) => void
   onClose: () => void
 }
 
@@ -48,12 +50,15 @@ export default function ApprovalDetailModal({
   onApprove,
   onEdit,
   onCancel,
+  onRequestCancelApproval,
+  onResolveCancelRequest,
   onClose,
 }: ApprovalDetailModalProps) {
   const type = typeLabel(selectedRequest.type)
   const isApprover = selectedRequest.approver_id === user?.id
   const isRequester = selectedRequest.requester_id === user?.id
   const canEditOrCancel = isRequester && selectedRequest.status === 'pending'
+  const cancelRequested = !!selectedRequest.cancel_requested
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -106,6 +111,13 @@ export default function ApprovalDetailModal({
           )}
           {selectedRequest.status === 'cancelled' && (
             <p className="text-gray-400 text-xs">요청자가 취소한 요청이에요.</p>
+          )}
+          {selectedRequest.status === 'approved' && cancelRequested && (
+            <p className="text-amber-500 text-xs">
+              {isRequester
+                ? '승인 취소를 요청했어요. 결재권자의 처리를 기다리고 있어요.'
+                : '요청자가 이미 승인된 건에 대해 취소를 요청했어요.'}
+            </p>
           )}
 
           {/* CC 입력 (결재권자 + pending 상태일 때만) */}
@@ -191,65 +203,89 @@ export default function ApprovalDetailModal({
           )}
         </div>
 
-        <div className="flex gap-2">
-          {canEditOrCancel && (
-            <>
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
+            {canEditOrCancel && (
+              <>
+                <button
+                  onClick={() => onEdit(selectedRequest)}
+                  className="flex-1 bg-sky-400 text-white py-2 rounded-lg text-sm"
+                >
+                  수정
+                </button>
+                <button
+                  onClick={() => onCancel(selectedRequest.id)}
+                  className="flex-1 bg-amber-400 text-white py-2 rounded-lg text-sm"
+                >
+                  취소
+                </button>
+              </>
+            )}
+
+            {/* 요청자: 이미 승인된 건에 대한 취소 요청 */}
+            {isRequester && selectedRequest.status === 'approved' && !cancelRequested && (
               <button
-                onClick={() => onEdit(selectedRequest)}
-                className="flex-1 bg-sky-400 text-white py-2 rounded-lg text-sm"
-              >
-                수정
-              </button>
-              <button
-                onClick={() => onCancel(selectedRequest.id)}
+                onClick={() => onRequestCancelApproval(selectedRequest.id)}
                 className="flex-1 bg-amber-400 text-white py-2 rounded-lg text-sm"
               >
-                취소
+                취소 요청
               </button>
-            </>
-          )}
-          {isApprover && (
-            <>
-              {selectedRequest.status === 'pending' && (
-                <>
+            )}
+
+            {isApprover && (
+              <>
+                {selectedRequest.status === 'pending' && (
+                  <>
+                    <button
+                      onClick={() => onApprove(selectedRequest.id, 'approved')}
+                      className="flex-1 bg-green-500 text-white py-2 rounded-lg text-sm"
+                    >
+                      승인
+                    </button>
+                    <button
+                      onClick={() => onApprove(selectedRequest.id, 'rejected')}
+                      className="flex-1 bg-red-500 text-white py-2 rounded-lg text-sm"
+                    >
+                      반려
+                    </button>
+                  </>
+                )}
+                {selectedRequest.status === 'approved' && (
                   <button
-                    onClick={() => onApprove(selectedRequest.id, 'approved')}
-                    className="flex-1 bg-green-500 text-white py-2 rounded-lg text-sm"
+                    onClick={() => onResolveCancelRequest(selectedRequest.id, true)}
+                    disabled={!cancelRequested}
+                    className="flex-1 bg-yellow-500 text-white py-2 rounded-lg text-sm disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    승인
+                    승인 취소
                   </button>
+                )}
+                {selectedRequest.status === 'rejected' && (
                   <button
-                    onClick={() => onApprove(selectedRequest.id, 'rejected')}
-                    className="flex-1 bg-red-500 text-white py-2 rounded-lg text-sm"
+                    onClick={() => onApprove(selectedRequest.id, 'pending')}
+                    className="flex-1 bg-yellow-500 text-white py-2 rounded-lg text-sm"
                   >
-                    반려
+                    반려 취소
                   </button>
-                </>
-              )}
-              {selectedRequest.status === 'approved' && (
-                <button
-                  onClick={() => onApprove(selectedRequest.id, 'pending')}
-                  className="flex-1 bg-yellow-500 text-white py-2 rounded-lg text-sm"
-                >
-                  승인 취소
-                </button>
-              )}
-              {selectedRequest.status === 'rejected' && (
-                <button
-                  onClick={() => onApprove(selectedRequest.id, 'pending')}
-                  className="flex-1 bg-yellow-500 text-white py-2 rounded-lg text-sm"
-                >
-                  반려 취소
-                </button>
-              )}
-            </>
+                )}
+              </>
+            )}
+            <button
+              onClick={onClose}
+              className="flex-1 bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300 py-2 rounded-lg text-sm"
+            >
+              닫기
+            </button>
+          </div>
+
+          {/* 결재권자: 취소 요청이 들어온 경우 거절 옵션 제공 */}
+          {isApprover && selectedRequest.status === 'approved' && cancelRequested && (
+            <button
+              onClick={() => onResolveCancelRequest(selectedRequest.id, false)}
+              className="w-full text-gray-400 dark:text-zinc-500 text-xs py-1 hover:text-gray-600 dark:hover:text-zinc-300"
+            >
+              취소 요청 거절하기
+            </button>
           )}
-          <button
-            onClick={onClose}
-            className="flex-1 bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300 py-2 rounded-lg text-sm"
-          >
-            닫기
-          </button>
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-export type NotificationType = 'REQUEST' | 'APPROVED' | 'REJECTED'
+export type NotificationType = 'REQUEST' | 'APPROVED' | 'REJECTED' | 'CANCEL_REQUEST' | 'CANCELLED'
 
 export interface Notification {
   id: string

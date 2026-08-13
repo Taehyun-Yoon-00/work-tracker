@@ -6,10 +6,12 @@ import { useAppBadge } from '../hooks/useAppBadge'
 import { useNotifications } from '../hooks/useNotifications'
 import { usePushSubscription } from '../hooks/usePushSubscription'
 import NotificationCenter from './notifications/NotificationCenter'
+import MenuDrawer from './MenuDrawer'
 
 export default function TopNav() {
   const [userId, setUserId] = useState<string | undefined>(undefined)
   const [open, setOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -28,6 +30,28 @@ export default function TopNav() {
 
   return (
     <div className="fixed top-0 inset-x-0 h-11 bg-white dark:bg-zinc-800 border-b border-gray-200 dark:border-zinc-700 z-40">
+      {userId && (
+        <button
+          onClick={() => setMenuOpen(true)}
+          aria-label="메뉴 열기"
+          className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-full text-gray-500 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-700 hover:text-gray-700 dark:hover:text-white transition"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="w-5 h-5"
+          >
+            <path d="M4 6h16" />
+            <path d="M4 12h16" />
+            <path d="M4 18h16" />
+          </svg>
+        </button>
+      )}
+
       <img
         src="/logo/toray-logo.png"
         alt="TORAY"
@@ -72,6 +96,8 @@ export default function TopNav() {
           onClose={() => setOpen(false)}
         />
       )}
+
+      {userId && <MenuDrawer open={menuOpen} onClose={() => setMenuOpen(false)} />}
     </div>
   )
 }

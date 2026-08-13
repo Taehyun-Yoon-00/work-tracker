@@ -50,6 +50,11 @@ export default function ApprovalCard({ req, userId, onClick }: ApprovalCardProps
                 내 요청
               </span>
             )}
+            {req.status === 'approved' && req.cancel_requested && (
+              <span className="text-xs bg-amber-50 text-amber-500 px-2 py-0.5 rounded-full">
+                취소 요청됨
+              </span>
+            )}
           </div>
           <p className="text-xs text-gray-400 dark:text-zinc-500">
             {req.dates && req.dates.length > 1

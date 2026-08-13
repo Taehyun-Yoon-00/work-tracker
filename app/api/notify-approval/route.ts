@@ -176,6 +176,120 @@ function buildApprovedEmailHtml({ requesterName, approverName, type, dateEntries
 </body></html>`
 }
 
+function buildCancelRequestEmailHtml({ requesterName, approverName, type, dateEntries }: {
+  requesterName: string
+  approverName: string
+  type: string
+  dateEntries: { date: string; vacationType?: string }[]
+}): string {
+  const typeLabel = TYPE_LABEL[type] ?? type
+  const typeColor = TYPE_COLOR[type] ?? { bg: '#f3f4f6', text: '#374151' }
+  const dateRows = formatDateEntries(type, dateEntries)
+    .split('\n')
+    .map((d) => `<li style="margin:4px 0;color:#374151;">${d}</li>`)
+    .join('')
+
+  return `<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:480px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);">
+        <tr><td style="background:#f59e0b;padding:28px 32px;">
+          <p style="margin:0;color:#fef3c7;font-size:13px;">근무관리 시스템</p>
+          <h1 style="margin:8px 0 0;color:#ffffff;font-size:22px;font-weight:700;">승인 취소 요청이 도착했어요</h1>
+        </td></tr>
+        <tr><td style="padding:32px;">
+          <p style="margin:0 0 24px;color:#6b7280;font-size:15px;line-height:1.6;">
+            <strong style="color:#111827;">${approverName}</strong>님, <strong style="color:#111827;">${requesterName}</strong>님이 이미 승인된 건에 대해 취소를 요청했어요.
+          </p>
+          <table width="100%" style="background:#f9fafb;border-radius:12px;margin-bottom:24px;"><tr><td style="padding:20px;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="padding:6px 0;width:80px;color:#9ca3af;font-size:13px;">유형</td>
+                <td style="padding:6px 0;">
+                  <span style="background:${typeColor.bg};color:${typeColor.text};padding:3px 10px;border-radius:20px;font-size:13px;font-weight:600;">${typeLabel}</span>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:6px 0;vertical-align:top;color:#9ca3af;font-size:13px;">날짜</td>
+                <td style="padding:6px 0;"><ul style="margin:0;padding-left:16px;">${dateRows}</ul></td>
+              </tr>
+            </table>
+          </td></tr></table>
+          <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+            <a href="${APP_URL}/approval" style="display:inline-block;background:#f59e0b;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:10px;font-size:15px;font-weight:600;">확인하러 가기 →</a>
+          </td></tr></table>
+        </td></tr>
+        <tr><td style="padding:20px 32px;border-top:1px solid #f3f4f6;text-align:center;">
+          <p style="margin:0;color:#9ca3af;font-size:12px;">근무관리 시스템 · 이 메일은 자동 발송되었습니다</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`
+}
+
+function buildCancelResultEmailHtml({ requesterName, approverName, type, dateEntries, approved }: {
+  requesterName: string
+  approverName: string
+  type: string
+  dateEntries: { date: string; vacationType?: string }[]
+  approved: boolean
+}): string {
+  const typeLabel = TYPE_LABEL[type] ?? type
+  const typeColor = TYPE_COLOR[type] ?? { bg: '#f3f4f6', text: '#374151' }
+  const dateRows = formatDateEntries(type, dateEntries)
+    .split('\n')
+    .map((d) => `<li style="margin:4px 0;color:#374151;">${d}</li>`)
+    .join('')
+  const headerBg = approved ? '#6b7280' : '#3b82f6'
+  const title = approved ? '승인이 취소됐어요' : '승인 취소 요청이 거절됐어요'
+  const bodyText = approved
+    ? `<strong style="color:#111827;">${approverName}</strong>님이 취소 요청을 승인해서 건이 취소 처리됐어요.`
+    : `<strong style="color:#111827;">${approverName}</strong>님이 취소 요청을 거절했어요. 기존 승인 상태가 유지돼요.`
+
+  return `<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:480px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);">
+        <tr><td style="background:${headerBg};padding:28px 32px;">
+          <p style="margin:0;color:#ffffff;opacity:0.8;font-size:13px;">근무관리 시스템</p>
+          <h1 style="margin:8px 0 0;color:#ffffff;font-size:22px;font-weight:700;">${title}</h1>
+        </td></tr>
+        <tr><td style="padding:32px;">
+          <p style="margin:0 0 24px;color:#6b7280;font-size:15px;line-height:1.6;">
+            <strong style="color:#111827;">${requesterName}</strong>님, ${bodyText}
+          </p>
+          <table width="100%" style="background:#f9fafb;border-radius:12px;margin-bottom:24px;"><tr><td style="padding:20px;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="padding:6px 0;width:80px;color:#9ca3af;font-size:13px;">유형</td>
+                <td style="padding:6px 0;">
+                  <span style="background:${typeColor.bg};color:${typeColor.text};padding:3px 10px;border-radius:20px;font-size:13px;font-weight:600;">${typeLabel}</span>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:6px 0;vertical-align:top;color:#9ca3af;font-size:13px;">날짜</td>
+                <td style="padding:6px 0;"><ul style="margin:0;padding-left:16px;">${dateRows}</ul></td>
+              </tr>
+            </table>
+          </td></tr></table>
+          <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+            <a href="${APP_URL}/approval" style="display:inline-block;background:#3b82f6;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:10px;font-size:15px;font-weight:600;">결재 내역 확인 →</a>
+          </td></tr></table>
+        </td></tr>
+        <tr><td style="padding:20px 32px;border-top:1px solid #f3f4f6;text-align:center;">
+          <p style="margin:0;color:#9ca3af;font-size:12px;">근무관리 시스템 · 이 메일은 자동 발송되었습니다</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
@@ -240,6 +354,60 @@ export async function POST(req: NextRequest) {
           approvalId,
           type: status === 'approved' ? 'APPROVED' : 'REJECTED',
           title: `결재가 ${statusText}됐어요`,
+          message: `${typeLabel} 요청 — ${firstDate}${subjectSuffix}`,
+        })
+      }
+
+      if (emailError) {
+        return NextResponse.json({ success: true, emailError: emailError.message }, { status: 200 })
+      }
+
+    } else if (emailType === 'cancel_request') {
+      if (!approverEmail) return NextResponse.json({ error: 'approverEmail 누락' }, { status: 400 })
+
+      const { error: emailError } = await resend.emails.send({
+        from: '근무관리 시스템 <noreply@tekor.co.kr>',
+        to: [approverEmail],
+        cc: ccEmails?.length ? ccEmails : undefined,
+        subject: `[승인 취소 요청] ${requesterName}님의 ${typeLabel} — ${firstDate}${subjectSuffix}`,
+        html: buildCancelRequestEmailHtml({ requesterName, approverName, type, dateEntries }),
+      })
+      if (emailError) console.error('취소 요청 메일 발송 실패:', emailError.message)
+
+      if (approverId) {
+        await notifyAndPush(supabaseAdmin, {
+          receiverId: approverId,
+          approvalId,
+          type: 'CANCEL_REQUEST',
+          title: '승인 취소 요청이 도착했어요',
+          message: `${requesterName}님의 ${typeLabel} 취소 요청 — ${firstDate}${subjectSuffix}`,
+        })
+      }
+
+      if (emailError) {
+        return NextResponse.json({ success: true, emailError: emailError.message }, { status: 200 })
+      }
+
+    } else if (emailType === 'cancel_result') {
+      if (!requesterEmail) return NextResponse.json({ error: 'requesterEmail 누락' }, { status: 400 })
+      const approved = !!body.cancelApproved
+      const resultText = approved ? '취소 처리됨' : '취소 거절됨'
+
+      const { error: emailError } = await resend.emails.send({
+        from: '근무관리 시스템 <noreply@tekor.co.kr>',
+        to: [requesterEmail],
+        cc: ccEmails?.length ? ccEmails : undefined,
+        subject: `[승인 취소 요청 ${resultText}] ${requesterName}님의 ${typeLabel} — ${firstDate}${subjectSuffix}`,
+        html: buildCancelResultEmailHtml({ requesterName, approverName, type, dateEntries, approved }),
+      })
+      if (emailError) console.error('취소 요청 결과 메일 발송 실패:', emailError.message)
+
+      if (requesterId) {
+        await notifyAndPush(supabaseAdmin, {
+          receiverId: requesterId,
+          approvalId,
+          type: approved ? 'CANCELLED' : 'REJECTED',
+          title: approved ? '승인이 취소됐어요' : '승인 취소 요청이 거절됐어요',
           message: `${typeLabel} 요청 — ${firstDate}${subjectSuffix}`,
         })
       }
