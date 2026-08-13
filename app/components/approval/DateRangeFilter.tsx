@@ -57,6 +57,7 @@ export default function DateRangeFilter({ startDate, endDate, onApply }: DateRan
               shadow={false}
               className="!shadow-none"
               months={Array.from({ length: 12 }, (_, i) => String(i + 1))}
+              headerOrder={['LEFT_BUTTON', 'YEAR_MONTH', 'RIGHT_BUTTON']}
             />
             <div className="flex gap-2 mt-4">
               <button
