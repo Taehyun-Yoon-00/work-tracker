@@ -31,10 +31,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html
-      lang="ko"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    <html lang="ko" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <head>
         <meta name="theme-color" content="#ffffff" />
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />

@@ -20,7 +20,8 @@ export default function TopNav() {
     return () => authListener.subscription.unsubscribe()
   }, [])
 
-  const { notifications, unreadCount, loading, refetch, markAsRead, markAllAsRead } = useNotifications(userId)
+  const { notifications, unreadCount, loading, refetch, markAsRead, markAllAsRead } =
+    useNotifications(userId)
 
   // App Badge는 "읽지 않은 Notification 개수" 기준
   useAppBadge(unreadCount)

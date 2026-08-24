@@ -28,7 +28,12 @@ function isEmptyMatter(m: MatterFields) {
 }
 
 function sameMatter(a: MatterFields, b: MatterFields) {
-  return a.place === b.place && a.division === b.division && a.content === b.content && a.costCode === b.costCode
+  return (
+    a.place === b.place &&
+    a.division === b.division &&
+    a.content === b.content &&
+    a.costCode === b.costCode
+  )
 }
 
 // ── 조합(세트) 단위 최근 사용 안건 ──────────────────────────────

@@ -34,7 +34,12 @@ export function useNotifications(userId: string | undefined) {
       .channel(`notifications-${userId}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `receiver_id=eq.${userId}` },
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `receiver_id=eq.${userId}`,
+        },
         (payload) => {
           const created = payload.new as Notification
           setNotifications((prev) => {
@@ -45,7 +50,12 @@ export function useNotifications(userId: string | undefined) {
       )
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'notifications', filter: `receiver_id=eq.${userId}` },
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `receiver_id=eq.${userId}`,
+        },
         (payload) => {
           const updated = payload.new as Notification
           setNotifications((prev) => prev.map((n) => (n.id === updated.id ? updated : n)))
@@ -72,17 +82,20 @@ export function useNotifications(userId: string | undefined) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId])
 
-  const markAsRead = useCallback(async (notificationId: string) => {
-    if (!userId) return
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n))
-    )
-    await supabase
-      .from('notifications')
-      .update({ is_read: true })
-      .eq('id', notificationId)
-      .eq('receiver_id', userId)
-  }, [userId])
+  const markAsRead = useCallback(
+    async (notificationId: string) => {
+      if (!userId) return
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n))
+      )
+      await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('id', notificationId)
+        .eq('receiver_id', userId)
+    },
+    [userId]
+  )
 
   const markAllAsRead = useCallback(async () => {
     if (!userId) return
@@ -98,5 +111,12 @@ export function useNotifications(userId: string | undefined) {
 
   const unreadCount = notifications.filter((n) => !n.is_read).length
 
-  return { notifications, unreadCount, loading, refetch: fetchNotifications, markAsRead, markAllAsRead }
+  return {
+    notifications,
+    unreadCount,
+    loading,
+    refetch: fetchNotifications,
+    markAsRead,
+    markAllAsRead,
+  }
 }

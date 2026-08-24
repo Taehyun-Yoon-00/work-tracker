@@ -16,10 +16,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'userId 또는 subscription 누락' }, { status: 400 })
     }
 
-    const { error } = await supabaseAdmin.from('push_subscriptions').upsert(
-      { user_id: userId, subscription },
-      { onConflict: 'user_id,subscription' }
-    )
+    const { error } = await supabaseAdmin
+      .from('push_subscriptions')
+      .upsert({ user_id: userId, subscription }, { onConflict: 'user_id,subscription' })
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
