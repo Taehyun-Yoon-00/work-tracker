@@ -10,8 +10,9 @@ import isoWeek from 'dayjs/plugin/isoWeek'
 dayjs.extend(isoWeek)
 import { isHoliday, isPublicHoliday, fetchSubstituteHolidays } from '@/app/lib/holidays'
 import { useCurrentUser } from '@/app/hooks/useCurrentUser'
-import { getSettlementPeriod } from '@/app/lib/dates'
+import { getMonthRange, getSettlementPeriod, getWeekRange, getWeeksOfMonth } from '@/app/lib/dates'
 import { calcWorkHours } from '@/app/lib/workTime'
+import { displayName } from '@/app/lib/labels'
 import type {
   CommutePlan,
   RemoteWork,
@@ -54,8 +55,7 @@ export default function TeamDetailPage() {
     const now = dayjs(calendarMonth)
     if (periodMode === 'calendar') {
       return {
-        start: now.startOf('month').format('YYYY-MM-DD'),
-        end: now.endOf('month').format('YYYY-MM-DD'),
+        ...getMonthRange(calendarMonth),
         label: `${now.format('MM')}월 1일 ~ ${now.endOf('month').format('DD')}일`,
       }
     } else {
@@ -194,8 +194,7 @@ export default function TeamDetailPage() {
 
   const fetchWeeklyLogsForMember = async (userId: string) => {
     const week = selectedWeek[userId] || new Date()
-    const start = dayjs(week).startOf('isoWeek').format('YYYY-MM-DD')
-    const end = dayjs(week).endOf('isoWeek').format('YYYY-MM-DD')
+    const { start, end } = getWeekRange(week)
     const { data } = await supabase
       .from('work_logs')
       .select('*')
@@ -218,7 +217,7 @@ export default function TeamDetailPage() {
 
   const getMemberName = (userId: string) => {
     const member = members.find((m) => m.user_id === userId)
-    return member?.profiles?.name || member?.profiles?.email?.split('@')[0] || '알 수 없음'
+    return displayName(member?.profiles)
   }
 
   const getMonthlyStats = (userId: string) => {
@@ -274,19 +273,6 @@ export default function TeamDetailPage() {
     if (day === 6) return '!text-blue-500 font-semibold'
     if (day === 0 || isPublicHoliday(date) || isSubstitute) return '!text-red-500 font-semibold'
     return ''
-  }
-
-  const getWeeks = (month: Date) => {
-    const monthStart = dayjs(month).startOf('month')
-    const monthEnd = dayjs(month).endOf('month')
-    const firstWeekStart = monthStart.startOf('isoWeek')
-    const weeks = []
-    let current = firstWeekStart
-    while (current.isBefore(monthEnd) || current.isSame(monthEnd, 'day')) {
-      weeks.push(current)
-      current = current.add(1, 'week')
-    }
-    return weeks
   }
 
   const handleApprove = async (requestId: string, userId: string) => {
@@ -416,7 +402,7 @@ export default function TeamDetailPage() {
 
               {/* 주차별 시차출근 버튼 */}
               <div className="flex flex-col shrink-0 mt-[74px] sm:mt-[90px]">
-                {getWeeks(calendarMonth).map((weekStart, index) => {
+                {getWeeksOfMonth(calendarMonth).map((weekStart, index) => {
                   const weekNumber = String(index + 1)
                   return (
                     <div key={weekNumber} className="flex items-center justify-center h-8 sm:h-11">
@@ -447,7 +433,7 @@ export default function TeamDetailPage() {
                   <div>
                     <p className="text-sm font-semibold mb-2 dark:text-zinc-200">
                       {(() => {
-                        const weeks = getWeeks(calendarMonth)
+                        const weeks = getWeeksOfMonth(calendarMonth)
                         const idx = parseInt(selectedCommuteWeek) - 1
                         const weekStart = weeks[idx]
                         if (!weekStart) return ''
@@ -474,7 +460,7 @@ export default function TeamDetailPage() {
                               ) : (
                                 sortByMemberOrder(planners).map((p) => (
                                   <p key={p.id} className="text-base py-0.5 dark:text-zinc-200">
-                                    {p.profiles?.name || p.profiles?.email?.split('@')[0]}
+                                    {displayName(p.profiles)}
                                   </p>
                                 ))
                               )}
@@ -596,7 +582,7 @@ export default function TeamDetailPage() {
                 >
                   <div className="flex items-center gap-2">
                     <span className="font-medium dark:text-white">
-                      {member.profiles?.name || member.profiles?.email?.split('@')[0]}
+                      {displayName(member.profiles)}
                     </span>
                     <span
                       className={`text-xs px-2 py-0.5 rounded-full ${

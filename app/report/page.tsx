@@ -5,6 +5,7 @@ import dayjs from 'dayjs'
 import { supabase } from '../lib/supabase'
 import Card from '@/app/components/ui/Card'
 import { useCurrentUser } from '@/app/hooks/useCurrentUser'
+import { getSettlementPeriod } from '@/app/lib/dates'
 
 interface MatterRow {
   category: string
@@ -35,16 +36,11 @@ export default function ReportPage() {
   const [summary, setSummary] = useState<MatterSummary[]>([])
   const [loading, setLoading] = useState(false)
 
-  // 선택한 "당월"을 기준으로 전월 16일 ~ 당월 15일 범위를 계산
-  const { periodStart, periodEnd } = useMemo(() => {
-    const targetMonthStart = dayjs(`${targetYear}-${String(targetMonth).padStart(2, '0')}-01`)
-    const start = targetMonthStart.subtract(1, 'month').date(16)
-    const end = targetMonthStart.date(15)
-    return {
-      periodStart: start.format('YYYY-MM-DD'),
-      periodEnd: end.format('YYYY-MM-DD'),
-    }
-  }, [targetYear, targetMonth])
+  // 선택한 "당월"을 기준으로 전월 16일 ~ 당월 15일 범위를 계산 (팀 상세 페이지와 같은 규칙)
+  const { start: periodStart, end: periodEnd } = useMemo(
+    () => getSettlementPeriod(`${targetYear}-${String(targetMonth).padStart(2, '0')}-01`),
+    [targetYear, targetMonth]
+  )
 
   useEffect(() => {
     if (user) fetchSummary()

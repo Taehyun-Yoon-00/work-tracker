@@ -1,5 +1,5 @@
 import dayjs from 'dayjs'
-import { approvalTypeBadge, vacationTypeLabel } from '@/app/lib/labels'
+import { approvalTypeBadge, displayName, vacationTypeLabel } from '@/app/lib/labels'
 import type { ApprovalRequestWithRelations, ApprovalStatus, DateEntry } from '@/app/lib/types'
 import type { User } from '@supabase/supabase-js'
 
@@ -55,8 +55,7 @@ export default function ApprovalDetailModal({
 
         <div className="mb-4 text-sm text-gray-600 dark:text-zinc-300 space-y-2">
           <p>
-            <span className="font-medium">신청자:</span>{' '}
-            {selectedRequest.requester?.name || selectedRequest.requester?.email?.split('@')[0]}
+            <span className="font-medium">신청자:</span> {displayName(selectedRequest.requester)}
           </p>
           <p>
             <span className="font-medium">유형:</span>{' '}

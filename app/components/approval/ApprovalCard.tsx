@@ -1,5 +1,5 @@
 import dayjs from 'dayjs'
-import { approvalStatusBadge, approvalTypeBadge } from '@/app/lib/labels'
+import { approvalStatusBadge, approvalTypeBadge, displayName } from '@/app/lib/labels'
 import type { ApprovalRequestWithRelations } from '@/app/lib/types'
 
 interface ApprovalCardProps {
@@ -22,7 +22,7 @@ export default function ApprovalCard({ req, userId, onClick }: ApprovalCardProps
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="text-sm font-medium dark:text-zinc-200">
-              {req.requester?.name || req.requester?.email?.split('@')[0]}
+              {displayName(req.requester)}
             </span>
             <span className={`text-xs px-2 py-0.5 rounded-full ${type.style}`}>{type.text}</span>
             {req.teams?.name && (
@@ -47,7 +47,7 @@ export default function ApprovalCard({ req, userId, onClick }: ApprovalCardProps
               : dayjs(req.date).format('YYYY년 MM월 DD일')}
           </p>
           <p className="text-xs text-gray-400 dark:text-zinc-500">
-            결재권자: {req.approver?.name || req.approver?.email?.split('@')[0]}
+            결재권자: {displayName(req.approver)}
           </p>
           {req.memo && <p className="text-xs text-gray-400 dark:text-zinc-500">사유: {req.memo}</p>}
           {req.status === 'approved' && req.approved_at && (

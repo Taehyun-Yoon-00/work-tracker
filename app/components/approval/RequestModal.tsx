@@ -1,6 +1,6 @@
 import dayjs from 'dayjs'
 import DatePicker from 'react-multi-date-picker'
-import { approvalTypeBadge } from '@/app/lib/labels'
+import { approvalTypeBadge, displayName } from '@/app/lib/labels'
 import type { ApproverOption, MyTeamOption } from '@/app/lib/types'
 
 interface DateGroup {
@@ -165,7 +165,7 @@ export default function RequestModal({
                   <option value="">결재권자 선택</option>
                   {approvers.map((a) => (
                     <option key={a.user_id} value={a.user_id}>
-                      {a.profiles?.name || a.profiles?.email?.split('@')[0]}
+                      {displayName(a.profiles)}
                     </option>
                   ))}
                 </select>

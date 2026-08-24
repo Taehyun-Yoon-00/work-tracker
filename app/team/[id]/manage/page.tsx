@@ -5,6 +5,7 @@ import { supabase } from '../../../lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
 import { useCurrentUser } from '@/app/hooks/useCurrentUser'
 import Card from '@/app/components/ui/Card'
+import { displayName } from '@/app/lib/labels'
 import type { Team, TeamMember, WithProfile } from '@/app/lib/types'
 
 export default function ManagePage() {
@@ -170,7 +171,7 @@ export default function ManagePage() {
                 )}
                 <div>
                   <span className="font-medium dark:text-zinc-200">
-                    {member.profiles?.name || member.profiles?.email?.split('@')[0]}
+                    {displayName(member.profiles)}
                   </span>
                   <span className="text-xs text-gray-400 dark:text-zinc-500 ml-1">
                     {member.profiles?.email}

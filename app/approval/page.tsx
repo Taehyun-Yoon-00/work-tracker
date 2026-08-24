@@ -9,6 +9,7 @@ import { useCurrentUser } from '@/app/hooks/useCurrentUser'
 import ApprovalList from '../components/approval/ApprovalList'
 import ApprovalDetailModal from '../components/approval/ApprovalDetailModal'
 import RequestModal from '../components/approval/RequestModal'
+import { displayName } from '@/app/lib/labels'
 import type {
   ApprovalRequest,
   ApprovalRequestWithRelations,
@@ -226,8 +227,8 @@ function ApprovalPageContent() {
       const approverInfo = approvers.find((a) => a.user_id === selectedApprover)
       if (approverInfo?.profiles?.email) {
         const myProfile = await supabase.from('profiles').select('name').eq('id', user.id).single()
-        const requesterName = myProfile.data?.name || user.email?.split('@')[0] || '팀원'
-        const approverName = approverInfo.profiles.name || approverInfo.profiles.email.split('@')[0]
+        const requesterName = displayName({ name: myProfile.data?.name, email: user.email }, '팀원')
+        const approverName = displayName(approverInfo.profiles)
 
         fetch('/api/notify-approval', {
           method: 'POST',
@@ -275,9 +276,9 @@ function ApprovalPageContent() {
     if (selectedRequest && (status === 'approved' || status === 'rejected')) {
       const req = selectedRequest
       const requesterEmail = req.requester?.email
-      const requesterName = req.requester?.name || req.requester?.email?.split('@')[0]
+      const requesterName = displayName(req.requester)
       const myProfile = await supabase.from('profiles').select('name').eq('id', user.id).single()
-      const approverName = myProfile.data?.name || user.email?.split('@')[0]
+      const approverName = displayName({ name: myProfile.data?.name, email: user.email })
 
       // DB에서 반환된 실제 저장 시간 사용
       const actionAt = status === 'approved' ? updated?.approved_at : updated?.rejected_at
@@ -380,8 +381,8 @@ function ApprovalPageContent() {
     const approverEmail = req?.approver?.email
     if (approverEmail) {
       const myProfile = await supabase.from('profiles').select('name').eq('id', user.id).single()
-      const requesterName = myProfile.data?.name || user.email?.split('@')[0] || '팀원'
-      const approverName = req.approver?.name || req.approver?.email?.split('@')[0]
+      const requesterName = displayName({ name: myProfile.data?.name, email: user.email }, '팀원')
+      const approverName = displayName(req?.approver)
 
       fetch('/api/notify-approval', {
         method: 'POST',
@@ -431,8 +432,8 @@ function ApprovalPageContent() {
     const requesterEmail = req?.requester?.email
     if (requesterEmail) {
       const myProfile = await supabase.from('profiles').select('name').eq('id', user.id).single()
-      const approverName = myProfile.data?.name || user.email?.split('@')[0]
-      const requesterName = req.requester?.name || req.requester?.email?.split('@')[0]
+      const approverName = displayName({ name: myProfile.data?.name, email: user.email })
+      const requesterName = displayName(req?.requester)
 
       fetch('/api/notify-approval', {
         method: 'POST',

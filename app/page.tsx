@@ -16,6 +16,7 @@ import WorkMattersEditor, {
 } from './components/worklog/WorkMattersEditor'
 import { recordMatterUsage } from './lib/matterHistory'
 import { calcWorkHours } from '@/app/lib/workTime'
+import { getMonthRange, getWeekRange, getWeeksOfMonth, todayStr } from '@/app/lib/dates'
 import type { RemoteWork, Vacation, WorkCategory, WorkLog, WorkLogMatter } from '@/app/lib/types'
 import Card from '@/app/components/ui/Card'
 import StatCard from '@/app/components/ui/StatCard'
@@ -74,8 +75,7 @@ export default function Home() {
 
   const fetchWeeklyLogs = async () => {
     if (!user) return
-    const startOfWeek = dayjs(viewedWeek).startOf('isoWeek').format('YYYY-MM-DD')
-    const endOfWeek = dayjs(viewedWeek).endOf('isoWeek').format('YYYY-MM-DD')
+    const { start: startOfWeek, end: endOfWeek } = getWeekRange(viewedWeek)
 
     const { data } = await supabase
       .from('work_logs')
@@ -89,8 +89,7 @@ export default function Home() {
   }
   const fetchMonthlyLogs = async () => {
     if (!user) return
-    const startOfMonth = dayjs(selectedDate).startOf('month').format('YYYY-MM-DD')
-    const endOfMonth = dayjs(selectedDate).endOf('month').format('YYYY-MM-DD')
+    const { start: startOfMonth, end: endOfMonth } = getMonthRange(selectedDate)
 
     const { data } = await supabase
       .from('work_logs')
@@ -104,8 +103,7 @@ export default function Home() {
 
   const fetchMonthlyVacations = async () => {
     if (!user) return
-    const startOfMonth = dayjs(selectedDate).startOf('month').format('YYYY-MM-DD')
-    const endOfMonth = dayjs(selectedDate).endOf('month').format('YYYY-MM-DD')
+    const { start: startOfMonth, end: endOfMonth } = getMonthRange(selectedDate)
     const { data } = await supabase
       .from('vacations')
       .select('date, type')
@@ -117,8 +115,7 @@ export default function Home() {
 
   const fetchMonthlyRemoteWorks = async () => {
     if (!user) return
-    const startOfMonth = dayjs(selectedDate).startOf('month').format('YYYY-MM-DD')
-    const endOfMonth = dayjs(selectedDate).endOf('month').format('YYYY-MM-DD')
+    const { start: startOfMonth, end: endOfMonth } = getMonthRange(selectedDate)
     const { data } = await supabase
       .from('remote_works')
       .select('date')
@@ -130,7 +127,7 @@ export default function Home() {
 
   const fetchCommutePlan = async () => {
     if (!user) return
-    const weekStart = dayjs(selectedDate).startOf('isoWeek').format('YYYY-MM-DD')
+    const weekStart = getWeekRange(selectedDate).start
     const { data } = await supabase
       .from('commute_plans')
       .select('commute_time')
@@ -429,7 +426,7 @@ export default function Home() {
   const getTileClassName = ({ date }: { date: Date }) => {
     const day = date.getDay()
     const dateStr = dayjs(date).format('YYYY-MM-DD')
-    const isToday = dateStr === dayjs().format('YYYY-MM-DD')
+    const isToday = dateStr === todayStr()
     const hasLog = monthlyLogs.some((log) => log.date === dateStr)
     const vacationOnDate = monthlyVacations.find((v) => v.date === dateStr)
     const isHalfDay = vacationOnDate?.type === 'morning' || vacationOnDate?.type === 'afternoon'
@@ -494,7 +491,7 @@ export default function Home() {
 
   const getTileContent = ({ date }: { date: Date }) => {
     const dateStr = dayjs(date).format('YYYY-MM-DD')
-    const isToday = dateStr === dayjs().format('YYYY-MM-DD')
+    const isToday = dateStr === todayStr()
     const isRemoteOnDate = monthlyRemoteWorks.some((r) => r.date === dateStr)
 
     // 원격근무 표시: 해당 날짜칸 왼쪽위에 작은 동그라미 (원격근무 버튼과 동일한 인디고 색)
@@ -589,16 +586,7 @@ export default function Home() {
             {/* 주차별 출근예정 버튼 */}
             <div className="flex flex-col shrink-0 mt-[74px] sm:mt-[90px]">
               {(() => {
-                const monthStart = dayjs(selectedDate).startOf('month')
-                const monthEnd = dayjs(selectedDate).endOf('month')
-                const firstWeekStart = monthStart.startOf('isoWeek')
-                const weeks = []
-                let current = firstWeekStart
-                while (current.isBefore(monthEnd) || current.isSame(monthEnd, 'day')) {
-                  weeks.push(current)
-                  current = current.add(1, 'week')
-                }
-                return weeks.map((weekStart, index) => {
+                return getWeeksOfMonth(selectedDate).map((weekStart, index) => {
                   const weekNumber = String(index + 1)
                   const plan = weekPlans[weekNumber]
                   return (
