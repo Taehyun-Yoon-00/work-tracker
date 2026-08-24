@@ -2,12 +2,21 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import dayjs from 'dayjs'
 import { usePushSubscription } from '../hooks/usePushSubscription'
+import { useCurrentUser } from '@/app/hooks/useCurrentUser'
 import ApprovalList from '../components/approval/ApprovalList'
 import ApprovalDetailModal from '../components/approval/ApprovalDetailModal'
 import RequestModal from '../components/approval/RequestModal'
+import type {
+  ApprovalRequest,
+  ApprovalRequestWithRelations,
+  ApprovalStatus,
+  ApproverOption,
+  DateEntry,
+  MyTeamOption,
+} from '@/app/lib/types'
 
 const CC_STORAGE_KEY = 'approval_cc_history'
 
@@ -15,7 +24,9 @@ function getCcHistory(): string[] {
   if (typeof window === 'undefined') return []
   try {
     return JSON.parse(localStorage.getItem(CC_STORAGE_KEY) || '[]')
-  } catch { return [] }
+  } catch {
+    return []
+  }
 }
 
 function saveCcHistory(emails: string[]) {
@@ -26,25 +37,28 @@ function saveCcHistory(emails: string[]) {
 }
 
 function ApprovalPageContent() {
-  const router = useRouter()
   const searchParams = useSearchParams()
-  const [user, setUser] = useState<any>(null)
-  const [requests, setRequests] = useState<any[]>([])
+  const { user } = useCurrentUser()
+  const [requests, setRequests] = useState<ApprovalRequestWithRelations[]>([])
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterType, setFilterType] = useState<string>('all')
-  const [dateRangeStart, setDateRangeStart] = useState<string>(dayjs().startOf('month').format('YYYY-MM-DD'))
-  const [dateRangeEnd, setDateRangeEnd] = useState<string>(dayjs().endOf('month').format('YYYY-MM-DD'))
+  const [dateRangeStart, setDateRangeStart] = useState<string>(
+    dayjs().startOf('month').format('YYYY-MM-DD')
+  )
+  const [dateRangeEnd, setDateRangeEnd] = useState<string>(
+    dayjs().endOf('month').format('YYYY-MM-DD')
+  )
   const [showRequestModal, setShowRequestModal] = useState(false)
   const [step, setStep] = useState(1)
   const [requestType, setRequestType] = useState<string>('')
   const [dateGroups, setDateGroups] = useState<{ dates: string[]; vacationType: string }[]>([])
   const [selectedApprover, setSelectedApprover] = useState<string>('')
   const [selectedTeamId, setSelectedTeamId] = useState<string>('')
-  const [approvers, setApprovers] = useState<any[]>([])
-  const [myTeams, setMyTeams] = useState<any[]>([])
+  const [approvers, setApprovers] = useState<ApproverOption[]>([])
+  const [myTeams, setMyTeams] = useState<MyTeamOption[]>([])
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
-  const [selectedRequest, setSelectedRequest] = useState<any>(null)
+  const [selectedRequest, setSelectedRequest] = useState<ApprovalRequestWithRelations | null>(null)
   const [memo, setMemo] = useState('')
   const [editingRequestId, setEditingRequestId] = useState<string | null>(null)
 
@@ -56,15 +70,11 @@ function ApprovalPageContent() {
   const [showCcSuggestions, setShowCcSuggestions] = useState(false)
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
-      setUser(user)
+    if (user) {
       fetchRequests(user.id, dateRangeStart, dateRangeEnd)
       fetchMyTeams(user.id)
     }
-    getUser()
-  }, [])
+  }, [user])
 
   const fetchRequests = async (userId: string, rangeStart: string, rangeEnd: string) => {
     const { data: myTeamData } = await supabase
@@ -78,7 +88,9 @@ function ApprovalPageContent() {
 
     const { data } = await supabase
       .from('approval_requests')
-      .select(`*, requester:profiles!approval_requests_requester_id_fkey(name,email), approver:profiles!approval_requests_approver_id_fkey(name,email), teams(name)`)
+      .select(
+        `*, requester:profiles!approval_requests_requester_id_fkey(name,email), approver:profiles!approval_requests_approver_id_fkey(name,email), teams(name)`
+      )
       .or(orConditions.join(','))
       .gte('created_at', dayjs(rangeStart).startOf('day').toISOString())
       .lte('created_at', dayjs(rangeEnd).endOf('day').toISOString())
@@ -97,6 +109,8 @@ function ApprovalPageContent() {
       .from('team_members')
       .select('team_id, teams(id,name)')
       .eq('user_id', userId)
+      // 조인 결과를 supabase-js는 배열로 추론하지만, FK 관계라 실제로는 단일 객체다
+      .returns<MyTeamOption[]>()
     if (data) setMyTeams(data)
   }
 
@@ -108,6 +122,7 @@ function ApprovalPageContent() {
       .select('user_id, profiles(id,name,email)')
       .eq('team_id', teamId)
       .eq('role', 'admin')
+      .returns<ApproverOption[]>()
     if (data) setApprovers(data)
   }
 
@@ -137,13 +152,26 @@ function ApprovalPageContent() {
   const removeCc = (email: string) => setCcList(ccList.filter((e) => e !== email))
 
   const handleSubmitRequest = async () => {
-    if (!requestType || !selectedApprover || !selectedTeamId) { setMessage('모든 항목을 입력해주세요.'); return }
-    if (dateGroups.length === 0) { setMessage('날짜를 추가해주세요.'); return }
+    if (!user) return
+    if (!requestType || !selectedApprover || !selectedTeamId) {
+      setMessage('모든 항목을 입력해주세요.')
+      return
+    }
+    if (dateGroups.length === 0) {
+      setMessage('날짜를 추가해주세요.')
+      return
+    }
     const flattenedEntries = dateGroups.flatMap((group) =>
       group.dates.map((date) => ({ date, vacationType: group.vacationType }))
     )
-    if (flattenedEntries.length === 0) { setMessage('날짜를 선택해주세요.'); return }
-    if (requestType === 'holiday' && !memo.trim()) { setMessage('출근 사유를 입력해주세요.'); return }
+    if (flattenedEntries.length === 0) {
+      setMessage('날짜를 선택해주세요.')
+      return
+    }
+    if (requestType === 'holiday' && !memo.trim()) {
+      setMessage('출근 사유를 입력해주세요.')
+      return
+    }
 
     setLoading(true)
     setMessage('')
@@ -159,7 +187,7 @@ function ApprovalPageContent() {
           date: flattenedEntries[0].date,
           dates: flattenedEntries.map((e) => e.date),
           date_entries: flattenedEntries,
-          memo: (requestType === 'vacation' || requestType === 'holiday') ? memo : null,
+          memo: requestType === 'vacation' || requestType === 'holiday' ? memo : null,
           cc_emails: ccList.length > 0 ? ccList : null,
         })
         .eq('id', editingRequestId)
@@ -176,17 +204,21 @@ function ApprovalPageContent() {
       return
     }
 
-    const { data: inserted, error } = await supabase.from('approval_requests').insert({
-      requester_id: user.id,
-      approver_id: selectedApprover,
-      team_id: selectedTeamId,
-      type: requestType,
-      date: flattenedEntries[0].date,
-      dates: flattenedEntries.map((e) => e.date),
-      date_entries: flattenedEntries,
-      memo: (requestType === 'vacation' || requestType === 'holiday') ? memo : null,
-      cc_emails: ccList.length > 0 ? ccList : null,
-    }).select('id').single()
+    const { data: inserted, error } = await supabase
+      .from('approval_requests')
+      .insert({
+        requester_id: user.id,
+        approver_id: selectedApprover,
+        team_id: selectedTeamId,
+        type: requestType,
+        date: flattenedEntries[0].date,
+        dates: flattenedEntries.map((e) => e.date),
+        date_entries: flattenedEntries,
+        memo: requestType === 'vacation' || requestType === 'holiday' ? memo : null,
+        cc_emails: ccList.length > 0 ? ccList : null,
+      })
+      .select('id')
+      .single()
 
     if (error) {
       setMessage('요청 실패: ' + error.message)
@@ -209,7 +241,7 @@ function ApprovalPageContent() {
             requesterName,
             type: requestType,
             dateEntries: flattenedEntries,
-            memo: (requestType === 'vacation' || requestType === 'holiday') ? memo : undefined,
+            memo: requestType === 'vacation' || requestType === 'holiday' ? memo : undefined,
             ccEmails: ccList,
           }),
         }).catch((e) => console.error('알림 메일 발송 실패:', e))
@@ -222,11 +254,15 @@ function ApprovalPageContent() {
     setLoading(false)
   }
 
-  const handleApprove = async (requestId: string, status: string) => {
-    const updateData: any = { status }
+  const handleApprove = async (requestId: string, status: ApprovalStatus) => {
+    if (!user) return
+    const updateData: Partial<ApprovalRequest> = { status }
     if (status === 'approved') updateData.approved_at = new Date().toISOString()
     if (status === 'rejected') updateData.rejected_at = new Date().toISOString()
-    if (status === 'pending') { updateData.approved_at = null; updateData.rejected_at = null }
+    if (status === 'pending') {
+      updateData.approved_at = null
+      updateData.rejected_at = null
+    }
 
     // DB에 저장 후 실제 저장된 시간값을 가져옴 → 앱과 메일이 동일한 값 사용
     const { data: updated } = await supabase
@@ -236,7 +272,7 @@ function ApprovalPageContent() {
       .select('approved_at, rejected_at')
       .single()
 
-    if (status === 'approved' || status === 'rejected') {
+    if (selectedRequest && (status === 'approved' || status === 'rejected')) {
       const req = selectedRequest
       const requesterEmail = req.requester?.email
       const requesterName = req.requester?.name || req.requester?.email?.split('@')[0]
@@ -279,13 +315,13 @@ function ApprovalPageContent() {
   }
 
   // pending 요청의 날짜/사유를 그룹 단위 편집 폼(dateGroups)으로 되돌림
-  const buildDateGroupsFromEntries = (entries: any[], type: string) => {
+  const buildDateGroupsFromEntries = (entries: DateEntry[] | null, type: string) => {
     if (!entries || entries.length === 0) return []
     if (type !== 'vacation') {
-      return [{ dates: entries.map((e: any) => e.date), vacationType: 'annual' }]
+      return [{ dates: entries.map((e) => e.date), vacationType: 'annual' }]
     }
     const map = new Map<string, string[]>()
-    entries.forEach((e: any) => {
+    entries.forEach((e) => {
       const vt = e.vacationType || 'annual'
       if (!map.has(vt)) map.set(vt, [])
       map.get(vt)!.push(e.date)
@@ -293,7 +329,7 @@ function ApprovalPageContent() {
     return Array.from(map.entries()).map(([vacationType, dates]) => ({ vacationType, dates }))
   }
 
-  const handleEditRequest = async (req: any) => {
+  const handleEditRequest = async (req: ApprovalRequestWithRelations) => {
     setSelectedRequest(null)
     setEditingRequestId(req.id)
     setRequestType(req.type)
@@ -311,6 +347,7 @@ function ApprovalPageContent() {
   }
 
   const handleCancelRequest = async (requestId: string) => {
+    if (!user) return
     if (!confirm('이 요청을 취소할까요?')) return
     // 취소는 알림/메일 없이 상태만 변경 (이력은 남김)
     await supabase
@@ -329,6 +366,7 @@ function ApprovalPageContent() {
 
   // 요청자: 이미 승인된 건에 대한 취소 요청
   const handleRequestCancelApproval = async (requestId: string) => {
+    if (!user) return
     if (!confirm('이미 승인된 건이에요. 취소를 요청할까요?')) return
 
     await supabase
@@ -370,10 +408,13 @@ function ApprovalPageContent() {
 
   // 결재권자: 취소 요청을 승인(=건을 취소 처리)하거나 거절
   const handleResolveCancelRequest = async (requestId: string, approve: boolean) => {
-    const confirmMsg = approve ? '취소 요청을 승인할까요? 이 건은 취소 처리돼요.' : '취소 요청을 거절할까요?'
+    if (!user) return
+    const confirmMsg = approve
+      ? '취소 요청을 승인할까요? 이 건은 취소 처리돼요.'
+      : '취소 요청을 거절할까요?'
     if (!confirm(confirmMsg)) return
 
-    const updateData: any = { cancel_requested: false }
+    const updateData: Partial<ApprovalRequest> = { cancel_requested: false }
     if (approve) {
       updateData.status = 'cancelled'
       updateData.cancelled_at = new Date().toISOString()
@@ -432,7 +473,7 @@ function ApprovalPageContent() {
     setEditingRequestId(null)
   }
 
-  const handleCardClick = (req: any) => {
+  const handleCardClick = (req: ApprovalRequestWithRelations) => {
     setSelectedRequest(req)
     setExistingCcList(req.cc_emails || [])
   }
@@ -469,7 +510,6 @@ function ApprovalPageContent() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
       <div className="max-w-2xl mx-auto">
-
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold dark:text-white">결재</h1>
         </div>
@@ -528,11 +568,16 @@ function ApprovalPageContent() {
             showCcSuggestions={showCcSuggestions}
             loading={loading}
             message={message}
-            onSelectType={(type) => { setRequestType(type); setStep(2) }}
+            onSelectType={(type) => {
+              setRequestType(type)
+              setStep(2)
+            }}
             onBack={() => setStep(1)}
             onTeamChange={fetchApprovers}
             onApproverChange={setSelectedApprover}
-            onAddDateGroup={() => setDateGroups([...dateGroups, { dates: [], vacationType: 'annual' }])}
+            onAddDateGroup={() =>
+              setDateGroups([...dateGroups, { dates: [], vacationType: 'annual' }])
+            }
             onRemoveDateGroup={(index) => setDateGroups(dateGroups.filter((_, i) => i !== index))}
             onDateGroupChange={handleDateGroupChange}
             onVacationTypeChange={handleVacationTypeChange}
@@ -547,7 +592,12 @@ function ApprovalPageContent() {
       </div>
 
       <button
-        onClick={() => { setEditingRequestId(null); setShowRequestModal(true); setStep(1); setMessage('') }}
+        onClick={() => {
+          setEditingRequestId(null)
+          setShowRequestModal(true)
+          setStep(1)
+          setMessage('')
+        }}
         className="fixed bottom-24 right-4 bg-blue-500 text-white px-4 py-3 rounded-full shadow-lg z-40 text-sm font-medium"
       >
         + 결재 요청

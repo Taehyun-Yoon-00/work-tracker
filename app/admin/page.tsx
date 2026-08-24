@@ -3,24 +3,25 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useRouter } from 'next/navigation'
+import { useCurrentUser } from '@/app/hooks/useCurrentUser'
+import Card from '@/app/components/ui/Card'
+import type { Profile, SubstituteHoliday } from '@/app/lib/types'
 
+type AdminProfile = Pick<Profile, 'id' | 'email' | 'name' | 'is_master' | 'total_vacation'>
 
 export default function AdminPage() {
   const router = useRouter()
-  const [user, setUser] = useState<any>(null)
-  const [profiles, setProfiles] = useState<any[]>([])
+  const { user } = useCurrentUser()
+  const [profiles, setProfiles] = useState<AdminProfile[]>([])
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
-  const [holidays, setHolidays] = useState<any[]>([])
+  const [holidays, setHolidays] = useState<SubstituteHoliday[]>([])
   const [newHolidayDate, setNewHolidayDate] = useState('')
   const [newHolidayName, setNewHolidayName] = useState('')
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
-      setUser(user)
-
+    if (!user) return
+    const checkAccess = async () => {
       // 마스터 계정 확인
       const { data: profileData } = await supabase
         .from('profiles')
@@ -34,8 +35,8 @@ export default function AdminPage() {
       fetchProfiles()
       fetchHolidays()
     }
-    getUser()
-  }, [])
+    checkAccess()
+  }, [user])
 
   const fetchProfiles = async () => {
     const { data } = await supabase
@@ -51,12 +52,14 @@ export default function AdminPage() {
       .order('date', { ascending: true })
     if (data) setHolidays(data)
   }
-  const handleDelete = async (profile: any) => {
+  const handleDelete = async (profile: AdminProfile) => {
     if (profile.is_master) {
       setMessage('마스터 계정은 삭제할 수 없어요.')
       return
     }
-    const confirmed = confirm(`"${profile.name || profile.email}" 회원을 강제 탈퇴시킬까요? 모든 데이터가 삭제돼요.`)
+    const confirmed = confirm(
+      `"${profile.name || profile.email}" 회원을 강제 탈퇴시킬까요? 모든 데이터가 삭제돼요.`
+    )
     if (!confirmed) return
     const confirmed2 = confirm('정말요? 복구할 수 없어요.')
     if (!confirmed2) return
@@ -75,7 +78,7 @@ export default function AdminPage() {
     const res = await fetch('/api/admin/delete-user', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: profile.id })
+      body: JSON.stringify({ userId: profile.id }),
     })
     const data = await res.json()
 
@@ -89,25 +92,23 @@ export default function AdminPage() {
     setLoading(false)
   }
 
-  const handleToggleMaster = async (profile: any) => {
+  const handleToggleMaster = async (profile: AdminProfile) => {
     if (profile.id === user?.id) {
       setMessage('본인의 마스터 권한은 변경할 수 없어요.')
       return
     }
-    await supabase.from('profiles')
-      .update({ is_master: !profile.is_master })
-      .eq('id', profile.id)
+    await supabase.from('profiles').update({ is_master: !profile.is_master }).eq('id', profile.id)
     fetchProfiles()
   }
 
-  const handleResetPassword = async (profile: any) => {
+  const handleResetPassword = async (profile: AdminProfile) => {
     const confirmed = confirm(`"${profile.name || profile.email}" 의 비밀번호를 초기화할까요?`)
     if (!confirmed) return
 
     const res = await fetch('/api/admin/reset-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: profile.id })
+      body: JSON.stringify({ userId: profile.id }),
     })
     const data = await res.json()
 
@@ -142,12 +143,13 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
       <div className="max-w-2xl mx-auto">
-
         {/* 헤더 */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold dark:text-white">관리</h1>
-          <button onClick={() => router.push('/mypage')}
-            className="text-sm text-gray-500 dark:text-zinc-400 hover:underline">
+          <button
+            onClick={() => router.push('/mypage')}
+            className="text-sm text-gray-500 dark:text-zinc-400 hover:underline"
+          >
             ← 마이페이지
           </button>
         </div>
@@ -159,11 +161,13 @@ export default function AdminPage() {
         )}
 
         {/* 회원 목록 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4">
+        <Card>
           <h2 className="font-semibold mb-3 dark:text-white">전체 회원 ({profiles.length}명)</h2>
           {profiles.map((profile) => (
-            <div key={profile.id}
-              className="flex justify-between items-center py-3 border-b dark:border-zinc-700 last:border-0">
+            <div
+              key={profile.id}
+              className="flex justify-between items-center py-3 border-b dark:border-zinc-700 last:border-0"
+            >
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-sm dark:text-zinc-200">
@@ -180,23 +184,27 @@ export default function AdminPage() {
               <div className="flex gap-2">
                 <button
                   onClick={() => handleToggleMaster(profile)}
-                  className={`text-xs px-2 py-1 rounded-lg ${profile.is_master
+                  className={`text-xs px-2 py-1 rounded-lg ${
+                    profile.is_master
                       ? 'bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300 hover:bg-gray-200'
                       : 'bg-red-50 dark:bg-red-950 text-red-500 hover:bg-red-100'
-                    }`}>
+                  }`}
+                >
                   {profile.is_master ? '마스터 해제' : '마스터 지정'}
                 </button>
                 {!profile.is_master && (
                   <>
                     <button
                       onClick={() => handleResetPassword(profile)}
-                      className="text-xs px-2 py-1 rounded-lg bg-yellow-50 dark:bg-yellow-950 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-100">
+                      className="text-xs px-2 py-1 rounded-lg bg-yellow-50 dark:bg-yellow-950 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-100"
+                    >
                       비밀번호 초기화
                     </button>
                     <button
                       onClick={() => handleDelete(profile)}
                       disabled={loading}
-                      className="text-xs px-2 py-1 rounded-lg bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300 hover:bg-gray-200">
+                      className="text-xs px-2 py-1 rounded-lg bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300 hover:bg-gray-200"
+                    >
                       강제 탈퇴
                     </button>
                   </>
@@ -205,7 +213,7 @@ export default function AdminPage() {
             </div>
           ))}
           {/* 대체공휴일 관리 */}
-          <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mt-4">
+          <Card className="mt-4">
             <h2 className="font-semibold mb-3 dark:text-white">대체공휴일 관리</h2>
 
             {/* 추가 */}
@@ -225,33 +233,38 @@ export default function AdminPage() {
               />
               <button
                 onClick={handleAddHoliday}
-                className="bg-blue-500 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-600">
+                className="bg-blue-500 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-600"
+              >
                 추가
               </button>
             </div>
 
             {/* 목록 */}
             {holidays.length === 0 ? (
-              <p className="text-sm text-gray-400 dark:text-zinc-500">등록된 대체공휴일이 없어요.</p>
+              <p className="text-sm text-gray-400 dark:text-zinc-500">
+                등록된 대체공휴일이 없어요.
+              </p>
             ) : (
               holidays.map((h) => (
-                <div key={h.id}
-                  className="flex justify-between items-center py-2 border-b dark:border-zinc-700 last:border-0">
+                <div
+                  key={h.id}
+                  className="flex justify-between items-center py-2 border-b dark:border-zinc-700 last:border-0"
+                >
                   <div>
                     <span className="text-sm font-medium dark:text-zinc-200">{h.date}</span>
                     <span className="text-xs text-gray-400 dark:text-zinc-500 ml-2">{h.name}</span>
                   </div>
                   <button
                     onClick={() => handleDeleteHoliday(h.id)}
-                    className="text-xs text-red-500 hover:underline">
+                    className="text-xs text-red-500 hover:underline"
+                  >
                     삭제
                   </button>
                 </div>
               ))
             )}
-          </div>
-        </div>
-
+          </Card>
+        </Card>
       </div>
     </div>
   )

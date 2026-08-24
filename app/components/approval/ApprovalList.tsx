@@ -1,8 +1,10 @@
 import ApprovalCard from './ApprovalCard'
 import DateRangeFilter from './DateRangeFilter'
+import Card from '@/app/components/ui/Card'
+import type { ApprovalRequestWithRelations } from '@/app/lib/types'
 
 interface ApprovalListProps {
-  requests: any[]
+  requests: ApprovalRequestWithRelations[]
   userId: string
   filterStatus: string
   filterType: string
@@ -11,7 +13,7 @@ interface ApprovalListProps {
   onFilterStatusChange: (value: string) => void
   onFilterTypeChange: (value: string) => void
   onDateRangeChange: (start: string, end: string) => void
-  onCardClick: (req: any) => void
+  onCardClick: (req: ApprovalRequestWithRelations) => void
 }
 
 export default function ApprovalList({
@@ -44,7 +46,11 @@ export default function ApprovalList({
   return (
     <>
       {/* 기간 선택 */}
-      <DateRangeFilter startDate={dateRangeStart} endDate={dateRangeEnd} onApply={onDateRangeChange} />
+      <DateRangeFilter
+        startDate={dateRangeStart}
+        endDate={dateRangeEnd}
+        onApply={onDateRangeChange}
+      />
 
       {/* 상태 필터 */}
       <div className="flex bg-gray-100 dark:bg-zinc-700 rounded-lg p-0.5 mb-2">
@@ -57,10 +63,11 @@ export default function ApprovalList({
           <button
             key={value}
             onClick={() => onFilterStatusChange(value)}
-            className={`flex-1 text-xs py-1.5 rounded-md transition ${filterStatus === value
-              ? 'bg-white dark:bg-zinc-600 shadow text-blue-500 font-semibold'
-              : 'text-gray-500 dark:text-zinc-400'
-              }`}
+            className={`flex-1 text-xs py-1.5 rounded-md transition ${
+              filterStatus === value
+                ? 'bg-white dark:bg-zinc-600 shadow text-blue-500 font-semibold'
+                : 'text-gray-500 dark:text-zinc-400'
+            }`}
           >
             {label}
           </button>
@@ -114,7 +121,7 @@ export default function ApprovalList({
       </div>
 
       {/* 카드 목록 */}
-      <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4">
+      <Card>
         {filteredRequests.length === 0 ? (
           <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-4">
             결재 요청이 없어요.
@@ -124,7 +131,7 @@ export default function ApprovalList({
             <ApprovalCard key={req.id} req={req} userId={userId} onClick={onCardClick} />
           ))
         )}
-      </div>
+      </Card>
     </>
   )
 }

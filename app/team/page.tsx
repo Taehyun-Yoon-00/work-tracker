@@ -3,28 +3,23 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useRouter } from 'next/navigation'
+import { useCurrentUser } from '@/app/hooks/useCurrentUser'
+import Card from '@/app/components/ui/Card'
+import type { MyTeamOption, Team } from '@/app/lib/types'
 
 export default function TeamPage() {
   const router = useRouter()
-  const [user, setUser] = useState<any>(null)
-  const [teams, setTeams] = useState<any[]>([])
-  const [myTeams, setMyTeams] = useState<any[]>([])
+  const { user } = useCurrentUser()
+  const [teams, setTeams] = useState<Team[]>([])
+  const [myTeams, setMyTeams] = useState<MyTeamOption[]>([])
   const [newTeamName, setNewTeamName] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [isMaster, setIsMaster] = useState(false)
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) router.push('/login')
-      else {
-        setUser(user)
-        fetchTeams(user.id)
-      }
-    }
-    getUser()
-  }, [])
+    if (user) fetchTeams(user.id)
+  }, [user])
 
   const fetchTeams = async (userId: string) => {
     // 내가 속한 팀
@@ -32,6 +27,8 @@ export default function TeamPage() {
       .from('team_members')
       .select('team_id, role, teams(id, name)')
       .eq('user_id', userId)
+      // 조인 결과를 supabase-js는 배열로 추론하지만, FK 관계라 실제로는 단일 객체다
+      .returns<MyTeamOption[]>()
 
     if (myTeamData) setMyTeams(myTeamData)
 
@@ -53,6 +50,7 @@ export default function TeamPage() {
   }
 
   const handleCreateTeam = async () => {
+    if (!user) return
     if (!newTeamName.trim()) return
     setLoading(true)
     setMessage('')
@@ -83,7 +81,7 @@ export default function TeamPage() {
       await supabase.from('team_members').insert({
         team_id: team.id,
         user_id: user.id,
-        role: 'admin'
+        role: 'admin',
       })
       setMessage('팀이 생성됐어요!')
       setNewTeamName('')
@@ -93,6 +91,7 @@ export default function TeamPage() {
   }
 
   const handleJoinRequest = async (teamId: string) => {
+    if (!user) return
     const { data: existing, error: fetchError } = await supabase
       .from('team_requests')
       .select('id, status')
@@ -146,14 +145,13 @@ export default function TeamPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
       <div className="max-w-2xl mx-auto">
-
         {/* 헤더 */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold dark:text-white">팀 관리</h1>
         </div>
 
         {/* 팀 생성 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
+        <Card className="mb-4">
           <h2 className="font-semibold mb-3 dark:text-white">새 팀 만들기</h2>
           <div className="flex gap-2">
             <input
@@ -163,63 +161,80 @@ export default function TeamPage() {
               onChange={(e) => setNewTeamName(e.target.value)}
               className="flex-1 border rounded-lg px-3 py-2 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
             />
-            <button onClick={handleCreateTeam} disabled={loading}
-              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50">
+            <button
+              onClick={handleCreateTeam}
+              disabled={loading}
+              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
+            >
               생성
             </button>
           </div>
           {message && <p className="text-sm text-blue-500 mt-2">{message}</p>}
-        </div>
+        </Card>
 
         {/* 내 팀 목록 */}
         {myTeams.length > 0 && (
-          <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
+          <Card className="mb-4">
             <h2 className="font-semibold mb-3 dark:text-white">내 팀</h2>
             {myTeams.map((t) => (
-              <div key={t.team_id}
-                className="flex justify-between items-center py-2 border-b dark:border-zinc-700 last:border-0">
+              <div
+                key={t.team_id}
+                className="flex justify-between items-center py-2 border-b dark:border-zinc-700 last:border-0"
+              >
                 <div>
                   <span className="font-medium dark:text-zinc-200">{t.teams?.name}</span>
-                  <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${t.role === 'admin' ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300' : 'bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-400'
-                    }`}>
+                  <span
+                    className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
+                      t.role === 'admin'
+                        ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300'
+                        : 'bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-400'
+                    }`}
+                  >
                     {t.role === 'admin' ? '팀장' : '팀원'}
                   </span>
                 </div>
-                <button onClick={() => router.push(`/team/${t.team_id}`)}
-                  className="text-sm text-blue-500 hover:underline">
+                <button
+                  onClick={() => router.push(`/team/${t.team_id}`)}
+                  className="text-sm text-blue-500 hover:underline"
+                >
                   입장 →
                 </button>
               </div>
             ))}
-          </div>
+          </Card>
         )}
 
         {/* 전체 팀 목록 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4">
+        <Card>
           <h2 className="font-semibold mb-3 dark:text-white">전체 팀 목록</h2>
           {teams.length === 0 ? (
             <p className="text-sm text-gray-400 dark:text-zinc-500">아직 팀이 없어요.</p>
           ) : (
             teams.map((team) => (
-              <div key={team.id}
-                className="flex justify-between items-center py-2 border-b dark:border-zinc-700 last:border-0">
+              <div
+                key={team.id}
+                className="flex justify-between items-center py-2 border-b dark:border-zinc-700 last:border-0"
+              >
                 <span className="font-medium dark:text-zinc-200">{team.name}</span>
                 {isMyTeam(team.id) || isMaster ? (
-                  <button onClick={() => router.push(`/team/${team.id}`)}
-                    className="text-sm text-blue-500 hover:underline">
+                  <button
+                    onClick={() => router.push(`/team/${team.id}`)}
+                    className="text-sm text-blue-500 hover:underline"
+                  >
                     입장 →
                   </button>
                 ) : (
-                  <button onClick={() => handleJoinRequest(team.id)}
-                    className="text-sm bg-gray-100 dark:bg-zinc-700 dark:text-zinc-300 px-3 py-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600">
+                  <button
+                    onClick={() => handleJoinRequest(team.id)}
+                    className="text-sm bg-gray-100 dark:bg-zinc-700 dark:text-zinc-300 px-3 py-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
+                  >
                     가입 신청
                   </button>
                 )}
               </div>
             ))
           )}
-        </div>
-
+        </Card>
       </div>
     </div>
   )

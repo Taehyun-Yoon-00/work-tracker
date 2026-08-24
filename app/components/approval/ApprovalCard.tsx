@@ -1,30 +1,17 @@
 import dayjs from 'dayjs'
-
-function statusLabel(status: string) {
-  if (status === 'pending') return { text: '승인 대기중', color: 'text-yellow-500 bg-yellow-50' }
-  if (status === 'approved') return { text: '승인', color: 'text-green-500 bg-green-50' }
-  if (status === 'rejected') return { text: '반려', color: 'text-red-500 bg-red-50' }
-  if (status === 'cancelled') return { text: '취소됨', color: 'text-gray-400 bg-gray-100' }
-  return { text: status, color: '' }
-}
-
-function typeLabel(type: string) {
-  if (type === 'vacation') return { text: '휴가', style: 'bg-orange-50 text-orange-500' }
-  if (type === 'remote') return { text: '원격근무', style: 'bg-purple-50 text-purple-500' }
-  if (type === 'holiday') return { text: '휴일근무', style: 'bg-red-50 text-red-500' }
-  return { text: type, style: 'bg-gray-100 text-gray-500' }
-}
+import { approvalStatusBadge, approvalTypeBadge } from '@/app/lib/labels'
+import type { ApprovalRequestWithRelations } from '@/app/lib/types'
 
 interface ApprovalCardProps {
-  req: any
+  req: ApprovalRequestWithRelations
   userId: string
-  onClick: (req: any) => void
+  onClick: (req: ApprovalRequestWithRelations) => void
 }
 
 export default function ApprovalCard({ req, userId, onClick }: ApprovalCardProps) {
   const isRequester = req.requester_id === userId
-  const status = statusLabel(req.status)
-  const type = typeLabel(req.type)
+  const status = approvalStatusBadge(req.status)
+  const type = approvalTypeBadge(req.type)
 
   return (
     <div
@@ -37,9 +24,7 @@ export default function ApprovalCard({ req, userId, onClick }: ApprovalCardProps
             <span className="text-sm font-medium dark:text-zinc-200">
               {req.requester?.name || req.requester?.email?.split('@')[0]}
             </span>
-            <span className={`text-xs px-2 py-0.5 rounded-full ${type.style}`}>
-              {type.text}
-            </span>
+            <span className={`text-xs px-2 py-0.5 rounded-full ${type.style}`}>{type.text}</span>
             {req.teams?.name && (
               <span className="text-xs bg-blue-50 text-blue-500 px-2 py-0.5 rounded-full">
                 {req.teams.name}
@@ -64,9 +49,7 @@ export default function ApprovalCard({ req, userId, onClick }: ApprovalCardProps
           <p className="text-xs text-gray-400 dark:text-zinc-500">
             결재권자: {req.approver?.name || req.approver?.email?.split('@')[0]}
           </p>
-          {req.memo && (
-            <p className="text-xs text-gray-400 dark:text-zinc-500">사유: {req.memo}</p>
-          )}
+          {req.memo && <p className="text-xs text-gray-400 dark:text-zinc-500">사유: {req.memo}</p>}
           {req.status === 'approved' && req.approved_at && (
             <p className="text-xs text-green-500 mt-0.5">
               승인일: {dayjs(req.approved_at).format('YYYY-MM-DD HH:mm')}

@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import dayjs from 'dayjs'
 import { supabase } from '../lib/supabase'
+import Card from '@/app/components/ui/Card'
+import { useCurrentUser } from '@/app/hooks/useCurrentUser'
 
 interface MatterRow {
   category: string
@@ -27,22 +28,12 @@ function matterDisplayName(row: MatterRow): string {
 }
 
 export default function ReportPage() {
-  const router = useRouter()
-  const [user, setUser] = useState<any>(null)
+  const { user } = useCurrentUser()
   const today = useMemo(() => dayjs(), [])
   const [targetYear, setTargetYear] = useState(today.year())
   const [targetMonth, setTargetMonth] = useState(today.month() + 1) // 1-12
   const [summary, setSummary] = useState<MatterSummary[]>([])
   const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
-      setUser(user)
-    }
-    getUser()
-  }, [])
 
   // 선택한 "당월"을 기준으로 전월 16일 ~ 당월 15일 범위를 계산
   const { periodStart, periodEnd } = useMemo(() => {
@@ -60,10 +51,13 @@ export default function ReportPage() {
   }, [user, periodStart, periodEnd])
 
   const fetchSummary = async () => {
+    if (!user) return
     setLoading(true)
     const { data, error } = await supabase
       .from('work_log_matters')
-      .select('category, hours, matter_place, matter_division, matter_content, matter_cost_code, work_logs!inner(date, user_id)')
+      .select(
+        'category, hours, matter_place, matter_division, matter_content, matter_cost_code, work_logs!inner(date, user_id)'
+      )
       .eq('work_logs.user_id', user.id)
       .gte('work_logs.date', periodStart)
       .lte('work_logs.date', periodEnd)
@@ -76,7 +70,7 @@ export default function ReportPage() {
     }
 
     const grouped = new Map<string, number>()
-    ;(data || []).forEach((row: any) => {
+    ;(data || []).forEach((row: MatterRow) => {
       const name = matterDisplayName(row)
       grouped.set(name, (grouped.get(name) || 0) + Number(row.hours))
     })
@@ -92,7 +86,10 @@ export default function ReportPage() {
   const totalHours = Math.round(summary.reduce((acc, r) => acc + r.hours, 0) * 100) / 100
 
   const moveMonth = (diff: number) => {
-    const next = dayjs(`${targetYear}-${String(targetMonth).padStart(2, '0')}-01`).add(diff, 'month')
+    const next = dayjs(`${targetYear}-${String(targetMonth).padStart(2, '0')}-01`).add(
+      diff,
+      'month'
+    )
     setTargetYear(next.year())
     setTargetMonth(next.month() + 1)
   }
@@ -112,7 +109,7 @@ export default function ReportPage() {
         </div>
 
         {/* 년/월 선택 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
+        <Card className="mb-4">
           <div className="flex items-center justify-center gap-2">
             <button
               onClick={() => moveMonth(-1)}
@@ -128,7 +125,9 @@ export default function ReportPage() {
               className="border rounded-lg px-2 py-1.5 text-sm dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
             >
               {yearOptions.map((y) => (
-                <option key={y} value={y}>{y}년</option>
+                <option key={y} value={y}>
+                  {y}년
+                </option>
               ))}
             </select>
 
@@ -138,7 +137,9 @@ export default function ReportPage() {
               className="border rounded-lg px-2 py-1.5 text-sm dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
             >
               {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                <option key={m} value={m}>{m}월</option>
+                <option key={m} value={m}>
+                  {m}월
+                </option>
               ))}
             </select>
 
@@ -153,12 +154,14 @@ export default function ReportPage() {
           <p className="text-center text-xs text-gray-400 dark:text-zinc-500 mt-2">
             {dayjs(periodStart).format('YYYY.MM.DD')} ~ {dayjs(periodEnd).format('YYYY.MM.DD')}
           </p>
-        </div>
+        </Card>
 
         {/* 안건별 합계시간 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4">
+        <Card>
           {loading ? (
-            <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-6">불러오는 중...</p>
+            <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-6">
+              불러오는 중...
+            </p>
           ) : summary.length === 0 ? (
             <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-6">
               해당 기간에 기록된 근무가 없어요.
@@ -191,7 +194,7 @@ export default function ReportPage() {
               </tfoot>
             </table>
           )}
-        </div>
+        </Card>
       </div>
     </div>
   )

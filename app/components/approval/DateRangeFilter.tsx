@@ -12,7 +12,10 @@ interface DateRangeFilterProps {
 
 export default function DateRangeFilter({ startDate, endDate, onApply }: DateRangeFilterProps) {
   const [open, setOpen] = useState(false)
-  const [range, setRange] = useState<DateObject[]>([new DateObject(startDate), new DateObject(endDate)])
+  const [range, setRange] = useState<DateObject[]>([
+    new DateObject(startDate),
+    new DateObject(endDate),
+  ])
 
   const openPicker = () => {
     setRange([new DateObject(startDate), new DateObject(endDate)])
@@ -51,7 +54,7 @@ export default function DateRangeFilter({ startDate, endDate, onApply }: DateRan
             <p className="text-sm font-semibold mb-3 dark:text-white">기간 선택</p>
             <Calendar
               value={range}
-              onChange={(dates: any) => setRange(dates)}
+              onChange={(dates) => setRange(dates)}
               range
               numberOfMonths={2}
               shadow={false}
