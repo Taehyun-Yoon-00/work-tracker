@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { NAV_MENU_ITEMS } from '../lib/navMenu'
 
 interface MenuDrawerProps {
@@ -10,6 +10,7 @@ interface MenuDrawerProps {
 
 export default function MenuDrawer({ open, onClose }: MenuDrawerProps) {
   const router = useRouter()
+  const pathname = usePathname()
 
   return (
     <>
@@ -44,26 +45,42 @@ export default function MenuDrawer({ open, onClose }: MenuDrawerProps) {
               표시할 메뉴가 없어요.
             </p>
           )}
-          {NAV_MENU_ITEMS.map((item) => (
-            <button
-              key={item.path}
-              onClick={() => {
-                onClose()
-                router.push(item.path)
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-zinc-700 transition"
-            >
-              <span className="text-xl shrink-0">{item.icon}</span>
-              <span className="min-w-0">
-                <span className="block text-sm font-medium dark:text-zinc-100">{item.label}</span>
-                {item.description && (
-                  <span className="block text-xs text-gray-400 dark:text-zinc-500 truncate">
-                    {item.description}
+          {NAV_MENU_ITEMS.map((item) => {
+            // 이 메뉴의 페이지들은 하단 탭에 없어서, 지금 어디에 있는지
+            // 알려주는 곳이 여기뿐이다.
+            const isActive = pathname === item.path || pathname.startsWith(`${item.path}/`)
+            return (
+              <button
+                key={item.path}
+                onClick={() => {
+                  onClose()
+                  router.push(item.path)
+                }}
+                aria-current={isActive ? 'page' : undefined}
+                className={`w-full flex items-center gap-3 px-4 py-3 text-left border-l-2 transition ${
+                  isActive
+                    ? 'border-blue-500 bg-blue-50 dark:bg-zinc-700/50'
+                    : 'border-transparent hover:bg-gray-50 dark:hover:bg-zinc-700'
+                }`}
+              >
+                <span className="text-xl shrink-0">{item.icon}</span>
+                <span className="min-w-0">
+                  <span
+                    className={`block text-sm font-medium ${
+                      isActive ? 'text-blue-600 dark:text-blue-400' : 'dark:text-zinc-100'
+                    }`}
+                  >
+                    {item.label}
                   </span>
-                )}
-              </span>
-            </button>
-          ))}
+                  {item.description && (
+                    <span className="block text-xs text-gray-400 dark:text-zinc-500 truncate">
+                      {item.description}
+                    </span>
+                  )}
+                </span>
+              </button>
+            )
+          })}
         </nav>
       </div>
     </>

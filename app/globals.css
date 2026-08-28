@@ -7,9 +7,21 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* 고정 네비를 위해 body에 잡아둔 padding 자리로 body 배경이 그대로 드러난다.
+   페이지 컨테이너가 쓰는 bg-gray-50 / dark:bg-zinc-900과 값을 맞춰야
+   그 자리에 색이 어긋난 띠가 보이지 않는다.
+   Tailwind 팔레트는 oklch로 정의돼 있어서 같은 색을 hex로 적으면 미세하게
+   어긋난다. 토큰을 그대로 참조한다(뒤의 값은 토큰이 없을 때의 대비책). */
 :root {
-  --background: #ffffff;
+  --background: var(--color-gray-50, #f9fafb);
   --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: var(--color-zinc-900, #18181b);
+    --foreground: #fafafa;
+  }
 }
 
 body {

@@ -36,7 +36,10 @@ export default function RootLayout({
         <meta name="theme-color" content="#ffffff" />
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
-      <body className="min-h-full flex flex-col pt-11 pb-20">
+      {/* pt/pb는 고정된 TopNav·BottomNav 높이를 비워두는 자리다.
+          페이지는 min-h-screen 대신 grow로 남은 높이를 채운다 — 100vh를 쓰면
+          이 padding만큼 항상 넘쳐서 내용이 짧아도 스크롤이 생긴다. */}
+      <body className="min-h-dvh flex flex-col pt-11 pb-20">
         <TopNav />
         {children}
         <BottomNav />

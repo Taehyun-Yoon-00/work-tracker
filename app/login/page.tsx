@@ -49,7 +49,7 @@ export default function LoginPage() {
   // 인증 메일 발송 완료 화면
   if (isVerificationSent) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-zinc-900">
+      <div className="grow flex items-center justify-center bg-gray-50 dark:bg-zinc-900">
         <div className="bg-white dark:bg-zinc-800 p-8 rounded-xl shadow-md w-full max-w-md text-center">
           <div className="text-5xl mb-4">📧</div>
           <h2 className="text-xl font-bold mb-2 dark:text-white">인증 메일을 보냈어요!</h2>
@@ -78,7 +78,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-zinc-900">
+    <div className="grow flex items-center justify-center bg-gray-50 dark:bg-zinc-900">
       <div className="bg-white dark:bg-zinc-800 p-8 rounded-xl shadow-md w-full max-w-md">
         <h1 className="text-2xl font-bold text-center mb-6 dark:text-white">
           {isSignUp ? '회원가입' : '로그인'}

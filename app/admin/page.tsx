@@ -141,7 +141,7 @@ export default function AdminPage() {
     fetchHolidays()
   }
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
+    <div className="grow bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
       <div className="max-w-2xl mx-auto">
         {/* 헤더 */}
         <div className="flex justify-between items-center mb-6">

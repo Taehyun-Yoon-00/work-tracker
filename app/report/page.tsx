@@ -114,10 +114,29 @@ export default function ReportPage() {
     'dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200'
 
   return (
-    <main className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
+    <main className="grow bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
       <div className="max-w-2xl mx-auto">
         <header className="mb-6">
-          <h1 className="text-2xl font-bold tracking-tight dark:text-white">리포트</h1>
+          {/* 이 페이지는 하단 탭에 없어서 돌아갈 곳이 브라우저 뒤로가기뿐이었다. */}
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1 text-sm text-gray-500 dark:text-zinc-400 transition hover:text-gray-700 dark:hover:text-zinc-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="w-4 h-4"
+              aria-hidden="true"
+            >
+              <path d="m15 18-6-6 6-6" />
+            </svg>
+            근무기록
+          </Link>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight dark:text-white">리포트</h1>
         </header>
 
         {/* 년/월 선택 */}
