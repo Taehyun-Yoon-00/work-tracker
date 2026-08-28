@@ -3,6 +3,7 @@ import { Resend } from 'resend'
 import { supabaseAdmin } from '../../lib/supabaseAdmin'
 import { notifyAndPush } from '../../lib/notifications'
 import { APPROVAL_TYPE_LABEL, VACATION_TYPE_LABEL } from '@/app/lib/labels'
+import { getSessionUser } from '@/app/lib/apiAuth'
 
 const resend = new Resend(process.env.RESEND_API_KEY!)
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://work-tracker-ebon.vercel.app'
@@ -310,6 +311,13 @@ function buildCancelResultEmailHtml({
 
 export async function POST(req: NextRequest) {
   try {
+    // 사내 도메인(noreply@tekor.co.kr) 명의로 임의 주소에 메일을 보낼 수 있는
+    // 엔드포인트다. 인증이 없으면 외부에서 스푸핑 메일 발송에 쓰일 수 있다.
+    const user = await getSessionUser()
+    if (!user) {
+      return NextResponse.json({ error: '로그인이 필요해요.' }, { status: 401 })
+    }
+
     const body = await req.json()
     const {
       emailType = 'request',
