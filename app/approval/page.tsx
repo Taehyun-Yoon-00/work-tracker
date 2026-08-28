@@ -10,6 +10,7 @@ import ApprovalList from '../components/approval/ApprovalList'
 import ApprovalDetailModal from '../components/approval/ApprovalDetailModal'
 import RequestModal from '../components/approval/RequestModal'
 import LoadError from '@/app/components/ui/LoadError'
+import ConfirmDialog from '@/app/components/ui/ConfirmDialog'
 import { displayName } from '@/app/lib/labels'
 import type {
   ApprovalRequest,
@@ -43,6 +44,13 @@ function ApprovalPageContent() {
   const { user } = useCurrentUser()
   const [requests, setRequests] = useState<ApprovalRequestWithRelations[]>([])
   const [loadFailed, setLoadFailed] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
+  const [confirming, setConfirming] = useState<
+    | { kind: 'cancel'; requestId: string }
+    | { kind: 'requestCancel'; requestId: string }
+    | { kind: 'resolveCancel'; requestId: string; approve: boolean }
+    | null
+  >(null)
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterType, setFilterType] = useState<string>('all')
   const [dateRangeStart, setDateRangeStart] = useState<string>(
@@ -101,6 +109,7 @@ function ApprovalPageContent() {
       .lte('created_at', dayjs(rangeEnd).endOf('day').toISOString())
       .order('created_at', { ascending: false })
 
+    setInitialLoading(false)
     if (error) {
       // 실패를 넘기면 "결재 요청이 없어요"로 보여서 정상 상태와 구분되지 않는다.
       setLoadFailed(true)
@@ -359,7 +368,6 @@ function ApprovalPageContent() {
 
   const handleCancelRequest = async (requestId: string) => {
     if (!user) return
-    if (!confirm('이 요청을 취소할까요?')) return
     // 취소는 알림/메일 없이 상태만 변경 (이력은 남김)
     await supabase
       .from('approval_requests')
@@ -378,7 +386,6 @@ function ApprovalPageContent() {
   // 요청자: 이미 승인된 건에 대한 취소 요청
   const handleRequestCancelApproval = async (requestId: string) => {
     if (!user) return
-    if (!confirm('이미 승인된 건이에요. 취소를 요청할까요?')) return
 
     await supabase
       .from('approval_requests')
@@ -420,10 +427,6 @@ function ApprovalPageContent() {
   // 결재권자: 취소 요청을 승인(=건을 취소 처리)하거나 거절
   const handleResolveCancelRequest = async (requestId: string, approve: boolean) => {
     if (!user) return
-    const confirmMsg = approve
-      ? '취소 요청을 승인할까요? 이 건은 취소 처리돼요.'
-      : '취소 요청을 거절할까요?'
-    if (!confirm(confirmMsg)) return
 
     const updateData: Partial<ApprovalRequest> = { cancel_requested: false }
     if (approve) {
@@ -540,6 +543,7 @@ function ApprovalPageContent() {
           filterType={filterType}
           dateRangeStart={dateRangeStart}
           dateRangeEnd={dateRangeEnd}
+          loading={initialLoading}
           onFilterStatusChange={setFilterStatus}
           onFilterTypeChange={setFilterType}
           onDateRangeChange={handleDateRangeChange}
@@ -563,9 +567,13 @@ function ApprovalPageContent() {
             }
             onApprove={handleApprove}
             onEdit={handleEditRequest}
-            onCancel={handleCancelRequest}
-            onRequestCancelApproval={handleRequestCancelApproval}
-            onResolveCancelRequest={handleResolveCancelRequest}
+            onCancel={(requestId) => setConfirming({ kind: 'cancel', requestId })}
+            onRequestCancelApproval={(requestId) =>
+              setConfirming({ kind: 'requestCancel', requestId })
+            }
+            onResolveCancelRequest={(requestId, approve) =>
+              setConfirming({ kind: 'resolveCancel', requestId, approve })
+            }
             onClose={handleDetailClose}
           />
         )}
@@ -621,6 +629,39 @@ function ApprovalPageContent() {
       >
         + 결재 요청
       </button>
+
+      <ConfirmDialog
+        open={confirming !== null}
+        tone={confirming?.kind === 'resolveCancel' && !confirming.approve ? 'normal' : 'danger'}
+        title={
+          confirming?.kind === 'cancel'
+            ? '이 요청을 취소할까요?'
+            : confirming?.kind === 'requestCancel'
+              ? '취소를 요청할까요?'
+              : confirming?.approve
+                ? '취소 요청을 승인할까요?'
+                : '취소 요청을 거절할까요?'
+        }
+        description={
+          confirming?.kind === 'cancel'
+            ? '결재 대기 중인 요청이 사라집니다.'
+            : confirming?.kind === 'requestCancel'
+              ? '이미 승인된 건입니다. 결재권자가 취소 요청을 확인한 뒤 처리합니다.'
+              : confirming?.approve
+                ? '이 건이 취소 처리됩니다.'
+                : '요청한 사람의 취소 요청만 거절되고, 결재 상태는 승인으로 남습니다.'
+        }
+        confirmLabel={confirming?.kind === 'resolveCancel' && !confirming.approve ? '거절' : '확인'}
+        onCancel={() => setConfirming(null)}
+        onConfirm={() => {
+          if (!confirming) return
+          const current = confirming
+          setConfirming(null)
+          if (current.kind === 'cancel') handleCancelRequest(current.requestId)
+          else if (current.kind === 'requestCancel') handleRequestCancelApproval(current.requestId)
+          else handleResolveCancelRequest(current.requestId, current.approve)
+        }}
+      />
     </div>
   )
 }

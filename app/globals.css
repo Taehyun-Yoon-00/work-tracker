@@ -29,6 +29,13 @@ body {
   color: var(--foreground);
 }
 
+/* 키보드 포커스 링. 페이지마다 클래스를 붙이면 빠지는 곳이 생기므로 전역으로 둔다.
+   개별 요소에서 다른 색이 필요하면 focus-visible:outline-* 유틸리티가 이 규칙을 이긴다. */
+:focus-visible {
+  outline: 2px solid var(--color-blue-500, #3b82f6);
+  outline-offset: 2px;
+}
+
 /* PC 달력 */
 .react-calendar__tile {
   height: 44px !important;

@@ -21,6 +21,7 @@ import type { RemoteWork, Vacation, WorkCategory, WorkLog, WorkLogMatter } from 
 import Card from '@/app/components/ui/Card'
 import StatCard from '@/app/components/ui/StatCard'
 import LoadError from '@/app/components/ui/LoadError'
+import ConfirmDialog from '@/app/components/ui/ConfirmDialog'
 
 export default function Home() {
   const router = useRouter()
@@ -40,6 +41,7 @@ export default function Home() {
   // 달력 표시에는 날짜만 쓰므로 date 컬럼만 조회한다
   const [monthlyLogs, setMonthlyLogs] = useState<Pick<WorkLog, 'date'>[]>([])
   const [loadFailed, setLoadFailed] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [commutePlan, setCommutePlan] = useState<string | null>(null)
   const [isRemote, setIsRemote] = useState(false)
   const [remoteLoading, setRemoteLoading] = useState(false)
@@ -412,8 +414,6 @@ export default function Home() {
   }
   const handleDelete = async () => {
     if (!user) return
-    const confirmed = confirm('이 날의 근무기록을 삭제할까요?')
-    if (!confirmed) return
     setDeleteLoading(true)
     await supabase
       .from('work_logs')
@@ -599,8 +599,17 @@ export default function Home() {
               />
             </div>
 
-            {/* 주차별 출근예정 버튼 */}
-            <div className="flex flex-col shrink-0 mt-[74px] sm:mt-[90px]">
+            {/* 주차별 출근예정 버튼.
+                달력의 주 행에 맞추려고 위쪽을 비워두는데, 그냥 비우면 무엇을 고르는
+                버튼인지 알 수 없어 잔해처럼 보인다. 같은 높이에 머리말을 넣는다. */}
+            <div className="flex flex-col shrink-0">
+              <div className="h-[74px] sm:h-[90px] flex items-end justify-center pb-1">
+                <span className="text-[10px] leading-tight text-center text-gray-500 dark:text-zinc-400">
+                  출근
+                  <br />
+                  예정
+                </span>
+              </div>
               {(() => {
                 return getWeeksOfMonth(selectedDate).map((weekStart, index) => {
                   const weekNumber = String(index + 1)
@@ -651,9 +660,9 @@ export default function Home() {
                   ✏️ 수정
                 </button>
                 <button
-                  onClick={handleDelete}
+                  onClick={() => setConfirmingDelete(true)}
                   disabled={deleteLoading}
-                  className="text-xs bg-red-50 text-red-500 px-3 py-1 rounded-lg hover:bg-red-100"
+                  className="text-xs border border-red-300 text-red-600 px-3 py-1 rounded-lg transition hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950/50"
                 >
                   🗑️ 삭제
                 </button>
@@ -892,13 +901,27 @@ export default function Home() {
               >
                 <span>{dayjs(log.date).format('MM/DD (ddd)')}</span>
                 <span>
-                  {log.start_time} ~ {log.end_time}
+                  {log.start_time.slice(0, 5)} ~ {log.end_time.slice(0, 5)}
                 </span>
                 <span className="font-semibold">{calcHours(log)}시간</span>
               </div>
             ))
           )}
         </Card>
+
+        <ConfirmDialog
+          open={confirmingDelete}
+          tone="danger"
+          busy={deleteLoading}
+          title="이 날의 근무기록을 삭제할까요?"
+          description={`${dayjs(selectedDate).format('YYYY년 MM월 DD일')}의 근무 시간과 안건별 공수가 함께 삭제됩니다.`}
+          confirmLabel="삭제"
+          onCancel={() => setConfirmingDelete(false)}
+          onConfirm={() => {
+            setConfirmingDelete(false)
+            handleDelete()
+          }}
+        />
       </div>
     </div>
   )

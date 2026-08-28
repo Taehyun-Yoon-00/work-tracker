@@ -7,6 +7,7 @@ import dayjs from 'dayjs'
 import Card from '@/app/components/ui/Card'
 import StatCard from '@/app/components/ui/StatCard'
 import LoadError from '@/app/components/ui/LoadError'
+import ConfirmDialog from '@/app/components/ui/ConfirmDialog'
 import { useCurrentUser } from '@/app/hooks/useCurrentUser'
 
 export default function MyPage() {
@@ -26,6 +27,8 @@ export default function MyPage() {
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [showDeleteSection, setShowDeleteSection] = useState(false)
+  const [deleteMessage, setDeleteMessage] = useState('')
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -113,12 +116,11 @@ export default function MyPage() {
   const handleDeleteAccount = async () => {
     if (!user) return
     if (deleteConfirm !== user.email) {
-      alert('이메일 주소가 일치하지 않아요.')
+      setDeleteMessage('이메일 주소가 일치하지 않아요.')
       return
     }
 
-    if (!confirm('정말로 탈퇴하시겠어요? 모든 데이터가 삭제되며 복구할 수 없어요.')) return
-
+    setDeleteMessage('')
     setDeleteLoading(true)
 
     const res = await fetch('/api/admin/delete-user', {
@@ -129,7 +131,7 @@ export default function MyPage() {
 
     if (!res.ok) {
       const data = await res.json()
-      alert('탈퇴 처리 중 오류가 발생했어요: ' + data.error)
+      setDeleteMessage('탈퇴 처리 중 오류가 발생했어요: ' + (data.error || '알 수 없는 오류'))
       setDeleteLoading(false)
       return
     }
@@ -300,8 +302,11 @@ export default function MyPage() {
                 placeholder={user?.email}
                 className="w-full border border-red-200 rounded-lg px-3 py-2 mb-3 dark:bg-zinc-700 dark:border-red-900 dark:text-zinc-200"
               />
+              {deleteMessage && (
+                <p className="mb-3 text-sm text-red-600 dark:text-red-400">{deleteMessage}</p>
+              )}
               <button
-                onClick={handleDeleteAccount}
+                onClick={() => setConfirmingDelete(true)}
                 disabled={deleteLoading || deleteConfirm !== user?.email}
                 className="w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 disabled:opacity-40"
               >
@@ -310,6 +315,20 @@ export default function MyPage() {
             </div>
           )}
         </Card>
+
+        <ConfirmDialog
+          open={confirmingDelete}
+          tone="danger"
+          busy={deleteLoading}
+          title="정말 탈퇴할까요?"
+          description="근무 기록, 휴가, 팀 정보가 모두 삭제됩니다. 되돌릴 수 없습니다."
+          confirmLabel="탈퇴"
+          onCancel={() => setConfirmingDelete(false)}
+          onConfirm={() => {
+            setConfirmingDelete(false)
+            handleDeleteAccount()
+          }}
+        />
       </div>
     </div>
   )

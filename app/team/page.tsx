@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useCurrentUser } from '@/app/hooks/useCurrentUser'
 import Card from '@/app/components/ui/Card'
 import LoadError from '@/app/components/ui/LoadError'
+import SkeletonRows from '@/app/components/ui/SkeletonRows'
 import type { MyTeamOption, Team } from '@/app/lib/types'
 
 export default function TeamPage() {
@@ -18,6 +19,7 @@ export default function TeamPage() {
   const [message, setMessage] = useState('')
   const [isMaster, setIsMaster] = useState(false)
   const [loadFailed, setLoadFailed] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
 
   useEffect(() => {
     if (user) fetchTeams(user.id)
@@ -36,6 +38,7 @@ export default function TeamPage() {
 
     if (myTeamError) {
       setLoadFailed(true)
+      setInitialLoading(false)
       return
     }
     if (myTeamData) setMyTeams(myTeamData)
@@ -48,9 +51,11 @@ export default function TeamPage() {
 
     if (allTeamsError) {
       setLoadFailed(true)
+      setInitialLoading(false)
       return
     }
     if (allTeams) setTeams(allTeams)
+    setInitialLoading(false)
 
     // 마스터 계정
     const { data: profileData } = await supabase
@@ -149,6 +154,8 @@ export default function TeamPage() {
     return myTeams.some((t) => t.team_id === teamId)
   }
 
+  const otherTeams = teams.filter((t) => !isMyTeam(t.id))
+
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/login')
@@ -159,7 +166,7 @@ export default function TeamPage() {
       <div className="max-w-2xl mx-auto">
         {/* 헤더 */}
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold dark:text-white">팀 관리</h1>
+          <h1 className="text-2xl font-bold dark:text-white">팀</h1>
         </div>
 
         {loadFailed && (
@@ -224,13 +231,17 @@ export default function TeamPage() {
           </Card>
         )}
 
-        {/* 전체 팀 목록 */}
+        {/* 다른 팀 (내 팀은 위에 이미 있으므로 뺀다) */}
         <Card>
-          <h2 className="font-semibold mb-3 dark:text-white">전체 팀 목록</h2>
-          {teams.length === 0 ? (
-            <p className="text-sm text-gray-400 dark:text-zinc-500">아직 팀이 없어요.</p>
+          <h2 className="font-semibold mb-3 dark:text-white">다른 팀</h2>
+          {initialLoading ? (
+            <SkeletonRows rows={3} label="팀 목록" />
+          ) : otherTeams.length === 0 ? (
+            <p className="text-sm text-gray-400 dark:text-zinc-500">
+              {teams.length === 0 ? '아직 팀이 없어요.' : '가입할 수 있는 다른 팀이 없어요.'}
+            </p>
           ) : (
-            teams.map((team) => (
+            otherTeams.map((team) => (
               <div
                 key={team.id}
                 className="flex justify-between items-center py-2 border-b dark:border-zinc-700 last:border-0"

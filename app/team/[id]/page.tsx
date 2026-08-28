@@ -417,8 +417,16 @@ export default function TeamDetailPage() {
                 />
               </div>
 
-              {/* 주차별 시차출근 버튼 */}
-              <div className="flex flex-col shrink-0 mt-[74px] sm:mt-[90px]">
+              {/* 주차별 시차출근 버튼. 달력 주 행에 맞춘 열이라 머리말이 없으면
+                  무엇인지 알 수 없다. 비워두던 위쪽 여백을 라벨로 채운다. */}
+              <div className="flex flex-col shrink-0">
+                <div className="h-[74px] sm:h-[90px] flex items-end justify-center pb-1">
+                  <span className="text-[10px] leading-tight text-center text-gray-500 dark:text-zinc-400">
+                    시차
+                    <br />
+                    출근
+                  </span>
+                </div>
                 {getWeeksOfMonth(calendarMonth).map((weekStart, index) => {
                   const weekNumber = String(index + 1)
                   return (
@@ -687,7 +695,7 @@ export default function TeamDetailPage() {
                             >
                               <span>{dayjs(log.date).format('MM/DD (ddd)')}</span>
                               <span>
-                                {log.start_time} ~ {log.end_time}
+                                {log.start_time.slice(0, 5)} ~ {log.end_time.slice(0, 5)}
                               </span>
                               <span className="font-semibold">{calcHours(log)}시간</span>
                             </div>

@@ -1,6 +1,7 @@
 import ApprovalCard from './ApprovalCard'
 import DateRangeFilter from './DateRangeFilter'
 import Card from '@/app/components/ui/Card'
+import SkeletonRows from '@/app/components/ui/SkeletonRows'
 import type { ApprovalRequestWithRelations } from '@/app/lib/types'
 
 interface ApprovalListProps {
@@ -10,6 +11,8 @@ interface ApprovalListProps {
   filterType: string
   dateRangeStart: string
   dateRangeEnd: string
+  /** 첫 조회가 끝나기 전에는 "없어요" 대신 뼈대를 보여준다. */
+  loading: boolean
   onFilterStatusChange: (value: string) => void
   onFilterTypeChange: (value: string) => void
   onDateRangeChange: (start: string, end: string) => void
@@ -23,6 +26,7 @@ export default function ApprovalList({
   filterType,
   dateRangeStart,
   dateRangeEnd,
+  loading,
   onFilterStatusChange,
   onFilterTypeChange,
   onDateRangeChange,
@@ -122,7 +126,9 @@ export default function ApprovalList({
 
       {/* 카드 목록 */}
       <Card>
-        {filteredRequests.length === 0 ? (
+        {loading ? (
+          <SkeletonRows rows={4} label="결재 목록" />
+        ) : filteredRequests.length === 0 ? (
           <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-4">
             결재 요청이 없어요.
           </p>
