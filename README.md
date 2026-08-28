@@ -52,13 +52,13 @@ docker cp supabase/tests/rls_test.sql supabase_db_yth:/tmp/rls_test.sql
 docker exec supabase_db_yth psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f /tmp/rls_test.sql
 ```
 
-`ok` 13줄이 나오고 에러가 없으면 통과입니다. 그 뒤 연결된 프로젝트에 적용합니다.
+`ok` 14줄이 나오고 에러가 없으면 통과입니다. 그 뒤 연결된 프로젝트에 적용합니다.
 
 ```bash
 npx supabase db push
 ```
 
-> 마이그레이션에 `GRANT`문이 없습니다. 운영 DB는 대시보드로 만들어져 `authenticated`/`service_role`에 권한이 있지만, 이 파일들만으로 만든 새 DB는 권한이 없어 앱이 동작하지 않습니다. 테스트 스크립트는 그래서 자체적으로 GRANT를 주고 롤백합니다.
+> 롤별 테이블 권한은 `010_grants.sql`에 있습니다. RLS 정책(009)과 테이블 권한은 별개의 관문이라 둘 다 있어야 하는데, 009까지는 권한 쪽이 파일에 없어서(운영 DB는 대시보드가 만들어 줌) 이 파일들만으로 만든 새 DB는 앱이 동작하지 않았습니다. 010에는 앞으로 추가할 테이블에 같은 권한이 자동으로 붙도록 `ALTER DEFAULT PRIVILEGES`도 들어 있습니다.
 
 ## 스크립트
 

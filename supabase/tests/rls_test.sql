@@ -3,11 +3,20 @@
 \set ON_ERROR_STOP on
 BEGIN;
 
--- 마이그레이션에 GRANT문이 없어서 새 DB의 authenticated 롤에는 DML 권한이 없다.
--- (운영 DB는 대시보드로 만들어져 GRANT가 있다.) 그 상태를 재현한다.
--- ROLLBACK되므로 DB에 남지 않는다.
-GRANT USAGE ON SCHEMA public TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated;
+-- ── 0. 테이블 권한 ────────────────────────────────────────
+-- 정책과 권한은 별개의 관문이라 둘 다 있어야 한다. 권한이 없으면 정책이
+-- 맞아도 permission denied가 나므로, 아래 정책 테스트보다 먼저 확인한다.
+-- (010_grants.sql 이전에는 이 파일이 직접 GRANT를 주고 돌았다.)
+DO $$
+BEGIN
+  IF NOT has_table_privilege('authenticated', 'public.work_logs', 'SELECT') THEN
+    RAISE EXCEPTION 'FAIL authenticated에 테이블 권한이 없다 (010_grants.sql 미적용)';
+  END IF;
+  IF NOT has_table_privilege('service_role', 'public.profiles', 'SELECT') THEN
+    RAISE EXCEPTION 'FAIL service_role에 테이블 권한이 없다 (010_grants.sql 미적용)';
+  END IF;
+  RAISE NOTICE 'ok  authenticated/service_role 테이블 권한';
+END $$;
 
 
 -- ── 픽스처 ────────────────────────────────────────────────
