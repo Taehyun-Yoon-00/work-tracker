@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useRouter } from 'next/navigation'
 import { useCurrentUser } from '@/app/hooks/useCurrentUser'
 import Card from '@/app/components/ui/Card'
+import LoadError from '@/app/components/ui/LoadError'
 import type { Profile, SubstituteHoliday } from '@/app/lib/types'
 
 type AdminProfile = Pick<Profile, 'id' | 'email' | 'name' | 'is_master' | 'total_vacation'>
@@ -13,6 +14,7 @@ export default function AdminPage() {
   const router = useRouter()
   const { user } = useCurrentUser()
   const [profiles, setProfiles] = useState<AdminProfile[]>([])
+  const [loadFailed, setLoadFailed] = useState(false)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [holidays, setHolidays] = useState<SubstituteHoliday[]>([])
@@ -39,10 +41,15 @@ export default function AdminPage() {
   }, [user])
 
   const fetchProfiles = async () => {
-    const { data } = await supabase
+    setLoadFailed(false)
+    const { data, error } = await supabase
       .from('profiles')
       .select('id, email, name, is_master, total_vacation')
       .order('email', { ascending: true })
+    if (error) {
+      setLoadFailed(true)
+      return
+    }
     if (data) setProfiles(data)
   }
   const fetchHolidays = async () => {
@@ -153,6 +160,14 @@ export default function AdminPage() {
             ← 마이페이지
           </button>
         </div>
+
+        {loadFailed && (
+          <LoadError
+            message="회원 목록을 불러오지 못했습니다."
+            onRetry={fetchProfiles}
+            className="mb-4"
+          />
+        )}
 
         {message && (
           <div className="bg-blue-50 dark:bg-blue-950 text-blue-500 text-sm rounded-xl p-3 mb-4 text-center">

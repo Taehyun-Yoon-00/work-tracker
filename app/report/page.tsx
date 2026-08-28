@@ -5,6 +5,7 @@ import Link from 'next/link'
 import dayjs from 'dayjs'
 import { supabase } from '../lib/supabase'
 import Card from '@/app/components/ui/Card'
+import LoadError from '@/app/components/ui/LoadError'
 import { useCurrentUser } from '@/app/hooks/useCurrentUser'
 import { getSettlementPeriod } from '@/app/lib/dates'
 
@@ -230,17 +231,7 @@ export default function ReportPage() {
               </div>
             </>
           ) : failed ? (
-            <div className="py-8 text-center">
-              <p className="text-sm text-red-600 dark:text-red-400">
-                리포트를 불러오지 못했습니다.
-              </p>
-              <button
-                onClick={fetchSummary}
-                className="mt-3 rounded-lg border border-gray-300 dark:border-zinc-600 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-zinc-200 transition hover:bg-gray-100 dark:hover:bg-zinc-700 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
-              >
-                다시 시도
-              </button>
-            </div>
+            <LoadError message="리포트를 불러오지 못했습니다." onRetry={fetchSummary} />
           ) : summary.length === 0 ? (
             <div className="py-8 text-center">
               <p className="text-sm text-gray-500 dark:text-zinc-400">

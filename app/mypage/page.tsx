@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import dayjs from 'dayjs'
 import Card from '@/app/components/ui/Card'
 import StatCard from '@/app/components/ui/StatCard'
+import LoadError from '@/app/components/ui/LoadError'
 import { useCurrentUser } from '@/app/hooks/useCurrentUser'
 
 export default function MyPage() {
@@ -17,6 +18,7 @@ export default function MyPage() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [isMaster, setIsMaster] = useState(false)
+  const [loadFailed, setLoadFailed] = useState(false)
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [passwordMessage, setPasswordMessage] = useState('')
@@ -32,11 +34,17 @@ export default function MyPage() {
   }, [user])
 
   const fetchProfile = async (userId: string) => {
-    const { data } = await supabase
+    setLoadFailed(false)
+    const { data, error } = await supabase
       .from('profiles')
       .select('name, total_vacation, is_master')
       .eq('id', userId)
       .single()
+    if (error) {
+      // 실패를 넘기면 이름이 빈칸, 총 휴가가 0으로 보인다. 그대로 저장하면 값이 덮인다.
+      setLoadFailed(true)
+      return
+    }
     if (data) {
       setName(data.name || '')
       setTotalVacation(data.total_vacation || 0)
@@ -157,6 +165,14 @@ export default function MyPage() {
           </div>
         </div>
 
+        {loadFailed && (
+          <LoadError
+            message="프로필을 불러오지 못했습니다. 이 상태로 저장하면 기존 값이 덮일 수 있습니다."
+            onRetry={() => user && fetchProfile(user.id)}
+            className="mb-4"
+          />
+        )}
+
         {/* 프로필 설정 */}
         <Card className="mb-4">
           <h2 className="font-semibold mb-4 dark:text-white">프로필 설정</h2>
@@ -210,7 +226,13 @@ export default function MyPage() {
           <div className="flex gap-3 mb-4">
             <StatCard label="총 휴가" tone="blue" valueSize="xl" value={`${totalVacation}일`} />
             <StatCard label="사용" tone="orange" valueSize="xl" value={`${usedVacation}일`} />
-            <StatCard label="잔여" tone="green" valueSize="xl" value={`${remaining}일`} />
+            {/* 잔여가 음수면 초과 사용이다. 초록으로 두면 색이 정반대를 말한다. */}
+            <StatCard
+              label="잔여"
+              tone={remaining < 0 ? 'red' : 'green'}
+              valueSize="xl"
+              value={`${remaining}일`}
+            />
           </div>
           <div className="w-full bg-gray-100 dark:bg-zinc-700 rounded-full h-3">
             <div

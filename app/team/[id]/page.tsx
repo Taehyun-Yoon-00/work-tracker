@@ -13,6 +13,7 @@ import { useCurrentUser } from '@/app/hooks/useCurrentUser'
 import { getMonthRange, getSettlementPeriod, getWeekRange, getWeeksOfMonth } from '@/app/lib/dates'
 import { calcWorkHours } from '@/app/lib/workTime'
 import { displayName } from '@/app/lib/labels'
+import LoadError from '@/app/components/ui/LoadError'
 import type {
   CommutePlan,
   RemoteWork,
@@ -31,6 +32,7 @@ export default function TeamDetailPage() {
   const { id } = useParams()
   const { user } = useCurrentUser()
   const [team, setTeam] = useState<Team | null>(null)
+  const [loadFailed, setLoadFailed] = useState(false)
   const [members, setMembers] = useState<WithProfile<TeamMember>[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
   const [requests, setRequests] = useState<WithProfile<TeamRequest>[]>([])
@@ -123,6 +125,8 @@ export default function TeamDetailPage() {
   }
 
   const fetchTeamData = async (userId: string) => {
+    setLoadFailed(false)
+
     const { data: profileData } = await supabase
       .from('profiles')
       .select('is_master')
@@ -136,7 +140,7 @@ export default function TeamDetailPage() {
     const { data: teamData } = await supabase.from('teams').select('*').eq('id', id).single()
     if (teamData) setTeam(teamData)
 
-    const { data: memberData } = await supabase
+    const { data: memberData, error: memberError } = await supabase
       .from('team_members')
       .select('*, profiles(id, email, name)')
       .eq('team_id', id)
@@ -144,6 +148,11 @@ export default function TeamDetailPage() {
       .order('created_at', { ascending: true })
       .returns<WithProfile<TeamMember>[]>()
 
+    if (memberError) {
+      // 팀원 조회가 막히면 팀이 비어 보인다. 다른 팀 페이지를 열었을 때와 구분되지 않는다.
+      setLoadFailed(true)
+      return
+    }
     if (memberData) {
       setMembers(memberData)
       const myRole = memberData.find((m) => m.user_id === userId)
@@ -343,6 +352,14 @@ export default function TeamDetailPage() {
             </button>
           </div>
         </div>
+
+        {loadFailed && (
+          <LoadError
+            message="팀 정보를 불러오지 못했습니다."
+            onRetry={() => user && fetchTeamData(user.id)}
+            className="mb-4"
+          />
+        )}
 
         {/* 가입 신청 (팀장만) */}
         {(isAdmin || isMaster) && requests.length > 0 && (

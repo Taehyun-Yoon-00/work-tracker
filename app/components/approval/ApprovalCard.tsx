@@ -16,7 +16,7 @@ export default function ApprovalCard({ req, userId, onClick }: ApprovalCardProps
   return (
     <div
       onClick={() => onClick(req)}
-      className="py-3 border-b dark:border-zinc-700 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+      className="py-3 border-b dark:border-zinc-700 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-zinc-700"
     >
       <div className="flex justify-between items-start">
         <div className="flex-1 min-w-0">
@@ -26,17 +26,17 @@ export default function ApprovalCard({ req, userId, onClick }: ApprovalCardProps
             </span>
             <span className={`text-xs px-2 py-0.5 rounded-full ${type.style}`}>{type.text}</span>
             {req.teams?.name && (
-              <span className="text-xs bg-blue-50 text-blue-500 px-2 py-0.5 rounded-full">
+              <span className="text-xs bg-blue-50 text-blue-500 dark:bg-blue-950/50 dark:text-blue-300 px-2 py-0.5 rounded-full">
                 {req.teams.name}
               </span>
             )}
             {isRequester && (
-              <span className="text-xs bg-orange-50 text-orange-400 px-2 py-0.5 rounded-full">
+              <span className="text-xs bg-orange-50 text-orange-400 dark:bg-orange-950/50 dark:text-orange-300 px-2 py-0.5 rounded-full">
                 내 요청
               </span>
             )}
             {req.status === 'approved' && req.cancel_requested && (
-              <span className="text-xs bg-amber-50 text-amber-500 px-2 py-0.5 rounded-full">
+              <span className="text-xs bg-amber-50 text-amber-500 dark:bg-amber-950/50 dark:text-amber-300 px-2 py-0.5 rounded-full">
                 취소 요청됨
               </span>
             )}
@@ -51,12 +51,12 @@ export default function ApprovalCard({ req, userId, onClick }: ApprovalCardProps
           </p>
           {req.memo && <p className="text-xs text-gray-400 dark:text-zinc-500">사유: {req.memo}</p>}
           {req.status === 'approved' && req.approved_at && (
-            <p className="text-xs text-green-500 mt-0.5">
+            <p className="text-xs text-green-500 dark:text-green-400 mt-0.5">
               승인일: {dayjs(req.approved_at).format('YYYY-MM-DD HH:mm')}
             </p>
           )}
           {req.status === 'rejected' && req.rejected_at && (
-            <p className="text-xs text-red-400 mt-0.5">
+            <p className="text-xs text-red-400 dark:text-red-300 mt-0.5">
               반려일: {dayjs(req.rejected_at).format('YYYY-MM-DD HH:mm')}
             </p>
           )}

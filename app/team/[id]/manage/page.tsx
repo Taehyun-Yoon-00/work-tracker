@@ -5,6 +5,7 @@ import { supabase } from '../../../lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
 import { useCurrentUser } from '@/app/hooks/useCurrentUser'
 import Card from '@/app/components/ui/Card'
+import LoadError from '@/app/components/ui/LoadError'
 import { displayName } from '@/app/lib/labels'
 import type { Team, TeamMember, WithProfile } from '@/app/lib/types'
 
@@ -18,12 +19,15 @@ export default function ManagePage() {
   const [isMaster, setIsMaster] = useState(false)
   const [orderMode, setOrderMode] = useState(false)
   const [tempOrder, setTempOrder] = useState<{ [key: string]: number }>({})
+  const [loadFailed, setLoadFailed] = useState(false)
 
   useEffect(() => {
     if (user) fetchData(user.id)
   }, [user])
 
   const fetchData = async (userId: string) => {
+    setLoadFailed(false)
+
     const { data: profileData } = await supabase
       .from('profiles')
       .select('is_master')
@@ -34,13 +38,19 @@ export default function ManagePage() {
     const { data: teamData } = await supabase.from('teams').select('*').eq('id', id).single()
     if (teamData) setTeam(teamData)
 
-    const { data: memberData } = await supabase
+    const { data: memberData, error: memberError } = await supabase
       .from('team_members')
       .select('*, profiles(id, email, name)')
       .eq('team_id', id)
       .order('display_order', { ascending: true })
       .order('created_at', { ascending: true })
       .returns<WithProfile<TeamMember>[]>()
+
+    if (memberError) {
+      // 여기서 실패를 넘기면 팀원이 0명으로 보이고, 아래 권한 확인도 건너뛰게 된다.
+      setLoadFailed(true)
+      return
+    }
     if (memberData) {
       setMembers(memberData)
       // 팀장이 아니면 접근 차단
@@ -116,6 +126,14 @@ export default function ManagePage() {
             ← 팀으로
           </button>
         </div>
+
+        {loadFailed && (
+          <LoadError
+            message="팀원 목록을 불러오지 못했습니다."
+            onRetry={() => user && fetchData(user.id)}
+            className="mb-4"
+          />
+        )}
 
         {message && (
           <div className="bg-red-50 dark:bg-red-950 text-red-500 text-sm rounded-xl p-3 mb-4 text-center">

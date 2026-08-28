@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useRouter } from 'next/navigation'
 import { useCurrentUser } from '@/app/hooks/useCurrentUser'
 import Card from '@/app/components/ui/Card'
+import LoadError from '@/app/components/ui/LoadError'
 import type { MyTeamOption, Team } from '@/app/lib/types'
 
 export default function TeamPage() {
@@ -16,28 +17,39 @@ export default function TeamPage() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [isMaster, setIsMaster] = useState(false)
+  const [loadFailed, setLoadFailed] = useState(false)
 
   useEffect(() => {
     if (user) fetchTeams(user.id)
   }, [user])
 
   const fetchTeams = async (userId: string) => {
+    setLoadFailed(false)
+
     // 내가 속한 팀
-    const { data: myTeamData } = await supabase
+    const { data: myTeamData, error: myTeamError } = await supabase
       .from('team_members')
       .select('team_id, role, teams(id, name)')
       .eq('user_id', userId)
       // 조인 결과를 supabase-js는 배열로 추론하지만, FK 관계라 실제로는 단일 객체다
       .returns<MyTeamOption[]>()
 
+    if (myTeamError) {
+      setLoadFailed(true)
+      return
+    }
     if (myTeamData) setMyTeams(myTeamData)
 
     // 전체 팀 목록
-    const { data: allTeams } = await supabase
+    const { data: allTeams, error: allTeamsError } = await supabase
       .from('teams')
       .select('*')
       .order('created_at', { ascending: false })
 
+    if (allTeamsError) {
+      setLoadFailed(true)
+      return
+    }
     if (allTeams) setTeams(allTeams)
 
     // 마스터 계정
@@ -149,6 +161,14 @@ export default function TeamPage() {
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold dark:text-white">팀 관리</h1>
         </div>
+
+        {loadFailed && (
+          <LoadError
+            message="팀 목록을 불러오지 못했습니다."
+            onRetry={() => user && fetchTeams(user.id)}
+            className="mb-4"
+          />
+        )}
 
         {/* 팀 생성 */}
         <Card className="mb-4">

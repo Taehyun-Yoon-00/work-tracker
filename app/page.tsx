@@ -20,6 +20,7 @@ import { getMonthRange, getWeekRange, getWeeksOfMonth, todayStr } from '@/app/li
 import type { RemoteWork, Vacation, WorkCategory, WorkLog, WorkLogMatter } from '@/app/lib/types'
 import Card from '@/app/components/ui/Card'
 import StatCard from '@/app/components/ui/StatCard'
+import LoadError from '@/app/components/ui/LoadError'
 
 export default function Home() {
   const router = useRouter()
@@ -38,6 +39,7 @@ export default function Home() {
   const [isLocked, setIsLocked] = useState(false)
   // 달력 표시에는 날짜만 쓰므로 date 컬럼만 조회한다
   const [monthlyLogs, setMonthlyLogs] = useState<Pick<WorkLog, 'date'>[]>([])
+  const [loadFailed, setLoadFailed] = useState(false)
   const [commutePlan, setCommutePlan] = useState<string | null>(null)
   const [isRemote, setIsRemote] = useState(false)
   const [remoteLoading, setRemoteLoading] = useState(false)
@@ -89,15 +91,21 @@ export default function Home() {
   }
   const fetchMonthlyLogs = async () => {
     if (!user) return
+    setLoadFailed(false)
     const { start: startOfMonth, end: endOfMonth } = getMonthRange(selectedDate)
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('work_logs')
       .select('date')
       .eq('user_id', user.id)
       .gte('date', startOfMonth)
       .lte('date', endOfMonth)
 
+    if (error) {
+      // 실패하면 달력이 기록 없는 달처럼 보인다. 그 위에 덮어 저장하게 두면 안 된다.
+      setLoadFailed(true)
+      return
+    }
     if (data) setMonthlyLogs(data)
   }
 
@@ -566,6 +574,14 @@ export default function Home() {
             </button>
           </div>
         </div>
+
+        {loadFailed && (
+          <LoadError
+            message="근무기록을 불러오지 못했습니다. 달력이 비어 보일 수 있습니다."
+            onRetry={fetchMonthlyLogs}
+            className="mb-4"
+          />
+        )}
 
         {/* 달력 */}
         <Card padding="p-3" className="mb-4">

@@ -9,6 +9,7 @@ import { useCurrentUser } from '@/app/hooks/useCurrentUser'
 import ApprovalList from '../components/approval/ApprovalList'
 import ApprovalDetailModal from '../components/approval/ApprovalDetailModal'
 import RequestModal from '../components/approval/RequestModal'
+import LoadError from '@/app/components/ui/LoadError'
 import { displayName } from '@/app/lib/labels'
 import type {
   ApprovalRequest,
@@ -41,6 +42,7 @@ function ApprovalPageContent() {
   const searchParams = useSearchParams()
   const { user } = useCurrentUser()
   const [requests, setRequests] = useState<ApprovalRequestWithRelations[]>([])
+  const [loadFailed, setLoadFailed] = useState(false)
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterType, setFilterType] = useState<string>('all')
   const [dateRangeStart, setDateRangeStart] = useState<string>(
@@ -78,6 +80,8 @@ function ApprovalPageContent() {
   }, [user])
 
   const fetchRequests = async (userId: string, rangeStart: string, rangeEnd: string) => {
+    setLoadFailed(false)
+
     const { data: myTeamData } = await supabase
       .from('team_members')
       .select('team_id')
@@ -87,7 +91,7 @@ function ApprovalPageContent() {
     const orConditions = [`requester_id.eq.${userId}`, `approver_id.eq.${userId}`]
     if (myTeamIds.length > 0) orConditions.push(`team_id.in.(${myTeamIds.join(',')})`)
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('approval_requests')
       .select(
         `*, requester:profiles!approval_requests_requester_id_fkey(name,email), approver:profiles!approval_requests_approver_id_fkey(name,email), teams(name)`
@@ -96,6 +100,12 @@ function ApprovalPageContent() {
       .gte('created_at', dayjs(rangeStart).startOf('day').toISOString())
       .lte('created_at', dayjs(rangeEnd).endOf('day').toISOString())
       .order('created_at', { ascending: false })
+
+    if (error) {
+      // 실패를 넘기면 "결재 요청이 없어요"로 보여서 정상 상태와 구분되지 않는다.
+      setLoadFailed(true)
+      return
+    }
     if (data) setRequests(data)
   }
 
@@ -514,6 +524,14 @@ function ApprovalPageContent() {
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold dark:text-white">결재</h1>
         </div>
+
+        {loadFailed && (
+          <LoadError
+            message="결재 목록을 불러오지 못했습니다."
+            onRetry={() => user && fetchRequests(user.id, dateRangeStart, dateRangeEnd)}
+            className="mb-4"
+          />
+        )}
 
         <ApprovalList
           requests={requests}
