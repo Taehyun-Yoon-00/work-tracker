@@ -42,11 +42,23 @@ VAPID 키 쌍은 `npx web-push generate-vapid-keys`로 생성합니다.
 
 ### 데이터베이스
 
-스키마는 `supabase/migrations/`에 번호 순으로 들어 있습니다. 연결된 프로젝트에 적용하려면:
+스키마는 `supabase/migrations/`에 번호 순으로 들어 있습니다.
+
+로컬에서 먼저 확인합니다 (Docker Desktop 실행 필요). `supabase start`가 001부터 전부 재생하고, 이어서 RLS 정책 테스트를 돌립니다.
+
+```bash
+npx supabase start
+docker cp supabase/tests/rls_test.sql supabase_db_yth:/tmp/rls_test.sql
+docker exec supabase_db_yth psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f /tmp/rls_test.sql
+```
+
+`ok` 13줄이 나오고 에러가 없으면 통과입니다. 그 뒤 연결된 프로젝트에 적용합니다.
 
 ```bash
 npx supabase db push
 ```
+
+> 마이그레이션에 `GRANT`문이 없습니다. 운영 DB는 대시보드로 만들어져 `authenticated`/`service_role`에 권한이 있지만, 이 파일들만으로 만든 새 DB는 권한이 없어 앱이 동작하지 않습니다. 테스트 스크립트는 그래서 자체적으로 GRANT를 주고 롤백합니다.
 
 ## 스크립트
 
@@ -62,7 +74,7 @@ npm run format   # Prettier 적용
 
 - **서비스워커** — 푸시와 알림 클릭 처리는 `worker/index.js`에서 관리합니다. `public/sw.js`는 빌드마다 next-pwa가 새로 생성하므로 직접 수정하면 사라집니다.
 - **PWA는 개발 모드에서 비활성** — `next.config.ts`에서 `NODE_ENV === 'development'`일 때 꺼집니다. 푸시 동작을 확인하려면 빌드 후 `npm run start`로 실행해야 합니다.
-- **RLS 미적용** — 현재 `work_logs` 등 주요 테이블에 RLS 정책이 없고, 브라우저가 anon key로 직접 쿼리합니다. 접근 제어가 클라이언트 코드에만 있으므로 개선이 필요한 상태입니다.
+- **RLS** — 브라우저가 anon key로 테이블을 직접 쿼리하므로 접근 제어는 DB 정책에 의존합니다. `supabase/migrations/009_rls.sql`이 전 테이블의 정책을 정의하며, **아직 운영 DB에 적용하지 않았다면** 해당 파일 하단의 확인 절차를 먼저 따르세요. 적용 전까지는 URL만 알면 남의 근무기록을 조회할 수 있습니다.
 
 ## 배포
 
