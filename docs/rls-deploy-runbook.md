@@ -2,7 +2,7 @@
 
 **상태: 미반영.** 이 브랜치(`feature/refactoring`)에 RLS 마이그레이션이 들어 있지만 운영 DB에는 아직 적용되지 않았습니다. 작성자에게 운영 DB 권한이 없어, 권한을 가진 사람이 이어받도록 절차를 남깁니다.
 
-작성일 2026-08-28.
+작성일 2026-08-28 · 갱신 2026-08-29.
 
 ## 왜 급한가
 
@@ -12,13 +12,16 @@
 
 ## 무엇을 반영하는가
 
-| 파일                                 | 내용                                                                    |
-| ------------------------------------ | ----------------------------------------------------------------------- |
-| `supabase/migrations/009_rls.sql`    | 전 테이블 RLS 정책 39개 + 헬퍼 함수 + `is_master` 권한 상승 차단 트리거 |
-| `supabase/migrations/010_grants.sql` | 롤별 테이블 권한(GRANT). 정책과 별개의 관문이라 둘 다 필요              |
-| `supabase/tests/rls_test.sql`        | 정책 검증 스크립트(단언 14개)                                           |
+| 파일                                          | 내용                                                               |
+| --------------------------------------------- | ------------------------------------------------------------------ |
+| `supabase/migrations/009_rls.sql`             | 전 테이블 RLS 정책 + 헬퍼 함수 + `is_master` 권한 상승 차단 트리거 |
+| `supabase/migrations/010_grants.sql`          | 롤별 테이블 권한(GRANT). 정책과 별개의 관문이라 둘 다 필요         |
+| `supabase/migrations/011_delete_user_fks.sql` | 탈퇴를 막던 외래키 2개를 `ON DELETE SET NULL`로 변경               |
+| `supabase/tests/rls_test.sql`                 | 정책 검증 스크립트(단언 15개)                                      |
 
-관련 커밋: `3aa5e7b`(중복 003 정리), `bc17ca2`(RLS), `c4208d2`(API 라우트 호출자 인증), `8f7ff10`(문서).
+관련 커밋: `3aa5e7b`(중복 003 정리), `bc17ca2`(RLS), `c4208d2`(API 라우트 호출자 인증), `924119a`(GRANT), `4548438`(DELETE 정책 축소 + 011).
+
+**011이 필요한 이유**: profiles를 참조하는 외래키 11개 중 `approval_requests.approver_id`와 `teams.created_by`만 `ON DELETE NO ACTION`이었습니다. 그래서 결재권자였던 적이 있거나 팀을 만든 사람은 회원 탈퇴 시 `profiles` 삭제가 외래키 위반으로 실패했고, 라우트가 그 오류를 확인하지 않아 **auth 계정만 지워지고 프로필이 회원 목록에 남았습니다.** `SET NULL`로 바꿔 남의 결재·팀은 보존하면서 탈퇴가 끝까지 되도록 했습니다(CASCADE로 하면 남의 기록이 함께 지워집니다).
 
 정책이 반영하는 접근 모델은 `009_rls.sql` 상단 주석에 있습니다. 요약하면 — 본인 데이터는 본인이, 같은 팀의 근무/휴가/원격근무/출근계획은 팀원이 읽기, 팀 관리는 팀장, 마스터 계정은 전체, 서버 API 라우트는 service_role로 RLS 우회.
 
@@ -28,6 +31,15 @@
 
 1. `003_notifications.sql`이 `002`와 바이트 단위로 동일한 중복이었습니다(`CREATE POLICY`는 `IF NOT EXISTS`가 없어 재생 시 42710으로 멈춥니다). → `3aa5e7b`에서 003을 no-op으로 교체했습니다.
 2. 어느 파일에도 `GRANT`문이 없었습니다. 운영은 대시보드가 권한을 만들어 줘서 동작 중이었습니다. → `010_grants.sql`로 명시했습니다.
+
+**운영 스키마에서 직접 확인해 주세요.** 011은 외래키를 `DROP` 후 `ADD`합니다. 운영의 제약 이름이 `approval_requests_approver_id_fkey` / `teams_created_by_fkey`와 다르면 `DROP CONSTRAINT IF EXISTS`가 조용히 넘어가고 같은 이름의 제약이 새로 생겨 **중복 외래키**가 남습니다. 아래로 먼저 확인하세요.
+
+```sql
+SELECT conname, conrelid::regclass AS from_table, confdeltype
+FROM pg_constraint WHERE confrelid = 'public.profiles'::regclass ORDER BY 2;
+```
+
+`confdeltype`이 `a`(NO ACTION)인 두 줄의 이름이 위와 같아야 합니다.
 
 **따라서 운영 스키마가 파일과 다를 수 있습니다.** `db push` 전에 원격 이력을 반드시 대조하세요.
 
