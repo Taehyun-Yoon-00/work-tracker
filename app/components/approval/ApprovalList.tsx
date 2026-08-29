@@ -47,6 +47,8 @@ export default function ApprovalList({
     return statusMatch && typeMatch
   })
 
+  const teamCount = new Set(requests.map((r) => r.teams?.name).filter(Boolean)).size
+
   return (
     <>
       {/* 기간 선택 */}
@@ -86,7 +88,7 @@ export default function ApprovalList({
             label: '전체',
             style:
               filterType === 'all'
-                ? 'bg-gray-700 text-white'
+                ? 'bg-gray-700 text-white dark:bg-zinc-100 dark:text-zinc-900'
                 : 'bg-gray-100 dark:bg-zinc-700 text-gray-500 dark:text-zinc-400',
           },
           {
@@ -134,7 +136,13 @@ export default function ApprovalList({
           </p>
         ) : (
           filteredRequests.map((req) => (
-            <ApprovalCard key={req.id} req={req} userId={userId} onClick={onCardClick} />
+            <ApprovalCard
+              key={req.id}
+              req={req}
+              userId={userId}
+              showTeam={teamCount > 1}
+              onClick={onCardClick}
+            />
           ))
         )}
       </Card>

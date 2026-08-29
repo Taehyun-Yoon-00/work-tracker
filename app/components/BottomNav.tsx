@@ -15,12 +15,14 @@ export default function BottomNav() {
         data: { user },
       } = await supabase.auth.getUser()
       if (!user) return
-      const { count } = await supabase
+      const { count, error } = await supabase
         .from('approval_requests')
         .select('id', { count: 'exact' })
         .eq('approver_id', user.id)
         .eq('status', 'pending')
-      setPendingCount(count || 0)
+      // 실패했는데 0으로 덮으면 대기 건이 있어도 배지가 사라진다. 이전 값을 유지한다.
+      if (error) return
+      setPendingCount(count ?? 0)
     }
     fetchPending()
   }, [pathname])

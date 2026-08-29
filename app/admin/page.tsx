@@ -18,6 +18,7 @@ export default function AdminPage() {
   const [profiles, setProfiles] = useState<AdminProfile[]>([])
   const [loadFailed, setLoadFailed] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
+  const [search, setSearch] = useState('')
   const [confirming, setConfirming] = useState<{
     kind: 'delete' | 'reset'
     profile: AdminProfile
@@ -67,6 +68,13 @@ export default function AdminPage() {
       .order('date', { ascending: true })
     if (data) setHolidays(data)
   }
+  // 이름·이메일 어느 쪽으로 찾든 걸리게 한다.
+  const visibleProfiles = profiles.filter((p) => {
+    const q = search.trim().toLowerCase()
+    if (!q) return true
+    return (p.name || '').toLowerCase().includes(q) || (p.email || '').toLowerCase().includes(q)
+  })
+
   const handleDelete = async (profile: AdminProfile) => {
     if (profile.is_master) {
       setMessage('마스터 계정은 삭제할 수 없어요.')
@@ -140,10 +148,10 @@ export default function AdminPage() {
     fetchHolidays()
   }
   return (
-    <div className="grow bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
+    <main className="grow bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-6">
       <div className="max-w-2xl mx-auto">
         {/* 헤더 */}
-        <div className="flex justify-between items-center mb-6">
+        <header className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold dark:text-white">회원 관리</h1>
           <button
             onClick={() => router.push('/mypage')}
@@ -151,7 +159,7 @@ export default function AdminPage() {
           >
             ← 마이페이지
           </button>
-        </div>
+        </header>
 
         {loadFailed && (
           <LoadError
@@ -169,12 +177,29 @@ export default function AdminPage() {
 
         {/* 회원 목록 */}
         <Card>
-          <h2 className="font-semibold mb-3 dark:text-white">
-            전체 회원 {initialLoading ? '' : `(${profiles.length}명)`}
-          </h2>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="font-semibold dark:text-white">
+              전체 회원 {initialLoading ? '' : `(${profiles.length}명)`}
+            </h2>
+            {!initialLoading && profiles.length > 0 && (
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="이름 · 이메일 검색"
+                aria-label="회원 검색"
+                className="w-44 rounded-lg border border-gray-300 px-3 py-1.5 text-sm dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-200"
+              />
+            )}
+          </div>
           {initialLoading && <SkeletonRows rows={4} label="회원 목록" />}
+          {!initialLoading && visibleProfiles.length === 0 && (
+            <p className="py-4 text-center text-sm text-gray-400 dark:text-zinc-500">
+              검색 결과가 없어요.
+            </p>
+          )}
           {!initialLoading &&
-            profiles.map((profile) => (
+            visibleProfiles.map((profile) => (
               <div
                 key={profile.id}
                 className="flex justify-between items-center py-3 border-b dark:border-zinc-700 last:border-0"
@@ -307,6 +332,6 @@ export default function AdminPage() {
           }}
         />
       </div>
-    </div>
+    </main>
   )
 }

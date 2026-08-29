@@ -22,6 +22,7 @@ export default function MyPage() {
   const [loadFailed, setLoadFailed] = useState(false)
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState('')
   const [passwordMessage, setPasswordMessage] = useState('')
   const [passwordLoading, setPasswordLoading] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState('')
@@ -103,12 +104,18 @@ export default function MyPage() {
       setPasswordMessage('비밀번호는 6자리 이상이어야 해요.')
       return
     }
+    // 확인 입력이 없으면 오타를 친 채로 바뀌고, 그 값을 아무도 모른다.
+    if (newPassword !== newPasswordConfirm) {
+      setPasswordMessage('두 비밀번호가 서로 달라요.')
+      return
+    }
     setPasswordLoading(true)
     const { error } = await supabase.auth.updateUser({ password: newPassword })
     if (error) setPasswordMessage('변경 실패: ' + error.message)
     else {
-      setPasswordMessage('비밀번호가 변경됐어요!')
+      setPasswordMessage('비밀번호가 변경됐어요.')
       setNewPassword('')
+      setNewPasswordConfirm('')
     }
     setPasswordLoading(false)
   }
@@ -144,10 +151,10 @@ export default function MyPage() {
   const remaining = totalVacation - usedVacation
 
   return (
-    <div className="grow bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
+    <main className="grow bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-6">
       <div className="max-w-2xl mx-auto">
         {/* 헤더 */}
-        <div className="flex justify-between items-center mb-6">
+        <header className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold dark:text-white">마이페이지</h1>
           <div className="flex gap-3">
             {isMaster && (
@@ -165,7 +172,7 @@ export default function MyPage() {
               로그아웃
             </button>
           </div>
-        </div>
+        </header>
 
         {loadFailed && (
           <LoadError
@@ -236,19 +243,25 @@ export default function MyPage() {
               value={`${remaining}일`}
             />
           </div>
-          <div className="w-full bg-gray-100 dark:bg-zinc-700 rounded-full h-3">
-            <div
-              className="bg-green-400 h-3 rounded-full transition-all"
-              style={{
-                width:
-                  totalVacation > 0 ? `${Math.max(0, (remaining / totalVacation) * 100)}%` : '0%',
-              }}
-            />
-          </div>
-          <div className="flex justify-between text-xs text-gray-400 dark:text-zinc-500 mt-1">
-            <span>0일</span>
-            <span>{totalVacation}일</span>
-          </div>
+          {/* 총 휴가가 0이면 0일~0일짜리 빈 막대만 남아 아무 정보도 주지 않는다. */}
+          {totalVacation > 0 ? (
+            <>
+              <div className="w-full bg-gray-100 dark:bg-zinc-700 rounded-full h-3">
+                <div
+                  className="bg-green-400 h-3 rounded-full transition-all"
+                  style={{ width: `${Math.max(0, (remaining / totalVacation) * 100)}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-xs text-gray-400 dark:text-zinc-500 mt-1">
+                <span>0일</span>
+                <span>{totalVacation}일</span>
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-gray-400 dark:text-zinc-500">
+              총 휴가 일수를 입력하면 잔여 비율이 표시됩니다.
+            </p>
+          )}
         </Card>
 
         {/* 비밀번호 변경 */}
@@ -261,6 +274,16 @@ export default function MyPage() {
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               placeholder="6자리 이상"
+              className="w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
+            />
+          </div>
+          <div className="mb-3">
+            <label className="text-sm text-gray-500 dark:text-zinc-400">새 비밀번호 확인</label>
+            <input
+              type="password"
+              value={newPasswordConfirm}
+              onChange={(e) => setNewPasswordConfirm(e.target.value)}
+              placeholder="한 번 더 입력"
               className="w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
             />
           </div>
@@ -330,6 +353,6 @@ export default function MyPage() {
           }}
         />
       </div>
-    </div>
+    </main>
   )
 }

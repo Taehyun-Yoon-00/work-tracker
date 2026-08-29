@@ -115,7 +115,7 @@ export default function ReportPage() {
     'dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200'
 
   return (
-    <main className="grow bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
+    <main className="grow bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-6">
       <div className="max-w-2xl mx-auto">
         <header className="mb-6">
           {/* 이 페이지는 하단 탭에 없어서 돌아갈 곳이 브라우저 뒤로가기뿐이었다. */}

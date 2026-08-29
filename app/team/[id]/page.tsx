@@ -330,10 +330,10 @@ export default function TeamDetailPage() {
   const { label } = getPeriod()
 
   return (
-    <div className="grow bg-gray-50 dark:bg-zinc-900 p-2 pb-28">
+    <main className="grow bg-gray-50 dark:bg-zinc-900 p-2 pb-6">
       <div className="max-w-2xl mx-auto">
         {/* 헤더 */}
-        <div className="flex justify-between items-center mb-6">
+        <header className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold dark:text-white">{team?.name}</h1>
           <div className="flex gap-3">
             {(isAdmin || isMaster) && (
@@ -351,7 +351,7 @@ export default function TeamDetailPage() {
               ← 팀 목록
             </button>
           </div>
-        </div>
+        </header>
 
         {loadFailed && (
           <LoadError
@@ -363,7 +363,7 @@ export default function TeamDetailPage() {
 
         {/* 가입 신청 (팀장만) */}
         {(isAdmin || isMaster) && requests.length > 0 && (
-          <div className="bg-yellow-50 dark:bg-yellow-950 rounded-xl shadow p-4 mb-4">
+          <div className="mb-4 rounded-xl border-l-4 border-amber-400 bg-white p-4 shadow dark:bg-zinc-800">
             <h2 className="font-semibold mb-3 dark:text-white">가입 신청 ({requests.length})</h2>
             {requests.map((req) => (
               <div
@@ -710,6 +710,6 @@ export default function TeamDetailPage() {
           })}
         </Card>
       </div>
-    </div>
+    </main>
   )
 }

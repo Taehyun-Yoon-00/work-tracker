@@ -162,12 +162,12 @@ export default function TeamPage() {
   }
 
   return (
-    <div className="grow bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
+    <main className="grow bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-6">
       <div className="max-w-2xl mx-auto">
         {/* 헤더 */}
-        <div className="flex justify-between items-center mb-6">
+        <header className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold dark:text-white">팀</h1>
-        </div>
+        </header>
 
         {loadFailed && (
           <LoadError
@@ -267,6 +267,6 @@ export default function TeamPage() {
           )}
         </Card>
       </div>
-    </div>
+    </main>
   )
 }

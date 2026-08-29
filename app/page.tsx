@@ -560,10 +560,10 @@ export default function Home() {
   }
 
   return (
-    <div className="grow bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
+    <main className="grow bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-6">
       <div className="max-w-2xl mx-auto">
         {/* 헤더 */}
-        <div className="flex justify-between items-center mb-6">
+        <header className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold dark:text-white">근무시간 기록</h1>
           <div className="flex gap-3">
             <button
@@ -573,7 +573,7 @@ export default function Home() {
               로그아웃
             </button>
           </div>
-        </div>
+        </header>
 
         {loadFailed && (
           <LoadError
@@ -828,7 +828,7 @@ export default function Home() {
                 className={`flex-1 py-2 rounded-lg text-sm font-medium transition ${
                   vacation === type
                     ? 'bg-orange-500 text-white'
-                    : 'bg-orange-50 text-orange-500 hover:bg-orange-100'
+                    : 'bg-orange-50 text-orange-500 hover:bg-orange-100 dark:bg-orange-950/40 dark:text-orange-300 dark:hover:bg-orange-900/40'
                 }`}
               >
                 {vacation === type ? `✓ ${label}` : label}
@@ -923,6 +923,6 @@ export default function Home() {
           }}
         />
       </div>
-    </div>
+    </main>
   )
 }

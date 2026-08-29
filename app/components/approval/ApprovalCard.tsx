@@ -5,10 +5,12 @@ import type { ApprovalRequestWithRelations } from '@/app/lib/types'
 interface ApprovalCardProps {
   req: ApprovalRequestWithRelations
   userId: string
+  /** 목록에 팀이 하나뿐이면 매 행에 같은 팀 이름이 반복돼 배지만 늘어난다. */
+  showTeam: boolean
   onClick: (req: ApprovalRequestWithRelations) => void
 }
 
-export default function ApprovalCard({ req, userId, onClick }: ApprovalCardProps) {
+export default function ApprovalCard({ req, userId, showTeam, onClick }: ApprovalCardProps) {
   const isRequester = req.requester_id === userId
   const status = approvalStatusBadge(req.status)
   const type = approvalTypeBadge(req.type)
@@ -25,7 +27,7 @@ export default function ApprovalCard({ req, userId, onClick }: ApprovalCardProps
               {displayName(req.requester)}
             </span>
             <span className={`text-xs px-2 py-0.5 rounded-full ${type.style}`}>{type.text}</span>
-            {req.teams?.name && (
+            {showTeam && req.teams?.name && (
               <span className="text-xs bg-blue-50 text-blue-500 dark:bg-blue-950/50 dark:text-blue-300 px-2 py-0.5 rounded-full">
                 {req.teams.name}
               </span>
@@ -43,8 +45,8 @@ export default function ApprovalCard({ req, userId, onClick }: ApprovalCardProps
           </div>
           <p className="text-xs text-gray-400 dark:text-zinc-500">
             {req.dates && req.dates.length > 1
-              ? `${dayjs(req.dates[0]).format('MM/DD')} 외 ${req.dates.length - 1}일`
-              : dayjs(req.date).format('YYYY년 MM월 DD일')}
+              ? `${dayjs(req.dates[0]).format('YYYY.MM.DD')} 외 ${req.dates.length - 1}일`
+              : dayjs(req.date).format('YYYY.MM.DD')}
           </p>
           <p className="text-xs text-gray-400 dark:text-zinc-500">
             결재권자: {displayName(req.approver)}
@@ -52,12 +54,12 @@ export default function ApprovalCard({ req, userId, onClick }: ApprovalCardProps
           {req.memo && <p className="text-xs text-gray-400 dark:text-zinc-500">사유: {req.memo}</p>}
           {req.status === 'approved' && req.approved_at && (
             <p className="text-xs text-green-500 dark:text-green-400 mt-0.5">
-              승인일: {dayjs(req.approved_at).format('YYYY-MM-DD HH:mm')}
+              승인일: {dayjs(req.approved_at).format('YYYY.MM.DD HH:mm')}
             </p>
           )}
           {req.status === 'rejected' && req.rejected_at && (
             <p className="text-xs text-red-400 dark:text-red-300 mt-0.5">
-              반려일: {dayjs(req.rejected_at).format('YYYY-MM-DD HH:mm')}
+              반려일: {dayjs(req.rejected_at).format('YYYY.MM.DD HH:mm')}
             </p>
           )}
         </div>

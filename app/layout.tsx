@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: '근무관리 시스템',
+  title: { default: '근무관리 시스템', template: '%s · 근무관리 시스템' },
   description: '근무 기록 관리 시스템',
   manifest: '/manifest.json',
   appleWebApp: {
