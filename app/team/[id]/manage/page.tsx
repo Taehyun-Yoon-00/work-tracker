@@ -27,10 +27,6 @@ export default function ManagePage() {
     { kind: 'kick'; member: WithProfile<TeamMember> } | { kind: 'deleteTeam' } | null
   >(null)
 
-  useEffect(() => {
-    if (user) fetchData(user.id)
-  }, [user])
-
   const fetchData = async (userId: string) => {
     setLoadFailed(false)
 
@@ -65,6 +61,12 @@ export default function ManagePage() {
       if (myRole?.role !== 'admin' && !profileData?.is_master) router.push(`/team/${id}`)
     }
   }
+
+  // 데이터 조회는 선언 뒤에서, 그리고 마이크로태스크로 미뤄서 부른다.
+  // effect 본문에서 곧바로 부르면 setState가 동기로 일어나 렌더가 연쇄된다.
+  useEffect(() => {
+    if (user) void Promise.resolve().then(() => fetchData(user.id))
+  }, [user])
 
   const adminCount = members.filter((m) => m.role === 'admin').length
 

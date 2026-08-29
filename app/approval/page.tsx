@@ -80,13 +80,6 @@ function ApprovalPageContent() {
   const [ccSuggestions, setCcSuggestions] = useState<string[]>([])
   const [showCcSuggestions, setShowCcSuggestions] = useState(false)
 
-  useEffect(() => {
-    if (user) {
-      fetchRequests(user.id, dateRangeStart, dateRangeEnd)
-      fetchMyTeams(user.id)
-    }
-  }, [user])
-
   const fetchRequests = async (userId: string, rangeStart: string, rangeEnd: string) => {
     setLoadFailed(false)
 
@@ -145,6 +138,17 @@ function ApprovalPageContent() {
       .returns<ApproverOption[]>()
     if (data) setApprovers(data)
   }
+
+  // 데이터 조회는 선언 뒤에서, 그리고 마이크로태스크로 미뤄서 부른다.
+  // effect 본문에서 곧바로 부르면 setState가 동기로 일어나 렌더가 연쇄된다.
+  useEffect(() => {
+    if (!user) return
+    const userId = user.id
+    void Promise.resolve().then(() => {
+      fetchRequests(userId, dateRangeStart, dateRangeEnd)
+      fetchMyTeams(userId)
+    })
+  }, [user])
 
   const handleCcInput = (val: string) => {
     setCcInput(val)
@@ -516,7 +520,7 @@ function ApprovalPageContent() {
     const requestId = searchParams.get('requestId')
     if (!requestId || requests.length === 0) return
     const found = requests.find((r) => r.id === requestId)
-    if (found) handleCardClick(found)
+    if (found) void Promise.resolve().then(() => handleCardClick(found))
   }, [searchParams, requests])
 
   usePushSubscription(user?.id)

@@ -29,25 +29,6 @@ export default function AdminPage() {
   const [newHolidayDate, setNewHolidayDate] = useState('')
   const [newHolidayName, setNewHolidayName] = useState('')
 
-  useEffect(() => {
-    if (!user) return
-    const checkAccess = async () => {
-      // 마스터 계정 확인
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('is_master')
-        .eq('id', user.id)
-        .single()
-      if (!profileData?.is_master) {
-        router.push('/')
-        return
-      }
-      fetchProfiles()
-      fetchHolidays()
-    }
-    checkAccess()
-  }, [user])
-
   const fetchProfiles = async () => {
     setLoadFailed(false)
     const { data, error } = await supabase
@@ -68,6 +49,27 @@ export default function AdminPage() {
       .order('date', { ascending: true })
     if (data) setHolidays(data)
   }
+  // 데이터 조회는 선언 뒤에서, 그리고 마이크로태스크로 미뤄서 부른다.
+  // effect 본문에서 곧바로 부르면 setState가 동기로 일어나 렌더가 연쇄된다.
+  useEffect(() => {
+    if (!user) return
+    const userId = user.id
+    void Promise.resolve().then(async () => {
+      // 마스터 계정 확인
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('is_master')
+        .eq('id', userId)
+        .single()
+      if (!profileData?.is_master) {
+        router.push('/')
+        return
+      }
+      fetchProfiles()
+      fetchHolidays()
+    })
+  }, [user])
+
   // 이름·이메일 어느 쪽으로 찾든 걸리게 한다.
   const visibleProfiles = profiles.filter((p) => {
     const q = search.trim().toLowerCase()

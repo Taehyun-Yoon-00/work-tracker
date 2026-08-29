@@ -75,34 +75,6 @@ export default function TeamDetailPage() {
     fetchSubstituteHolidays().then(setSubstituteHolidays)
   }, [])
 
-  useEffect(() => {
-    if (user) fetchTeamData(user.id)
-  }, [user])
-  useEffect(() => {
-    const handleFocus = () => {
-      if (user) fetchTeamData(user.id)
-    }
-    window.addEventListener('focus', handleFocus)
-    return () => window.removeEventListener('focus', handleFocus)
-  }, [user])
-
-  useEffect(() => {
-    if (members.length > 0) {
-      fetchMonthlyLogs(members)
-    }
-  }, [calendarMonth, periodMode])
-
-  useEffect(() => {
-    if (members.length > 0) fetchCommutePlans(members)
-  }, [calendarMonth, members])
-
-  useEffect(() => {
-    if (expandedUser && members.length > 0) {
-      const member = members.find((m) => m.user_id === expandedUser)
-      if (member) fetchWeeklyLogsForMember(member.user_id)
-    }
-  }, [selectedWeek, expandedUser])
-
   const fetchCommutePlans = async (memberData: WithProfile<TeamMember>[]) => {
     const { data: commutePlanData } = await supabase
       .from('commute_plans')
@@ -255,6 +227,39 @@ export default function TeamDetailPage() {
     const dateStr = dayjs(date).format('YYYY-MM-DD')
     return sortByMemberOrder(remoteWorks.filter((r) => r.date === dateStr))
   }
+
+  // 아래 조회 함수들이 선언된 뒤에 둔다. 그리고 마이크로태스크로 미뤄서 부른다 —
+  // effect 본문에서 곧바로 부르면 setState가 동기로 일어나 렌더가 연쇄된다.
+  useEffect(() => {
+    if (!user) return
+    const userId = user.id
+    void Promise.resolve().then(() => fetchTeamData(userId))
+  }, [user])
+
+  // 다른 탭에서 승인/반려하고 돌아오면 최신 상태로 맞춘다.
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user) fetchTeamData(user.id)
+    }
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [user])
+
+  useEffect(() => {
+    if (members.length === 0) return
+    void Promise.resolve().then(() => fetchMonthlyLogs(members))
+  }, [calendarMonth, periodMode])
+
+  useEffect(() => {
+    if (members.length === 0) return
+    void Promise.resolve().then(() => fetchCommutePlans(members))
+  }, [calendarMonth, members])
+
+  useEffect(() => {
+    if (!expandedUser || members.length === 0) return
+    const member = members.find((m) => m.user_id === expandedUser)
+    if (member) void Promise.resolve().then(() => fetchWeeklyLogsForMember(member.user_id))
+  }, [selectedWeek, expandedUser])
 
   const getTileContent = ({ date }: { date: Date }) => {
     const dayVacations = getVacationsOnDate(date)

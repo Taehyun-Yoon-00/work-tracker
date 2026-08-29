@@ -27,7 +27,8 @@ export function useNotifications(userId: string | undefined) {
 
   useEffect(() => {
     if (!userId) return
-    fetchNotifications()
+    // effect 본문에서 곧바로 부르면 setLoading이 동기로 일어나 렌더가 연쇄된다.
+    void Promise.resolve().then(() => fetchNotifications())
 
     // 실시간 반영: 다른 곳에서 알림이 새로 생기거나(INSERT) 읽음 처리되면(UPDATE) 바로 목록/뱃지에 반영
     const channel = supabase

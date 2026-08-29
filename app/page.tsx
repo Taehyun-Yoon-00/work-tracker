@@ -56,27 +56,6 @@ export default function Home() {
     fetchSubstituteHolidays().then(setSubstituteHolidays)
   }, [])
 
-  useEffect(() => {
-    if (user) {
-      fetchMonthlyLogs()
-      fetchMonthlyVacations()
-      fetchMonthlyRemoteWorks()
-      fetchMonthCommutePlans()
-      fetchVacation(selectedDate)
-      fetchDayLog(selectedDate)
-      fetchRemote(selectedDate)
-    }
-  }, [user, selectedDate])
-
-  useEffect(() => {
-    if (user) fetchWeeklyLogs()
-  }, [user, viewedWeek])
-
-  // 날짜를 클릭하면 보고 있는 주간도 그 날짜의 주로 동기화
-  useEffect(() => {
-    setViewedWeek(selectedDate)
-  }, [selectedDate])
-
   const fetchWeeklyLogs = async () => {
     if (!user) return
     const { start: startOfWeek, end: endOfWeek } = getWeekRange(viewedWeek)
@@ -543,6 +522,31 @@ export default function Home() {
       </>
     )
   }
+  // 아래 조회 함수들이 선언된 뒤에 둔다. 그리고 마이크로태스크로 미뤄서 부른다 —
+  // effect 본문에서 곧바로 부르면 setState가 동기로 일어나 렌더가 연쇄된다.
+  useEffect(() => {
+    if (!user) return
+    void Promise.resolve().then(() => {
+      fetchMonthlyLogs()
+      fetchMonthlyVacations()
+      fetchMonthlyRemoteWorks()
+      fetchMonthCommutePlans()
+      fetchVacation(selectedDate)
+      fetchDayLog(selectedDate)
+      fetchRemote(selectedDate)
+    })
+  }, [user, selectedDate])
+
+  useEffect(() => {
+    if (!user) return
+    void Promise.resolve().then(() => fetchWeeklyLogs())
+  }, [user, viewedWeek])
+
+  // 날짜를 클릭하면 보고 있는 주간도 그 날짜의 주로 동기화
+  useEffect(() => {
+    void Promise.resolve().then(() => setViewedWeek(selectedDate))
+  }, [selectedDate])
+
   const calcHours = (log: WorkLog) => calcWorkHours(log).toFixed(2)
 
   const totalWeeklyHours = weeklyLogs.reduce((acc, log) => acc + parseFloat(calcHours(log)), 0)

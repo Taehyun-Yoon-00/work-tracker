@@ -21,10 +21,6 @@ export default function TeamPage() {
   const [loadFailed, setLoadFailed] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
 
-  useEffect(() => {
-    if (user) fetchTeams(user.id)
-  }, [user])
-
   const fetchTeams = async (userId: string) => {
     setLoadFailed(false)
 
@@ -65,6 +61,12 @@ export default function TeamPage() {
       .single()
     if (profileData?.is_master) setIsMaster(true)
   }
+
+  // 데이터 조회는 선언 뒤에서, 그리고 마이크로태스크로 미뤄서 부른다.
+  // effect 본문에서 곧바로 부르면 setState가 동기로 일어나 렌더가 연쇄된다.
+  useEffect(() => {
+    if (user) void Promise.resolve().then(() => fetchTeams(user.id))
+  }, [user])
 
   const handleCreateTeam = async () => {
     if (!user) return

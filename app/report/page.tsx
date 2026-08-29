@@ -36,7 +36,10 @@ export default function ReportPage() {
   const [targetYear, setTargetYear] = useState(today.year())
   const [targetMonth, setTargetMonth] = useState(today.month() + 1) // 1-12
   const [summary, setSummary] = useState<MatterSummary[]>([])
-  const [loading, setLoading] = useState(false)
+  // 로딩은 상태가 아니라 파생값이다. "지금 보고 있는 기간"과 "화면에 담긴 데이터의
+  // 기간"이 다르면 곧 갱신될 예정이라는 뜻이다. effect에서 setLoading(true)를
+  // 부르지 않아도 되고, 응답이 순서를 바꿔 도착해도 표시가 어긋나지 않는다.
+  const [loadedPeriod, setLoadedPeriod] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
 
   // 선택한 "당월"을 기준으로 전월 16일 ~ 당월 15일 범위를 계산 (팀 상세 페이지와 같은 규칙)
@@ -44,15 +47,14 @@ export default function ReportPage() {
     () => getSettlementPeriod(`${targetYear}-${String(targetMonth).padStart(2, '0')}-01`),
     [targetYear, targetMonth]
   )
+  const period = `${periodStart}~${periodEnd}`
+  const loading = loadedPeriod !== period
 
-  useEffect(() => {
-    if (user) fetchSummary()
-  }, [user, periodStart, periodEnd])
+  // 조회만 하고 상태는 건드리지 않는다. 상태 갱신은 아래 effect의 콜백에서 한다
+  // — effect 본문에서 setState를 부르는 함수를 호출하면 렌더가 연쇄된다.
+  const loadSummary = async () => {
+    if (!user) return { rows: [] as MatterSummary[], failed: false }
 
-  const fetchSummary = async () => {
-    if (!user) return
-    setLoading(true)
-    setFailed(false)
     const { data, error } = await supabase
       .from('work_log_matters')
       .select(
@@ -65,10 +67,7 @@ export default function ReportPage() {
     if (error) {
       // 조회 실패를 "기록 없음"으로 보여주면 권한 오류가 조용히 묻힌다.
       console.error('리포트 조회 실패:', error.message)
-      setSummary([])
-      setFailed(true)
-      setLoading(false)
-      return
+      return { rows: [] as MatterSummary[], failed: true }
     }
 
     const grouped = new Map<string, number>()
@@ -81,9 +80,23 @@ export default function ReportPage() {
       .map(([name, hours]) => ({ key: name, name, hours: Math.round(hours * 100) / 100 }))
       .sort((a, b) => b.hours - a.hours)
 
-    setSummary(rows)
-    setLoading(false)
+    return { rows, failed: false }
   }
+
+  useEffect(() => {
+    if (!user) return
+    // 월을 빠르게 넘기면 이전 조회가 나중에 도착할 수 있다.
+    let cancelled = false
+    loadSummary().then(({ rows, failed: didFail }) => {
+      if (cancelled) return
+      setSummary(rows)
+      setFailed(didFail)
+      setLoadedPeriod(period)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [user, period])
 
   const totalHours = Math.round(summary.reduce((acc, r) => acc + r.hours, 0) * 100) / 100
 
@@ -231,7 +244,17 @@ export default function ReportPage() {
               </div>
             </>
           ) : failed ? (
-            <LoadError message="리포트를 불러오지 못했습니다." onRetry={fetchSummary} />
+            <LoadError
+              message="리포트를 불러오지 못했습니다."
+              onRetry={() => {
+                setLoadedPeriod(null)
+                loadSummary().then(({ rows, failed: didFail }) => {
+                  setSummary(rows)
+                  setFailed(didFail)
+                  setLoadedPeriod(period)
+                })
+              }}
+            />
           ) : summary.length === 0 ? (
             <div className="py-8 text-center">
               <p className="text-sm text-gray-500 dark:text-zinc-400">

@@ -31,12 +31,6 @@ export default function MyPage() {
   const [deleteMessage, setDeleteMessage] = useState('')
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
-  useEffect(() => {
-    if (!user) return
-    fetchProfile(user.id)
-    fetchUsedVacation(user.id)
-  }, [user])
-
   const fetchProfile = async (userId: string) => {
     setLoadFailed(false)
     const { data, error } = await supabase
@@ -79,6 +73,17 @@ export default function MyPage() {
       setUsedVacation(used)
     }
   }
+
+  // 데이터 조회는 선언 뒤에서, 그리고 마이크로태스크로 미뤄서 부른다.
+  // effect 본문에서 곧바로 부르면 setState가 동기로 일어나 렌더가 연쇄된다.
+  useEffect(() => {
+    if (!user) return
+    const id = user.id
+    void Promise.resolve().then(() => {
+      fetchProfile(id)
+      fetchUsedVacation(id)
+    })
+  }, [user])
 
   const handleSave = async () => {
     if (!user) return
