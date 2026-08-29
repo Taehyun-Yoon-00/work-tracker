@@ -50,7 +50,7 @@ docker cp supabase/tests/rls_test.sql supabase_db_yth:/tmp/rls_test.sql
 docker exec supabase_db_yth psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f /tmp/rls_test.sql
 ```
 
-`ok` 14줄이 나오고 에러가 없으면 통과입니다. 2026-08-28 기준 14/14 통과를 확인했습니다.
+`ok` 15줄이 나오고 에러가 없으면 통과입니다. 2026-08-29 기준 15/15 통과를 확인했습니다.
 
 > Windows 참고: `supabase/config.toml`에서 analytics(logflare)·studio·storage를 꺼뒀습니다. analytics가 unhealthy로 뜨면 `supabase start`가 스택 전체를 내려버려서입니다.
 
@@ -100,5 +100,5 @@ RLS는 **조용히 실패합니다.** 정책이 하나라도 어긋나면 에러
 
 ## 함께 알아둘 미해결 항목
 
-- **admin 페이지의 클라이언트 대량 삭제** — `app/admin/page.tsx`의 강제 탈퇴가 브라우저에서 anon key로 대상 사용자의 여러 테이블 행을 직접 지웁니다. 이 구조 때문에 009의 `*_delete_own_or_master` 정책에 마스터용 DELETE를 넓게 열어둬야 했습니다. 별도 작업으로 `/api/admin/delete-user`(service_role)로 옮기고 정책에서 `is_master()` 분기를 걷어내는 게 맞습니다.
+- ~~admin 페이지의 클라이언트 대량 삭제~~ — **정리했습니다(2026-08-29).** 브라우저에서 anon key로 남의 행을 지우던 코드를 걷어냈습니다. `/api/admin/delete-user`가 이미 같은 테이블을 모두 지우고 있어 중복이었습니다. 이에 맞춰 009의 DELETE 정책에서 `is_master()` 분기를 뺐고 이름도 `*_delete_own`으로 바꿨습니다. 이제 브라우저 롤은 본인 행만 지울 수 있습니다.
 - **anon 권한은 회수하지 않았습니다** — Supabase 대시보드 기본값은 `anon`에게도 테이블 ALL 권한을 줍니다. `010_grants.sql`은 anon에 권한을 주지 않을 뿐 기존 권한을 REVOKE하지 않으므로, **운영 DB의 anon 권한은 그대로 남습니다.** 009의 정책이 전부 `TO authenticated`라 실제 접근은 막히지만, 관문을 하나 더 두려면 REVOKE를 별건으로 검토하세요.

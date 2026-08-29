@@ -74,15 +74,9 @@ export default function AdminPage() {
     }
     setLoading(true)
 
-    // 관련 데이터 먼저 삭제
-    await supabase.from('work_logs').delete().eq('user_id', profile.id)
-    await supabase.from('vacations').delete().eq('user_id', profile.id)
-    await supabase.from('remote_works').delete().eq('user_id', profile.id)
-    await supabase.from('commute_plans').delete().eq('user_id', profile.id)
-    await supabase.from('team_members').delete().eq('user_id', profile.id)
-    await supabase.from('team_requests').delete().eq('user_id', profile.id)
-
-    // auth 유저 삭제
+    // 관련 테이블과 auth 계정 삭제는 전부 서버가 한다.
+    // 예전에는 여기서 브라우저가 anon key로 남의 행을 직접 지웠는데,
+    // 그 때문에 RLS 정책에 마스터용 DELETE를 넓게 열어둬야 했다.
     const res = await fetch('/api/admin/delete-user', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

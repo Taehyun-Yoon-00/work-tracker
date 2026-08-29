@@ -52,7 +52,7 @@ docker cp supabase/tests/rls_test.sql supabase_db_yth:/tmp/rls_test.sql
 docker exec supabase_db_yth psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f /tmp/rls_test.sql
 ```
 
-`ok` 14줄이 나오고 에러가 없으면 통과입니다. 그 뒤 연결된 프로젝트에 적용합니다.
+`ok` 15줄이 나오고 에러가 없으면 통과입니다. 그 뒤 연결된 프로젝트에 적용합니다.
 
 ```bash
 npx supabase db push

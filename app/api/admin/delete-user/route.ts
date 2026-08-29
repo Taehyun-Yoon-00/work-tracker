@@ -34,7 +34,16 @@ export async function POST(req: NextRequest) {
   await supabaseAdmin.from('team_members').delete().eq('user_id', userId)
   await supabaseAdmin.from('team_requests').delete().eq('user_id', userId)
   await supabaseAdmin.from('approval_requests').delete().eq('requester_id', userId)
-  await supabaseAdmin.from('profiles').delete().eq('id', userId)
+
+  // 여기서 실패를 넘기면 auth 계정만 지워지고 프로필이 유령으로 남는다.
+  // (011 이전에는 외래키 때문에 결재권자였던 사람이 항상 여기서 걸렸다.)
+  const { error: profileError } = await supabaseAdmin.from('profiles').delete().eq('id', userId)
+  if (profileError) {
+    return NextResponse.json(
+      { error: '프로필 삭제 실패: ' + profileError.message },
+      { status: 500 }
+    )
+  }
 
   // Auth 계정 삭제
   const { error } = await supabaseAdmin.auth.admin.deleteUser(userId)

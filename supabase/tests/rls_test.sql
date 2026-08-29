@@ -1,5 +1,9 @@
 -- 009_rls.sql 정책 검증. 로컬 DB에서만 실행할 것.
 -- 실패하면 EXCEPTION으로 즉시 멈춘다. 끝까지 가면 통과.
+--
+-- `supabase db reset` 직후의 빈 DB에서 돌려야 한다. 조회 범위를 절대 건수로
+-- 확인하므로 다른 데이터가 남아 있으면 개수가 어긋나 실패한다
+-- (트랜잭션은 롤백되지만, 기존 데이터를 지우지는 않는다).
 \set ON_ERROR_STOP on
 BEGIN;
 
@@ -141,6 +145,19 @@ BEGIN
   UPDATE public.profiles SET is_master = true WHERE id = '22222222-2222-2222-2222-222222222222';
   IF NOT FOUND THEN RAISE EXCEPTION 'FAIL master가 마스터 지정을 못 한다 (회원관리 깨짐)'; END IF;
   RAISE NOTICE 'ok  master는 타인의 마스터 지정 가능';
+  RESET ROLE;
+END $$;
+
+-- ── 3-2. 마스터도 남의 근무기록은 지우지 못한다 ──────────────
+-- 강제 탈퇴는 서버(service_role)가 처리하므로 브라우저 롤에는 열어둘 이유가 없다.
+DO $$
+DECLARE n int;
+BEGIN
+  PERFORM pg_temp.login('44444444-4444-4444-4444-444444444444');
+  DELETE FROM public.work_logs WHERE user_id = '11111111-1111-1111-1111-111111111111';
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n > 0 THEN RAISE EXCEPTION 'FAIL master가 남의 근무기록을 삭제했다 (%건)', n; END IF;
+  RAISE NOTICE 'ok  master도 남의 근무기록은 삭제 불가';
   RESET ROLE;
 END $$;
 

@@ -251,9 +251,9 @@ CREATE POLICY work_logs_update_own
   USING (user_id = auth.uid())
   WITH CHECK (user_id = auth.uid());
 
-CREATE POLICY work_logs_delete_own_or_master
+CREATE POLICY work_logs_delete_own
   ON public.work_logs FOR DELETE TO authenticated
-  USING (user_id = auth.uid() OR public.is_master());
+  USING (user_id = auth.uid());
 
 -- vacations
 ALTER TABLE public.vacations ENABLE ROW LEVEL SECURITY;
@@ -275,9 +275,9 @@ CREATE POLICY vacations_update_own
   USING (user_id = auth.uid())
   WITH CHECK (user_id = auth.uid());
 
-CREATE POLICY vacations_delete_own_or_master
+CREATE POLICY vacations_delete_own
   ON public.vacations FOR DELETE TO authenticated
-  USING (user_id = auth.uid() OR public.is_master());
+  USING (user_id = auth.uid());
 
 -- remote_works
 ALTER TABLE public.remote_works ENABLE ROW LEVEL SECURITY;
@@ -299,9 +299,9 @@ CREATE POLICY remote_works_update_own
   USING (user_id = auth.uid())
   WITH CHECK (user_id = auth.uid());
 
-CREATE POLICY remote_works_delete_own_or_master
+CREATE POLICY remote_works_delete_own
   ON public.remote_works FOR DELETE TO authenticated
-  USING (user_id = auth.uid() OR public.is_master());
+  USING (user_id = auth.uid());
 
 -- commute_plans
 ALTER TABLE public.commute_plans ENABLE ROW LEVEL SECURITY;
@@ -323,9 +323,9 @@ CREATE POLICY commute_plans_update_own
   USING (user_id = auth.uid())
   WITH CHECK (user_id = auth.uid());
 
-CREATE POLICY commute_plans_delete_own_or_master
+CREATE POLICY commute_plans_delete_own
   ON public.commute_plans FOR DELETE TO authenticated
-  USING (user_id = auth.uid() OR public.is_master());
+  USING (user_id = auth.uid());
 
 -- ============================================================
 -- work_log_matters (안건별 공수)
@@ -374,13 +374,13 @@ CREATE POLICY work_log_matters_update_own
   );
 
 -- 저장할 때마다 기존 안건을 지우고 다시 넣는 구조라 DELETE가 필요하다
-CREATE POLICY work_log_matters_delete_own_or_master
+CREATE POLICY work_log_matters_delete_own
   ON public.work_log_matters FOR DELETE TO authenticated
   USING (
     EXISTS (
       SELECT 1 FROM public.work_logs w
       WHERE w.id = work_log_id
-        AND (w.user_id = auth.uid() OR public.is_master())
+        AND w.user_id = auth.uid()
     )
   );
 
