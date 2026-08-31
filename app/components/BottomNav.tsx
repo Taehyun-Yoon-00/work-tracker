@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '../lib/supabase'
-import { Clock, Users, ClipboardList, User } from 'lucide-react'
+import { Clock, BarChart3, Users, ClipboardList } from 'lucide-react'
 
 export default function BottomNav() {
   const router = useRouter()
@@ -26,9 +26,9 @@ export default function BottomNav() {
 
   const tabs = [
     { label: '근무기록', path: '/', Icon: Clock },
+    { label: '리포트', path: '/report', Icon: BarChart3 },
     { label: '내 소속', path: '/team', Icon: Users },
     { label: '결재', path: '/approval', Icon: ClipboardList },
-    { label: '마이페이지', path: '/mypage', Icon: User },
   ]
 
   return (
