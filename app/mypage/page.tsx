@@ -9,6 +9,7 @@ export default function MyPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [name, setName] = useState('')
+  const [position, setPosition] = useState('')
   const [totalVacation, setTotalVacation] = useState<number>(0)
   const [usedVacation, setUsedVacation] = useState<number>(0)
   const [loading, setLoading] = useState(false)
@@ -36,11 +37,12 @@ export default function MyPage() {
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase
       .from('profiles')
-      .select('name, total_vacation, is_master')
+      .select('name, position, total_vacation, is_master')
       .eq('id', userId)
       .single()
     if (data) {
       setName(data.name || '')
+      setPosition(data.position || '')
       setTotalVacation(data.total_vacation || 0)
       if (data.is_master) setIsMaster(true)
     }
@@ -75,17 +77,12 @@ export default function MyPage() {
     setMessage('')
     const { error } = await supabase
       .from('profiles')
-      .update({ name, total_vacation: totalVacation })
+      .update({ name, position, total_vacation: totalVacation })
       .eq('id', user.id)
 
     if (error) setMessage('저장 실패: ' + error.message)
     else setMessage('저장 완료!')
     setLoading(false)
-  }
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
   }
 
   const handlePasswordChange = async () => {
@@ -140,18 +137,12 @@ export default function MyPage() {
         {/* 헤더 */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold dark:text-white">마이페이지</h1>
-          <div className="flex gap-3">
-            {isMaster && (
-              <button onClick={() => router.push('/admin')}
-                className="text-sm text-red-500 hover:underline">
-                회원 관리
-              </button>
-            )}
-            <button onClick={handleLogout}
-              className="text-sm text-gray-500 dark:text-zinc-400 hover:underline">
-              로그아웃
+          {isMaster && (
+            <button onClick={() => router.push('/admin')}
+              className="text-sm text-red-500 hover:underline">
+              회원 관리
             </button>
-          </div>
+          )}
         </div>
 
         {/* 프로필 설정 */}
@@ -170,6 +161,17 @@ export default function MyPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="이름을 입력해주세요"
+              className="w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
+            />
+          </div>
+
+          <div className="mb-4">
+            <label className="text-sm text-gray-500 dark:text-zinc-400">직급</label>
+            <input
+              type="text"
+              value={position}
+              onChange={(e) => setPosition(e.target.value)}
+              placeholder="직급을 입력해주세요"
               className="w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
             />
           </div>

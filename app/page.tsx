@@ -11,6 +11,7 @@ dayjs.extend(isoWeek)
 import Holidays from 'date-holidays'
 import WorkMattersEditor, { MatterEntry, WorkCategory, emptyMatterEntry } from './components/worklog/WorkMattersEditor'
 import { recordMatterUsage } from './lib/matterHistory'
+import { Pencil, Trash2, Check } from 'lucide-react'
 
 const hd = new Holidays('KR')
 
@@ -35,7 +36,6 @@ export default function Home() {
   const [remoteLoading, setRemoteLoading] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [monthlyVacations, setMonthlyVacations] = useState<any[]>([])
-  const [monthlyRemoteWorks, setMonthlyRemoteWorks] = useState<any[]>([])
   const [isNextDay, setIsNextDay] = useState(false)
   const [substituteHolidays, setSubstituteHolidays] = useState<string[]>([])
   const [viewedWeek, setViewedWeek] = useState<Date>(new Date())
@@ -54,7 +54,6 @@ export default function Home() {
     if (user) {
       fetchMonthlyLogs()
       fetchMonthlyVacations()
-      fetchMonthlyRemoteWorks()
       fetchMonthCommutePlans()
       fetchVacation(selectedDate)
       fetchDayLog(selectedDate)
@@ -109,18 +108,6 @@ export default function Home() {
       .gte('date', startOfMonth)
       .lte('date', endOfMonth)
     if (data) setMonthlyVacations(data)
-  }
-
-  const fetchMonthlyRemoteWorks = async () => {
-    const startOfMonth = dayjs(selectedDate).startOf('month').format('YYYY-MM-DD')
-    const endOfMonth = dayjs(selectedDate).endOf('month').format('YYYY-MM-DD')
-    const { data } = await supabase
-      .from('remote_works')
-      .select('date')
-      .eq('user_id', user.id)
-      .gte('date', startOfMonth)
-      .lte('date', endOfMonth)
-    if (data) setMonthlyRemoteWorks(data)
   }
 
   const fetchSubstituteHolidays = async () => {
@@ -259,7 +246,6 @@ export default function Home() {
       }, { onConflict: 'user_id,date' })
       setIsRemote(true)
     }
-    fetchMonthlyRemoteWorks()
     setRemoteLoading(false)
   }
 
@@ -279,30 +265,9 @@ export default function Home() {
         type,
       }, { onConflict: 'user_id,date' })
       setVacation(type)
-
-      // 연차를 선택하면 근무입력은 비활성화되고, 이미 저장된 근무기록이 있다면 자동으로 삭제한다
-      if (type === 'annual'||type === 'special') {
-        await supabase.from('work_logs')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('date', dayjs(selectedDate).format('YYYY-MM-DD'))
-        setStartTime('')
-        setEndTime('')
-        setBreakMinutes('60')
-        setMemo('')
-        setIsNextDay(false)
-        setMatters([emptyMatterEntry()])
-        setIsLocked(false)
-        setMessage('')
-        fetchWeeklyLogs()
-        fetchMonthlyLogs()
-      }
     }
     setVacationLoading(false)
   }
-  // 연차인 날은 근무입력을 아예 막는다 (저장되어 있어도 자동으로 지움)
-  const isAnnualVacation = vacation === 'annual'||vacation === 'special'
-  const workInputDisabled = isLocked || isAnnualVacation
   const calcCurrentTotalHours = () => {
     if (!startTime || !endTime) return 0
     const start = dayjs(`2000-01-01 ${startTime}`)
@@ -312,10 +277,6 @@ export default function Home() {
   }
 
   const handleSave = async () => {
-    if (isAnnualVacation) {
-      setMessage('연차인 날은 근무 입력을 저장할 수 없어요.')
-      return
-    }
     if (!startTime || !endTime) {
       setMessage('출근/퇴근 시간을 입력해주세요.')
       return
@@ -471,22 +432,11 @@ export default function Home() {
   const getTileContent = ({ date }: { date: Date }) => {
     const dateStr = dayjs(date).format('YYYY-MM-DD')
     const isToday = dateStr === dayjs().format('YYYY-MM-DD')
-    const isRemoteOnDate = monthlyRemoteWorks.some((r) => r.date === dateStr)
-
-    // 원격근무 표시: 해당 날짜칸 왼쪽위에 작은 동그라미 (원격근무 버튼과 동일한 인디고 색)
-    const remoteDot = isRemoteOnDate ? (
-      <span
-        className="absolute top-0.5 left-0.5 w-1.5 h-1.5 rounded-full bg-indigo-500 pointer-events-none"
-        style={{ zIndex: 1 }}
-      />
-    ) : null
-
-    if (isToday) return remoteDot
+    if (isToday) return null
 
     const vacationOnDate = monthlyVacations.find((v) => v.date === dateStr)
-    if (!vacationOnDate || (vacationOnDate.type !== 'morning' && vacationOnDate.type !== 'afternoon')) {
-      return remoteDot
-    }
+    if (!vacationOnDate) return null
+    if (vacationOnDate.type !== 'morning' && vacationOnDate.type !== 'afternoon') return null
 
     const hasLog = monthlyLogs.some((log) => log.date === dateStr)
     const isDark = typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -498,16 +448,13 @@ export default function Home() {
     const bottomRight = vacationOnDate.type === 'morning' ? workColor : vacationColor
 
     return (
-      <>
-        <div
-          className="absolute inset-0 rounded-lg pointer-events-none"
-          style={{
-            background: `linear-gradient(to bottom right, ${topLeft} 49.5%, ${bottomRight} 50.5%)`,
-            zIndex: 0,
-          }}
-        />
-        {remoteDot}
-      </>
+      <div
+        className="absolute inset-0 rounded-lg pointer-events-none"
+        style={{
+          background: `linear-gradient(to bottom right, ${topLeft} 49.5%, ${bottomRight} 50.5%)`,
+          zIndex: 0,
+        }}
+      />
     )
   }
   const calcHours = (log: any) => {
@@ -526,10 +473,6 @@ export default function Home() {
   const weekendHours = weeklyLogs
     .filter((log) => isHoliday(new Date(log.date)))
     .reduce((acc, log) => acc + parseFloat(calcHours(log)), 0)
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
-  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
@@ -538,12 +481,6 @@ export default function Home() {
         {/* 헤더 */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold dark:text-white">근무시간 기록</h1>
-          <div className="flex gap-3">
-            <button onClick={handleLogout}
-              className="text-sm text-gray-500 dark:text-zinc-400 hover:underline">
-              로그아웃
-            </button>
-          </div>
         </div>
 
 
@@ -612,27 +549,22 @@ export default function Home() {
             <h2 className="font-semibold dark:text-white">
               {dayjs(selectedDate).format('YYYY년 MM월 DD일')} 근무 입력
             </h2>
-            {isLocked && !isAnnualVacation && (
+            {isLocked && (
               <div className="flex gap-2">
                 <button
                   onClick={() => setIsLocked(false)}
-                  className="text-xs bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300 px-3 py-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600">
-                  ✏️ 수정
+                  className="flex items-center gap-1 text-xs bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300 px-3 py-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600">
+                  <Pencil size={12} strokeWidth={2} /> 수정
                 </button>
                 <button
                   onClick={handleDelete}
                   disabled={deleteLoading}
-                  className="text-xs bg-red-50 text-red-500 px-3 py-1 rounded-lg hover:bg-red-100">
-                  🗑️ 삭제
+                  className="flex items-center gap-1 text-xs bg-red-50 text-red-500 px-3 py-1 rounded-lg hover:bg-red-100">
+                  <Trash2 size={12} strokeWidth={2} /> 삭제
                 </button>
               </div>
             )}
           </div>
-          {isAnnualVacation && (
-            <p className="text-xs text-orange-500 mb-3">
-              연차인 날은 근무 입력을 할 수 없어요. 저장된 근무기록이 있었다면 자동으로 삭제됐어요.
-            </p>
-          )}
           <div className="flex gap-2 mb-2">
             <div className="flex gap-20 mb-2">
               <div className="flex-1">
@@ -641,8 +573,8 @@ export default function Home() {
                   <select
                     value={startTime ? startTime.split(':')[0] : ''}
                     onChange={(e) => setStartTime(`${e.target.value}:${startTime ? startTime.split(':')[1] : '00'}`)}
-                    disabled={workInputDisabled}
-                    className={`flex-1 border rounded-lg px-2 py-2 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${workInputDisabled ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}>
+                    disabled={isLocked}
+                    className={`flex-1 border rounded-lg px-2 py-2 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}>
                     <option value="">시</option>
                     {Array.from({ length: 24 }, (_, i) => (
                       <option key={i} value={String(i).padStart(2, '0')}>
@@ -654,8 +586,8 @@ export default function Home() {
                   <select
                     value={startTime ? startTime.split(':')[1] : ''}
                     onChange={(e) => setStartTime(`${startTime ? startTime.split(':')[0] : '00'}:${e.target.value}`)}
-                    disabled={workInputDisabled}
-                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${workInputDisabled ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}>
+                    disabled={isLocked}
+                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}>
                     <option value="">분</option>
                     <option value="00">00</option>
                     <option value="15">15</option>
@@ -671,8 +603,8 @@ export default function Home() {
                   <select
                     value={endTime ? endTime.split(':')[0] : ''}
                     onChange={(e) => setEndTime(`${e.target.value}:${endTime ? endTime.split(':')[1] : '00'}`)}
-                    disabled={workInputDisabled}
-                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${workInputDisabled ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}>
+                    disabled={isLocked}
+                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}>
                     <option value="">시</option>
                     {Array.from({ length: 24 }, (_, i) => (
                       <option key={i} value={String(i).padStart(2, '0')}>
@@ -684,15 +616,15 @@ export default function Home() {
                   <select
                     value={endTime ? endTime.split(':')[1] : ''}
                     onChange={(e) => setEndTime(`${endTime ? endTime.split(':')[0] : '00'}:${e.target.value}`)}
-                    disabled={workInputDisabled}
-                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${workInputDisabled ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}>
+                    disabled={isLocked}
+                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}>
                     <option value="">분</option>
                     <option value="00">00</option>
                     <option value="15">15</option>
                     <option value="30">30</option>
                     <option value="45">45</option>
                   </select>
-                  {!workInputDisabled && (
+                  {!isLocked && (
                     <button
                       onClick={() => setIsNextDay(!isNextDay)}
                       className={`text-[12px] px-1.5 py-1 rounded-lg border transition shrink-0 ${isNextDay
@@ -713,26 +645,26 @@ export default function Home() {
             entries={matters}
             onChange={setMatters}
             totalHours={calcCurrentTotalHours()}
-            disabled={workInputDisabled}
+            disabled={isLocked}
           />
           <div className="mb-2">
             <label className="text-sm text-gray-500 dark:text-zinc-400">휴게시간 (분)</label>
             <input type="number" value={breakMinutes}
               onChange={(e) => setBreakMinutes(e.target.value)}
-              disabled={workInputDisabled}
-              className={`w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${workInputDisabled ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''
+              disabled={isLocked}
+              className={`w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''
                 }`} />
           </div>
           <div className="mb-3">
             <label className="text-sm text-gray-500 dark:text-zinc-400">메모</label>
             <input type="text" value={memo}
               onChange={(e) => setMemo(e.target.value)}
-              disabled={workInputDisabled}
-              className={`w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${workInputDisabled ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''
+              disabled={isLocked}
+              className={`w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''
                 }`} />
           </div>
           {message && <p className="text-sm text-center text-blue-500 mb-2">{message}</p>}
-          {!workInputDisabled && (
+          {!isLocked && (
             <button onClick={handleSave} disabled={loading}
               className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50">
               {loading ? '저장 중...' : '저장'}
@@ -755,11 +687,12 @@ export default function Home() {
                 key={type}
                 onClick={() => handleVacation(type)}
                 disabled={vacationLoading}
-                className={`flex-1 py-2 rounded-lg text-sm font-medium transition ${vacation === type
+                className={`flex-1 py-2 rounded-lg text-sm font-medium transition flex items-center justify-center gap-1 ${vacation === type
                     ? 'bg-orange-500 text-white'
                     : 'bg-orange-50 text-orange-500 hover:bg-orange-100'
                   }`}>
-                {vacation === type ? `✓ ${label}` : label}
+                {vacation === type && <Check size={14} strokeWidth={2.5} />}
+                {label}
               </button>
             ))}
           </div>
@@ -778,11 +711,12 @@ export default function Home() {
           <button
             onClick={handleRemote}
             disabled={remoteLoading}
-            className={`w-full py-2 rounded-lg text-sm font-medium transition ${isRemote
+            className={`w-full py-2 rounded-lg text-sm font-medium transition flex items-center justify-center gap-1 ${isRemote
                 ? 'bg-indigo-500 text-white'
                 : 'bg-indigo-50 text-indigo-500 hover:bg-indigo-100'
               }`}>
-            {isRemote ? '✓ 원격근무' : '원격근무'}
+            {isRemote && <Check size={14} strokeWidth={2.5} />}
+            원격근무
           </button>
           {isRemote && (
             <p className="text-xs text-center text-gray-400 dark:text-zinc-500 mt-2">

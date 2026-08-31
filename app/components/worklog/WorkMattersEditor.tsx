@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { X } from 'lucide-react'
 import {
   MatterFields,
   getMatterPresets,
@@ -46,10 +47,16 @@ interface Props {
 
 export default function WorkMattersEditor({ entries, onChange, totalHours, disabled }: Props) {
   const [presets, setPresets] = useState(() => getMatterPresets())
+  const [suggestionTick, setSuggestionTick] = useState(0)
 
-  const handleRemovePreset = (e: React.MouseEvent, p: MatterFields) => {
-    e.stopPropagation()
-    setPresets(removeMatterPreset(p))
+  const handleDeletePreset = (p: MatterFields) => {
+    removeMatterPreset(p)
+    setPresets(getMatterPresets())
+  }
+
+  const handleDeleteFieldSuggestion = (field: keyof MatterFields, value: string) => {
+    removeFieldSuggestion(field, value)
+    setSuggestionTick((t) => t + 1)
   }
 
   const updateEntry = (key: string, patch: Partial<MatterEntry>) => {
@@ -105,7 +112,7 @@ export default function WorkMattersEditor({ entries, onChange, totalHours, disab
                   className="shrink-0 text-gray-400 hover:text-red-500 px-1"
                   aria-label="안건 삭제"
                 >
-                  ✕
+                  <X size={14} strokeWidth={1.75} />
                 </button>
               )}
             </div>
@@ -119,24 +126,24 @@ export default function WorkMattersEditor({ entries, onChange, totalHours, disab
                       {presets.map((p, i) => (
                         <span
                           key={i}
-                          className="flex items-center rounded-full text-xs bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-zinc-700 dark:text-zinc-300 overflow-hidden"
+                          className="inline-flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-full text-xs bg-gray-100 text-gray-600 dark:bg-zinc-700 dark:text-zinc-300"
                         >
                           <button
                             type="button"
                             disabled={disabled}
                             onClick={() => updateEntry(entry.key, { matter: p })}
-                            className="pl-2.5 pr-1.5 py-1 disabled:opacity-50"
+                            className="hover:underline disabled:opacity-50"
                           >
                             {p.content || p.place || '안건'} · {p.costCode || '코드없음'}
                           </button>
                           {!disabled && (
                             <button
                               type="button"
-                              onClick={(e) => handleRemovePreset(e, p)}
-                              aria-label="최근 사용한 안건 삭제"
-                              className="pr-2 pl-0.5 py-1 text-gray-400 hover:text-red-500"
+                              onClick={() => handleDeletePreset(p)}
+                              aria-label="최근 사용 안건 삭제"
+                              className="w-4 h-4 flex items-center justify-center rounded-full text-gray-400 hover:text-red-500 hover:bg-gray-200 dark:hover:bg-zinc-600 text-[10px] leading-none"
                             >
-                              ✕
+                              <X size={9} strokeWidth={2} />
                             </button>
                           )}
                         </span>
@@ -147,12 +154,13 @@ export default function WorkMattersEditor({ entries, onChange, totalHours, disab
                 {FIELD_DEFS.map(({ key: fk, label, placeholder }) => (
                   <MatterField
                     key={fk}
-                    field={fk}
                     label={label}
                     placeholder={placeholder}
                     value={entry.matter[fk]}
                     disabled={disabled}
+                    suggestions={getFieldSuggestions(fk)}
                     onChange={(v) => updateEntry(entry.key, { matter: { ...entry.matter, [fk]: v } })}
+                    onDeleteSuggestion={(v) => handleDeleteFieldSuggestion(fk, v)}
                   />
                 ))}
               </div>
@@ -180,27 +188,22 @@ export default function WorkMattersEditor({ entries, onChange, totalHours, disab
 }
 
 function MatterField({
-  field,
   label,
   placeholder,
   value,
   disabled,
+  suggestions,
   onChange,
+  onDeleteSuggestion,
 }: {
-  field: keyof MatterFields
   label: string
   placeholder: string
   value: string
   disabled?: boolean
+  suggestions: string[]
   onChange: (v: string) => void
+  onDeleteSuggestion: (v: string) => void
 }) {
-  const [suggestions, setSuggestions] = useState(() => getFieldSuggestions(field))
-
-  const handleRemoveSuggestion = (e: React.MouseEvent, s: string) => {
-    e.stopPropagation()
-    setSuggestions(removeFieldSuggestion(field, s))
-  }
-
   return (
     <div className="mb-2.5">
       <label className="text-xs text-gray-400 dark:text-zinc-500">{label}</label>
@@ -219,24 +222,24 @@ function MatterField({
           {suggestions.map((s) => (
             <span
               key={s}
-              className="flex items-center rounded-full text-[11px] bg-gray-50 text-gray-500 hover:bg-gray-100 dark:bg-zinc-800 dark:text-zinc-400 overflow-hidden"
+              className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full text-[11px] bg-gray-50 text-gray-500 dark:bg-zinc-800 dark:text-zinc-400"
             >
               <button
                 type="button"
                 disabled={disabled}
                 onClick={() => onChange(s)}
-                className="pl-2 pr-1 py-0.5 disabled:opacity-50"
+                className="hover:underline disabled:opacity-50"
               >
                 {s}
               </button>
               {!disabled && (
                 <button
                   type="button"
-                  onClick={(e) => handleRemoveSuggestion(e, s)}
+                  onClick={() => onDeleteSuggestion(s)}
                   aria-label="이력 삭제"
-                  className="pr-1.5 pl-0 py-0.5 text-gray-400 hover:text-red-500"
+                  className="w-3.5 h-3.5 flex items-center justify-center rounded-full text-gray-400 hover:text-red-500 hover:bg-gray-200 dark:hover:bg-zinc-600 text-[9px] leading-none"
                 >
-                  ✕
+                  <X size={10} strokeWidth={2} />
                 </button>
               )}
             </span>

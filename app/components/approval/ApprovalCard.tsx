@@ -40,9 +40,13 @@ export default function ApprovalCard({ req, userId, onClick }: ApprovalCardProps
             <span className={`text-xs px-2 py-0.5 rounded-full ${type.style}`}>
               {type.text}
             </span>
-            {req.teams?.name && (
+            {req.teams?.name ? (
               <span className="text-xs bg-blue-50 text-blue-500 px-2 py-0.5 rounded-full">
                 {req.teams.name}
+              </span>
+            ) : req.departments?.name && (
+              <span className="text-xs bg-blue-50 text-blue-500 px-2 py-0.5 rounded-full">
+                {req.departments.name}
               </span>
             )}
             {isRequester && (

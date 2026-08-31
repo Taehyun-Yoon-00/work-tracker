@@ -1,8 +1,7 @@
 ﻿import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
-import TopNav from './components/TopNav'
-import BottomNav from './components/BottomNav'
+import AppShell from './components/layout/AppShell'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -39,10 +38,8 @@ export default function RootLayout({
         <meta name="theme-color" content="#ffffff" />
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
-      <body className="min-h-full flex flex-col pt-11 pb-20">
-        <TopNav />
-        {children}
-        <BottomNav />
+      <body className="min-h-full flex flex-col pt-11 pb-20 md:pb-0">
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   )

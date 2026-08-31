@@ -9,11 +9,15 @@ export default function AdminPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [profiles, setProfiles] = useState<any[]>([])
+  const [generalAdminIds, setGeneralAdminIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [holidays, setHolidays] = useState<any[]>([])
   const [newHolidayDate, setNewHolidayDate] = useState('')
   const [newHolidayName, setNewHolidayName] = useState('')
+  const [testEmail, setTestEmail] = useState('')
+  const [testName, setTestName] = useState('')
+  const [creatingTestUser, setCreatingTestUser] = useState(false)
 
   useEffect(() => {
     const getUser = async () => {
@@ -38,10 +42,14 @@ export default function AdminPage() {
   }, [])
 
   const fetchProfiles = async () => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, email, name, is_master, total_vacation')
-      .order('email', { ascending: true })
+    const [{ data }, { data: generalAdminRows }] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('id, email, name, is_master, total_vacation')
+        .order('email', { ascending: true }),
+      supabase.from('general_admins').select('user_id'),
+    ])
+    setGeneralAdminIds(new Set((generalAdminRows || []).map((r: any) => r.user_id)))
     if (data) setProfiles(data)
   }
   const fetchHolidays = async () => {
@@ -98,6 +106,46 @@ export default function AdminPage() {
       .update({ is_master: !profile.is_master })
       .eq('id', profile.id)
     fetchProfiles()
+  }
+
+  const handleToggleGeneralAdmin = async (profile: any) => {
+    const isCurrentlyGeneralAdmin = generalAdminIds.has(profile.id)
+    if (isCurrentlyGeneralAdmin) {
+      const { error } = await supabase.from('general_admins').delete().eq('user_id', profile.id)
+      if (error) { setMessage('총괄 관리자 해제 실패: ' + error.message); return }
+    } else {
+      const { error } = await supabase
+        .from('general_admins')
+        .insert({ user_id: profile.id, created_by: user?.id })
+      if (error) { setMessage('총괄 관리자 지정 실패: ' + error.message); return }
+    }
+    fetchProfiles()
+  }
+
+  const handleCreateTestUser = async () => {
+    if (!testEmail.trim()) {
+      setMessage('이메일을 입력해주세요.')
+      return
+    }
+    setCreatingTestUser(true)
+    setMessage('')
+
+    const res = await fetch('/api/admin/create-test-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: testEmail.trim(), name: testName.trim() || undefined }),
+    })
+    const data = await res.json()
+
+    if (!res.ok || data.error) {
+      setMessage('테스트 계정 생성 실패: ' + (data.error || '알 수 없는 오류'))
+    } else {
+      setMessage(`테스트 계정이 생성됐어요! 이메일: ${data.email} / 비밀번호: ${data.password}`)
+      setTestEmail('')
+      setTestName('')
+      fetchProfiles()
+    }
+    setCreatingTestUser(false)
   }
 
   const handleResetPassword = async (profile: any) => {
@@ -158,6 +206,36 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* 테스트 계정 생성 (이메일 인증 없이 즉시 로그인 가능한 계정을 만든다) */}
+        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
+          <h2 className="font-semibold mb-1 dark:text-white">테스트 계정 생성</h2>
+          <p className="text-xs text-gray-400 dark:text-zinc-500 mb-3">
+            이메일 인증 없이 바로 로그인 가능한 계정을 만들어요. 테스트 용도로만 사용해주세요.
+          </p>
+          <div className="flex gap-2 flex-wrap">
+            <input
+              type="email"
+              value={testEmail}
+              onChange={(e) => setTestEmail(e.target.value)}
+              placeholder="이메일 (예: test1@example.com)"
+              className="flex-1 min-w-[180px] border dark:border-zinc-600 rounded-lg px-3 py-2 text-sm dark:bg-zinc-700 dark:text-zinc-200"
+            />
+            <input
+              type="text"
+              value={testName}
+              onChange={(e) => setTestName(e.target.value)}
+              placeholder="이름 (선택)"
+              className="flex-1 min-w-[120px] border dark:border-zinc-600 rounded-lg px-3 py-2 text-sm dark:bg-zinc-700 dark:text-zinc-200"
+            />
+            <button
+              onClick={handleCreateTestUser}
+              disabled={creatingTestUser}
+              className="bg-blue-500 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-600 disabled:opacity-50">
+              {creatingTestUser ? '생성 중...' : '생성'}
+            </button>
+          </div>
+        </div>
+
         {/* 회원 목록 */}
         <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4">
           <h2 className="font-semibold mb-3 dark:text-white">전체 회원 ({profiles.length}명)</h2>
@@ -174,10 +252,15 @@ export default function AdminPage() {
                       마스터
                     </span>
                   )}
+                  {generalAdminIds.has(profile.id) && (
+                    <span className="text-[10px] bg-indigo-100 dark:bg-indigo-950 text-indigo-500 px-2 py-0.5 rounded-full">
+                      총괄 관리자
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-gray-400 dark:text-zinc-500">{profile.email}</p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap justify-end">
                 <button
                   onClick={() => handleToggleMaster(profile)}
                   className={`text-xs px-2 py-1 rounded-lg ${profile.is_master
@@ -185,6 +268,14 @@ export default function AdminPage() {
                       : 'bg-red-50 dark:bg-red-950 text-red-500 hover:bg-red-100'
                     }`}>
                   {profile.is_master ? '마스터 해제' : '마스터 지정'}
+                </button>
+                <button
+                  onClick={() => handleToggleGeneralAdmin(profile)}
+                  className={`text-xs px-2 py-1 rounded-lg ${generalAdminIds.has(profile.id)
+                      ? 'bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300 hover:bg-gray-200'
+                      : 'bg-indigo-50 dark:bg-indigo-950 text-indigo-500 hover:bg-indigo-100'
+                    }`}>
+                  {generalAdminIds.has(profile.id) ? '총괄 관리자 해제' : '총괄 관리자 지정'}
                 </button>
                 {!profile.is_master && (
                   <>

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Calendar, DateObject } from 'react-multi-date-picker'
 import dayjs from 'dayjs'
+import { CalendarDays } from 'lucide-react'
 
 interface DateRangeFilterProps {
   startDate: string // YYYY-MM-DD
@@ -36,7 +37,7 @@ export default function DateRangeFilter({ startDate, endDate, onApply }: DateRan
         <span>
           {dayjs(startDate).format('YYYY.MM.DD')} - {dayjs(endDate).format('YYYY.MM.DD')}
         </span>
-        <span aria-hidden="true">📅</span>
+        <span aria-hidden="true"><CalendarDays size={16} strokeWidth={1.75} /></span>
       </button>
 
       {open && (
@@ -56,8 +57,6 @@ export default function DateRangeFilter({ startDate, endDate, onApply }: DateRan
               numberOfMonths={2}
               shadow={false}
               className="!shadow-none"
-              months={Array.from({ length: 12 }, (_, i) => String(i + 1))}
-              headerOrder={['LEFT_BUTTON', 'YEAR_MONTH', 'RIGHT_BUTTON']}
             />
             <div className="flex gap-2 mt-4">
               <button

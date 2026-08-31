@@ -5,14 +5,16 @@ import relativeTime from 'dayjs/plugin/relativeTime'
 import 'dayjs/locale/ko'
 import { useRouter } from 'next/navigation'
 import type { Notification } from '../../lib/types'
+import type { LucideIcon } from 'lucide-react'
+import { Inbox, CheckCircle2, XCircle, Bell } from 'lucide-react'
 
 dayjs.extend(relativeTime)
 dayjs.locale('ko')
 
-const TYPE_META: Record<string, { icon: string; style: string }> = {
-  REQUEST: { icon: '📥', style: 'bg-blue-50 text-blue-500' },
-  APPROVED: { icon: '✅', style: 'bg-green-50 text-green-500' },
-  REJECTED: { icon: '⛔', style: 'bg-red-50 text-red-500' },
+const TYPE_META: Record<string, { Icon: LucideIcon; style: string }> = {
+  REQUEST: { Icon: Inbox, style: 'bg-blue-50 text-blue-500' },
+  APPROVED: { Icon: CheckCircle2, style: 'bg-green-50 text-green-500' },
+  REJECTED: { Icon: XCircle, style: 'bg-red-50 text-red-500' },
 }
 
 interface NotificationCenterProps {
@@ -71,7 +73,7 @@ export default function NotificationCenter({
         )}
 
         {!loading && notifications.map((n) => {
-          const meta = TYPE_META[n.type] ?? { icon: '🔔', style: 'bg-gray-100 text-gray-500' }
+          const meta = TYPE_META[n.type] ?? { Icon: Bell, style: 'bg-gray-100 text-gray-500' }
           return (
             <button
               key={n.id}
@@ -82,8 +84,8 @@ export default function NotificationCenter({
                   : 'bg-blue-50/60 dark:bg-blue-500/10 hover:bg-blue-50 dark:hover:bg-blue-500/20'
               }`}
             >
-              <span className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm ${meta.style}`}>
-                {meta.icon}
+              <span className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${meta.style}`}>
+                <meta.Icon size={16} strokeWidth={1.75} />
               </span>
               <span className="flex-1 min-w-0">
                 <span className="flex items-center gap-1.5">
