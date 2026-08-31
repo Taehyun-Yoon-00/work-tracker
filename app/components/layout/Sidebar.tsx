@@ -50,9 +50,15 @@ export default function Sidebar() {
                 : 'text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-700'
             }`}
           >
-            <span className="shrink-0"><item.icon size={18} strokeWidth={1.75} /></span>
+            <span className="shrink-0">
+              <item.icon size={18} strokeWidth={1.75} />
+            </span>
             <span className="truncate flex-1 text-left">{item.label}</span>
-            <ChevronDown size={14} strokeWidth={2} className={`shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown
+              size={14}
+              strokeWidth={2}
+              className={`shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+            />
           </button>
           {isOpen && (
             <div className="ml-6 pl-3 border-l-2 border-gray-100 dark:border-zinc-700 mt-0.5 space-y-0.5">
@@ -88,7 +94,9 @@ export default function Sidebar() {
             : 'text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-700'
         }`}
       >
-        <span className="shrink-0"><item.icon size={18} strokeWidth={1.75} /></span>
+        <span className="shrink-0">
+          <item.icon size={18} strokeWidth={1.75} />
+        </span>
         <span className="truncate">{item.label}</span>
       </button>
     )
@@ -138,7 +146,9 @@ export default function Sidebar() {
           onClick={handleLogout}
           className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs text-gray-400 dark:text-zinc-500 hover:bg-gray-100 dark:hover:bg-zinc-700 hover:text-gray-600 dark:hover:text-zinc-300 transition mt-1"
         >
-          <span className="shrink-0"><LogOut size={14} strokeWidth={1.75} /></span>
+          <span className="shrink-0">
+            <LogOut size={14} strokeWidth={1.75} />
+          </span>
           <span>로그아웃</span>
         </button>
       </div>

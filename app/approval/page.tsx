@@ -2,28 +2,51 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import dayjs from 'dayjs'
 import { usePushSubscription } from '../hooks/usePushSubscription'
+import { useCurrentUser } from '@/app/hooks/useCurrentUser'
 import ApprovalList from '../components/approval/ApprovalList'
 import ApprovalDetailModal from '../components/approval/ApprovalDetailModal'
 import RequestModal from '../components/approval/RequestModal'
+import LoadError from '@/app/components/ui/LoadError'
+import ConfirmDialog from '@/app/components/ui/ConfirmDialog'
+import { displayName } from '@/app/lib/labels'
+import type {
+  ApprovalRequest,
+  ApprovalRequestWithRelations,
+  ApprovalStatus,
+  ApproverOption,
+  DateEntry,
+  Department,
+  DepartmentApprover,
+  MyApprovalSource,
+  Profile,
+  Team,
+  UUID,
+} from '@/app/lib/types'
 
 const CC_STORAGE_KEY = 'approval_cc_history'
 
-// "내 소속" = 내가 속한 팀, 또는 팀 없이 부서에 직접 소속된 경우 그 부서
-interface MySource {
-  key: string // `team:<teamId>` 또는 `dept:<departmentId>`
-  label: string
-  teamId: string | null
-  departmentId: string
+/** department_approvers + profiles 조인 (결재권자 후보) */
+type DelegateRow = Pick<
+  DepartmentApprover,
+  'user_id' | 'can_vacation' | 'can_remote' | 'can_holiday'
+> & { profiles: Pick<Profile, 'name' | 'email'> | null }
+
+function canApproveType(row: DelegateRow, type: string) {
+  if (type === 'vacation') return row.can_vacation
+  if (type === 'remote') return row.can_remote
+  return row.can_holiday
 }
 
 function getCcHistory(): string[] {
   if (typeof window === 'undefined') return []
   try {
     return JSON.parse(localStorage.getItem(CC_STORAGE_KEY) || '[]')
-  } catch { return [] }
+  } catch {
+    return []
+  }
 }
 
 function saveCcHistory(emails: string[]) {
@@ -34,25 +57,36 @@ function saveCcHistory(emails: string[]) {
 }
 
 function ApprovalPageContent() {
-  const router = useRouter()
   const searchParams = useSearchParams()
-  const [user, setUser] = useState<any>(null)
-  const [requests, setRequests] = useState<any[]>([])
+  const { user } = useCurrentUser()
+  const [requests, setRequests] = useState<ApprovalRequestWithRelations[]>([])
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
+  const [confirming, setConfirming] = useState<
+    | { kind: 'cancel'; requestId: string }
+    | { kind: 'requestCancel'; requestId: string }
+    | { kind: 'resolveCancel'; requestId: string; approve: boolean }
+    | null
+  >(null)
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterType, setFilterType] = useState<string>('all')
-  const [dateRangeStart, setDateRangeStart] = useState<string>(dayjs().startOf('month').format('YYYY-MM-DD'))
-  const [dateRangeEnd, setDateRangeEnd] = useState<string>(dayjs().endOf('month').format('YYYY-MM-DD'))
+  const [dateRangeStart, setDateRangeStart] = useState<string>(
+    dayjs().startOf('month').format('YYYY-MM-DD')
+  )
+  const [dateRangeEnd, setDateRangeEnd] = useState<string>(
+    dayjs().endOf('month').format('YYYY-MM-DD')
+  )
   const [showRequestModal, setShowRequestModal] = useState(false)
   const [step, setStep] = useState(1)
   const [requestType, setRequestType] = useState<string>('')
   const [dateGroups, setDateGroups] = useState<{ dates: string[]; vacationType: string }[]>([])
   const [selectedApprover, setSelectedApprover] = useState<string>('')
   const [selectedSourceKey, setSelectedSourceKey] = useState<string>('')
-  const [approvers, setApprovers] = useState<any[]>([])
-  const [mySources, setMySources] = useState<MySource[]>([])
+  const [approvers, setApprovers] = useState<ApproverOption[]>([])
+  const [mySources, setMySources] = useState<MyApprovalSource[]>([])
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
-  const [selectedRequest, setSelectedRequest] = useState<any>(null)
+  const [selectedRequest, setSelectedRequest] = useState<ApprovalRequestWithRelations | null>(null)
   const [memo, setMemo] = useState('')
   const [editingRequestId, setEditingRequestId] = useState<string | null>(null)
 
@@ -63,39 +97,49 @@ function ApprovalPageContent() {
   const [ccSuggestions, setCcSuggestions] = useState<string[]>([])
   const [showCcSuggestions, setShowCcSuggestions] = useState(false)
 
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
-      setUser(user)
-      fetchRequests(user.id, dateRangeStart, dateRangeEnd)
-      fetchMySources(user.id)
-    }
-    getUser()
-  }, [])
-
   const fetchRequests = async (userId: string, rangeStart: string, rangeEnd: string) => {
+    setLoadFailed(false)
+
+    // 볼 수 있는 범위 = 내 팀 + 내 부서(내 팀이 속한 부서 + 부서 직속)
     const [{ data: myTeamData }, { data: myDeptDirectData }] = await Promise.all([
-      supabase.from('team_members').select('team_id, teams(department_id)').eq('user_id', userId),
+      supabase
+        .from('team_members')
+        .select('team_id, teams(department_id)')
+        .eq('user_id', userId)
+        // 조인 결과를 supabase-js는 배열로 추론하지만, FK 관계라 실제로는 단일 객체다
+        .returns<{ team_id: UUID; teams: Pick<Team, 'department_id'> | null }[]>(),
       supabase.from('department_memberships').select('department_id').eq('user_id', userId),
     ])
-    const myTeamIds = (myTeamData || []).map((t: any) => t.team_id)
-    const myDeptIds = Array.from(new Set([
-      ...(myTeamData || []).map((t: any) => t.teams?.department_id).filter(Boolean),
-      ...(myDeptDirectData || []).map((d: any) => d.department_id),
-    ]))
+    const myTeamIds = myTeamData?.map((t) => t.team_id) ?? []
+    const myDeptIds = Array.from(
+      new Set(
+        [
+          ...(myTeamData ?? []).map((t) => t.teams?.department_id),
+          ...(myDeptDirectData ?? []).map((d) => d.department_id),
+        ].filter((id): id is UUID => Boolean(id))
+      )
+    )
 
     const orConditions = [`requester_id.eq.${userId}`, `approver_id.eq.${userId}`]
     if (myTeamIds.length > 0) orConditions.push(`team_id.in.(${myTeamIds.join(',')})`)
     if (myDeptIds.length > 0) orConditions.push(`department_id.in.(${myDeptIds.join(',')})`)
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('approval_requests')
-      .select(`*, requester:profiles!approval_requests_requester_id_fkey(name,email), approver:profiles!approval_requests_approver_id_fkey(name,email), teams(name), departments(name)`)
+      .select(
+        `*, requester:profiles!approval_requests_requester_id_fkey(name,email), approver:profiles!approval_requests_approver_id_fkey(name,email), teams(name), departments(name)`
+      )
       .or(orConditions.join(','))
       .gte('created_at', dayjs(rangeStart).startOf('day').toISOString())
       .lte('created_at', dayjs(rangeEnd).endOf('day').toISOString())
       .order('created_at', { ascending: false })
+
+    setInitialLoading(false)
+    if (error) {
+      // 실패를 넘기면 "결재 요청이 없어요"로 보여서 정상 상태와 구분되지 않는다.
+      setLoadFailed(true)
+      return
+    }
     if (data) setRequests(data)
   }
 
@@ -106,28 +150,38 @@ function ApprovalPageContent() {
   }
 
   // 내 소속(팀 또는 부서 직접 소속) 목록
-  const fetchMySources = async (userId: string): Promise<MySource[]> => {
+  const fetchMySources = async (userId: string): Promise<MyApprovalSource[]> => {
     const [{ data: teamData }, { data: deptData }] = await Promise.all([
-      supabase.from('team_members').select('team_id, teams(id, name, department_id)').eq('user_id', userId),
-      supabase.from('department_memberships').select('department_id, departments(id, name)').eq('user_id', userId),
+      supabase
+        .from('team_members')
+        .select('team_id, teams(id, name, department_id)')
+        .eq('user_id', userId)
+        // 조인 결과를 supabase-js는 배열로 추론하지만, FK 관계라 실제로는 단일 객체다
+        .returns<{ team_id: UUID; teams: Pick<Team, 'id' | 'name' | 'department_id'> | null }[]>(),
+      supabase
+        .from('department_memberships')
+        .select('department_id, departments(id, name)')
+        .eq('user_id', userId)
+        .returns<{ department_id: UUID; departments: Pick<Department, 'id' | 'name'> | null }[]>(),
     ])
 
-    const sources: MySource[] = [
-      ...(teamData || [])
-        .filter((t: any) => t.teams)
-        .map((t: any) => ({
+    // 부서가 배정되지 않은 팀은 결재권자를 찾을 기준이 없어 소속으로 쓸 수 없다.
+    const sources: MyApprovalSource[] = [
+      ...(teamData ?? [])
+        .filter((t) => t.teams?.department_id)
+        .map((t) => ({
           key: `team:${t.team_id}`,
-          label: t.teams.name,
-          teamId: t.team_id as string,
-          departmentId: t.teams.department_id as string,
+          label: t.teams!.name,
+          teamId: t.team_id,
+          departmentId: t.teams!.department_id!,
         })),
-      ...(deptData || [])
-        .filter((d: any) => d.departments)
-        .map((d: any) => ({
+      ...(deptData ?? [])
+        .filter((d) => d.departments)
+        .map((d) => ({
           key: `dept:${d.department_id}`,
-          label: d.departments.name,
+          label: d.departments!.name,
           teamId: null,
-          departmentId: d.department_id as string,
+          departmentId: d.department_id,
         })),
     ]
     setMySources(sources)
@@ -135,15 +189,15 @@ function ApprovalPageContent() {
   }
 
   // 결재권자 후보 = 부서장(자동) + 위임된 결재권자(유형별 체크) + (팀이 있다면) 그 팀의 팀장
-  const fetchApproversForSource = async (source: MySource, type: string) => {
+  const fetchApproversForSource = async (source: MyApprovalSource, type: string) => {
     setSelectedSourceKey(source.key)
     setSelectedApprover('')
 
-    const candidates = new Map<string, any>()
+    const candidates = new Map<UUID, ApproverOption>()
 
     const { data: dept } = await supabase
       .from('departments')
-      .select('id, head_user_id')
+      .select('head_user_id')
       .eq('id', source.departmentId)
       .single()
 
@@ -153,18 +207,23 @@ function ApprovalPageContent() {
         .select('id, name, email')
         .eq('id', dept.head_user_id)
         .single()
-      if (headProfile) candidates.set(headProfile.id, { user_id: headProfile.id, profiles: headProfile })
+      if (headProfile) {
+        candidates.set(headProfile.id, { user_id: headProfile.id, profiles: headProfile })
+      }
     }
 
-    const typeColumn = type === 'vacation' ? 'can_vacation' : type === 'remote' ? 'can_remote' : 'can_holiday'
+    // 위임받은 결재권자는 유형별로 범위가 제한될 수 있다 (011)
     const { data: delegates } = await supabase
       .from('department_approvers')
-      .select(`user_id, ${typeColumn}, profiles(id, name, email)`)
+      .select('user_id, can_vacation, can_remote, can_holiday, profiles(id, name, email)')
       .eq('department_id', source.departmentId)
+      .returns<DelegateRow[]>()
 
-    ;(delegates || []).forEach((d: any) => {
-      if (d[typeColumn] && d.profiles) candidates.set(d.user_id, { user_id: d.user_id, profiles: d.profiles })
-    })
+    for (const d of delegates ?? []) {
+      if (canApproveType(d, type) && d.profiles) {
+        candidates.set(d.user_id, { user_id: d.user_id, profiles: d.profiles })
+      }
+    }
 
     if (source.teamId) {
       const { data: leads } = await supabase
@@ -172,7 +231,10 @@ function ApprovalPageContent() {
         .select('user_id, profiles(id, name, email)')
         .eq('team_id', source.teamId)
         .eq('role', 'admin')
-      ;(leads || []).forEach((l: any) => { if (l.profiles) candidates.set(l.user_id, l) })
+        .returns<ApproverOption[]>()
+      for (const l of leads ?? []) {
+        if (l.profiles) candidates.set(l.user_id, l)
+      }
     }
 
     setApprovers(Array.from(candidates.values()))
@@ -181,19 +243,33 @@ function ApprovalPageContent() {
   // 다중 소속일 때 사용자가 드롭다운에서 소속을 바꾼 경우
   const handleSourceChange = (key: string) => {
     const source = mySources.find((s) => s.key === key)
-    if (source) fetchApproversForSource(source, requestType)
-    else { setSelectedSourceKey(''); setApprovers([]) }
+    if (source) {
+      fetchApproversForSource(source, requestType)
+    } else {
+      setSelectedSourceKey('')
+      setApprovers([])
+    }
   }
 
-  // step2 진입 시(또는 유형을 바꿔 다시 진입 시) 소속이 하나뿐이면 자동으로, 이미 골라둔 소속이 있으면 새 유형 기준으로 재조회
+  // 데이터 조회는 선언 뒤에서, 그리고 마이크로태스크로 미뤄서 부른다.
+  // effect 본문에서 곧바로 부르면 setState가 동기로 일어나 렌더가 연쇄된다.
+  useEffect(() => {
+    if (!user) return
+    const userId = user.id
+    void Promise.resolve().then(() => {
+      fetchRequests(userId, dateRangeStart, dateRangeEnd)
+      fetchMySources(userId)
+    })
+  }, [user])
+
+  // step2 진입 시(또는 유형을 바꿔 다시 진입 시) 소속이 하나뿐이면 자동으로,
+  // 이미 골라둔 소속이 있으면 새 유형 기준으로 결재권자를 다시 뽑는다.
   useEffect(() => {
     if (step !== 2 || !requestType || editingRequestId) return
-    if (mySources.length === 1) {
-      fetchApproversForSource(mySources[0], requestType)
-    } else if (selectedSourceKey) {
-      const source = mySources.find((s) => s.key === selectedSourceKey)
-      if (source) fetchApproversForSource(source, requestType)
-    }
+    const source =
+      mySources.length === 1 ? mySources[0] : mySources.find((s) => s.key === selectedSourceKey)
+    if (!source) return
+    void Promise.resolve().then(() => fetchApproversForSource(source, requestType))
   }, [step, requestType])
 
   const handleCcInput = (val: string) => {
@@ -222,14 +298,27 @@ function ApprovalPageContent() {
   const removeCc = (email: string) => setCcList(ccList.filter((e) => e !== email))
 
   const handleSubmitRequest = async () => {
+    if (!user) return
     const selectedSource = mySources.find((s) => s.key === selectedSourceKey)
-    if (!requestType || !selectedApprover || !selectedSource) { setMessage('모든 항목을 입력해주세요.'); return }
-    if (dateGroups.length === 0) { setMessage('날짜를 추가해주세요.'); return }
+    if (!requestType || !selectedApprover || !selectedSource) {
+      setMessage('모든 항목을 입력해주세요.')
+      return
+    }
+    if (dateGroups.length === 0) {
+      setMessage('날짜를 추가해주세요.')
+      return
+    }
     const flattenedEntries = dateGroups.flatMap((group) =>
       group.dates.map((date) => ({ date, vacationType: group.vacationType }))
     )
-    if (flattenedEntries.length === 0) { setMessage('날짜를 선택해주세요.'); return }
-    if (requestType === 'holiday' && !memo.trim()) { setMessage('출근 사유를 입력해주세요.'); return }
+    if (flattenedEntries.length === 0) {
+      setMessage('날짜를 선택해주세요.')
+      return
+    }
+    if (requestType === 'holiday' && !memo.trim()) {
+      setMessage('출근 사유를 입력해주세요.')
+      return
+    }
 
     setLoading(true)
     setMessage('')
@@ -246,7 +335,7 @@ function ApprovalPageContent() {
           date: flattenedEntries[0].date,
           dates: flattenedEntries.map((e) => e.date),
           date_entries: flattenedEntries,
-          memo: (requestType === 'vacation' || requestType === 'holiday') ? memo : null,
+          memo: requestType === 'vacation' || requestType === 'holiday' ? memo : null,
           cc_emails: ccList.length > 0 ? ccList : null,
         })
         .eq('id', editingRequestId)
@@ -263,18 +352,22 @@ function ApprovalPageContent() {
       return
     }
 
-    const { data: inserted, error } = await supabase.from('approval_requests').insert({
-      requester_id: user.id,
-      approver_id: selectedApprover,
-      team_id: selectedSource.teamId,
-      department_id: selectedSource.departmentId,
-      type: requestType,
-      date: flattenedEntries[0].date,
-      dates: flattenedEntries.map((e) => e.date),
-      date_entries: flattenedEntries,
-      memo: (requestType === 'vacation' || requestType === 'holiday') ? memo : null,
-      cc_emails: ccList.length > 0 ? ccList : null,
-    }).select('id').single()
+    const { data: inserted, error } = await supabase
+      .from('approval_requests')
+      .insert({
+        requester_id: user.id,
+        approver_id: selectedApprover,
+        team_id: selectedSource.teamId,
+        department_id: selectedSource.departmentId,
+        type: requestType,
+        date: flattenedEntries[0].date,
+        dates: flattenedEntries.map((e) => e.date),
+        date_entries: flattenedEntries,
+        memo: requestType === 'vacation' || requestType === 'holiday' ? memo : null,
+        cc_emails: ccList.length > 0 ? ccList : null,
+      })
+      .select('id')
+      .single()
 
     if (error) {
       setMessage('요청 실패: ' + error.message)
@@ -282,8 +375,8 @@ function ApprovalPageContent() {
       const approverInfo = approvers.find((a) => a.user_id === selectedApprover)
       if (approverInfo?.profiles?.email) {
         const myProfile = await supabase.from('profiles').select('name').eq('id', user.id).single()
-        const requesterName = myProfile.data?.name || user.email?.split('@')[0] || '팀원'
-        const approverName = approverInfo.profiles.name || approverInfo.profiles.email.split('@')[0]
+        const requesterName = displayName({ name: myProfile.data?.name, email: user.email }, '팀원')
+        const approverName = displayName(approverInfo.profiles)
 
         fetch('/api/notify-approval', {
           method: 'POST',
@@ -297,7 +390,7 @@ function ApprovalPageContent() {
             requesterName,
             type: requestType,
             dateEntries: flattenedEntries,
-            memo: (requestType === 'vacation' || requestType === 'holiday') ? memo : undefined,
+            memo: requestType === 'vacation' || requestType === 'holiday' ? memo : undefined,
             ccEmails: ccList,
           }),
         }).catch((e) => console.error('알림 메일 발송 실패:', e))
@@ -310,11 +403,15 @@ function ApprovalPageContent() {
     setLoading(false)
   }
 
-  const handleApprove = async (requestId: string, status: string) => {
-    const updateData: any = { status }
+  const handleApprove = async (requestId: string, status: ApprovalStatus) => {
+    if (!user) return
+    const updateData: Partial<ApprovalRequest> = { status }
     if (status === 'approved') updateData.approved_at = new Date().toISOString()
     if (status === 'rejected') updateData.rejected_at = new Date().toISOString()
-    if (status === 'pending') { updateData.approved_at = null; updateData.rejected_at = null }
+    if (status === 'pending') {
+      updateData.approved_at = null
+      updateData.rejected_at = null
+    }
 
     // DB에 저장 후 실제 저장된 시간값을 가져옴 → 앱과 메일이 동일한 값 사용
     const { data: updated } = await supabase
@@ -324,12 +421,12 @@ function ApprovalPageContent() {
       .select('approved_at, rejected_at')
       .single()
 
-    if (status === 'approved' || status === 'rejected') {
+    if (selectedRequest && (status === 'approved' || status === 'rejected')) {
       const req = selectedRequest
       const requesterEmail = req.requester?.email
-      const requesterName = req.requester?.name || req.requester?.email?.split('@')[0]
+      const requesterName = displayName(req.requester)
       const myProfile = await supabase.from('profiles').select('name').eq('id', user.id).single()
-      const approverName = myProfile.data?.name || user.email?.split('@')[0]
+      const approverName = displayName({ name: myProfile.data?.name, email: user.email })
 
       // DB에서 반환된 실제 저장 시간 사용
       const actionAt = status === 'approved' ? updated?.approved_at : updated?.rejected_at
@@ -367,13 +464,13 @@ function ApprovalPageContent() {
   }
 
   // pending 요청의 날짜/사유를 그룹 단위 편집 폼(dateGroups)으로 되돌림
-  const buildDateGroupsFromEntries = (entries: any[], type: string) => {
+  const buildDateGroupsFromEntries = (entries: DateEntry[] | null, type: string) => {
     if (!entries || entries.length === 0) return []
     if (type !== 'vacation') {
-      return [{ dates: entries.map((e: any) => e.date), vacationType: 'annual' }]
+      return [{ dates: entries.map((e) => e.date), vacationType: 'annual' }]
     }
     const map = new Map<string, string[]>()
-    entries.forEach((e: any) => {
+    entries.forEach((e) => {
       const vt = e.vacationType || 'annual'
       if (!map.has(vt)) map.set(vt, [])
       map.get(vt)!.push(e.date)
@@ -381,7 +478,8 @@ function ApprovalPageContent() {
     return Array.from(map.entries()).map(([vacationType, dates]) => ({ vacationType, dates }))
   }
 
-  const handleEditRequest = async (req: any) => {
+  const handleEditRequest = async (req: ApprovalRequestWithRelations) => {
+    if (!user) return
     setSelectedRequest(null)
     setEditingRequestId(req.id)
     setRequestType(req.type)
@@ -391,7 +489,9 @@ function ApprovalPageContent() {
     setCcInput('')
 
     const sources = mySources.length > 0 ? mySources : await fetchMySources(user.id)
-    const matched = sources.find((s) => (req.team_id ? s.teamId === req.team_id : s.departmentId === req.department_id))
+    const matched = sources.find((s) =>
+      req.team_id ? s.teamId === req.team_id : s.departmentId === req.department_id
+    )
     if (matched) {
       await fetchApproversForSource(matched, req.type)
     } else {
@@ -406,7 +506,7 @@ function ApprovalPageContent() {
   }
 
   const handleCancelRequest = async (requestId: string) => {
-    if (!confirm('이 요청을 취소할까요?')) return
+    if (!user) return
     // 취소는 알림/메일 없이 상태만 변경 (이력은 남김)
     await supabase
       .from('approval_requests')
@@ -424,7 +524,7 @@ function ApprovalPageContent() {
 
   // 요청자: 이미 승인된 건에 대한 취소 요청
   const handleRequestCancelApproval = async (requestId: string) => {
-    if (!confirm('이미 승인된 건이에요. 취소를 요청할까요?')) return
+    if (!user) return
 
     await supabase
       .from('approval_requests')
@@ -437,8 +537,8 @@ function ApprovalPageContent() {
     const approverEmail = req?.approver?.email
     if (approverEmail) {
       const myProfile = await supabase.from('profiles').select('name').eq('id', user.id).single()
-      const requesterName = myProfile.data?.name || user.email?.split('@')[0] || '팀원'
-      const approverName = req.approver?.name || req.approver?.email?.split('@')[0]
+      const requesterName = displayName({ name: myProfile.data?.name, email: user.email }, '팀원')
+      const approverName = displayName(req?.approver)
 
       fetch('/api/notify-approval', {
         method: 'POST',
@@ -465,10 +565,9 @@ function ApprovalPageContent() {
 
   // 결재권자: 취소 요청을 승인(=건을 취소 처리)하거나 거절
   const handleResolveCancelRequest = async (requestId: string, approve: boolean) => {
-    const confirmMsg = approve ? '취소 요청을 승인할까요? 이 건은 취소 처리돼요.' : '취소 요청을 거절할까요?'
-    if (!confirm(confirmMsg)) return
+    if (!user) return
 
-    const updateData: any = { cancel_requested: false }
+    const updateData: Partial<ApprovalRequest> = { cancel_requested: false }
     if (approve) {
       updateData.status = 'cancelled'
       updateData.cancelled_at = new Date().toISOString()
@@ -485,8 +584,8 @@ function ApprovalPageContent() {
     const requesterEmail = req?.requester?.email
     if (requesterEmail) {
       const myProfile = await supabase.from('profiles').select('name').eq('id', user.id).single()
-      const approverName = myProfile.data?.name || user.email?.split('@')[0]
-      const requesterName = req.requester?.name || req.requester?.email?.split('@')[0]
+      const approverName = displayName({ name: myProfile.data?.name, email: user.email })
+      const requesterName = displayName(req?.requester)
 
       fetch('/api/notify-approval', {
         method: 'POST',
@@ -527,7 +626,7 @@ function ApprovalPageContent() {
     setEditingRequestId(null)
   }
 
-  const handleCardClick = (req: any) => {
+  const handleCardClick = (req: ApprovalRequestWithRelations) => {
     setSelectedRequest(req)
     setExistingCcList(req.cc_emails || [])
   }
@@ -556,18 +655,25 @@ function ApprovalPageContent() {
     const requestId = searchParams.get('requestId')
     if (!requestId || requests.length === 0) return
     const found = requests.find((r) => r.id === requestId)
-    if (found) handleCardClick(found)
+    if (found) void Promise.resolve().then(() => handleCardClick(found))
   }, [searchParams, requests])
 
   usePushSubscription(user?.id)
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
+    <main className="grow bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-6">
       <div className="max-w-2xl mx-auto">
-
-        <div className="flex justify-between items-center mb-6">
+        <header className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold dark:text-white">결재</h1>
-        </div>
+        </header>
+
+        {loadFailed && (
+          <LoadError
+            message="결재 목록을 불러오지 못했습니다."
+            onRetry={() => user && fetchRequests(user.id, dateRangeStart, dateRangeEnd)}
+            className="mb-4"
+          />
+        )}
 
         <ApprovalList
           requests={requests}
@@ -576,6 +682,7 @@ function ApprovalPageContent() {
           filterType={filterType}
           dateRangeStart={dateRangeStart}
           dateRangeEnd={dateRangeEnd}
+          loading={initialLoading}
           onFilterStatusChange={setFilterStatus}
           onFilterTypeChange={setFilterType}
           onDateRangeChange={handleDateRangeChange}
@@ -599,9 +706,13 @@ function ApprovalPageContent() {
             }
             onApprove={handleApprove}
             onEdit={handleEditRequest}
-            onCancel={handleCancelRequest}
-            onRequestCancelApproval={handleRequestCancelApproval}
-            onResolveCancelRequest={handleResolveCancelRequest}
+            onCancel={(requestId) => setConfirming({ kind: 'cancel', requestId })}
+            onRequestCancelApproval={(requestId) =>
+              setConfirming({ kind: 'requestCancel', requestId })
+            }
+            onResolveCancelRequest={(requestId, approve) =>
+              setConfirming({ kind: 'resolveCancel', requestId, approve })
+            }
             onClose={handleDetailClose}
           />
         )}
@@ -623,11 +734,16 @@ function ApprovalPageContent() {
             showCcSuggestions={showCcSuggestions}
             loading={loading}
             message={message}
-            onSelectType={(type) => { setRequestType(type); setStep(2) }}
+            onSelectType={(type) => {
+              setRequestType(type)
+              setStep(2)
+            }}
             onBack={() => setStep(1)}
             onSourceChange={handleSourceChange}
             onApproverChange={setSelectedApprover}
-            onAddDateGroup={() => setDateGroups([...dateGroups, { dates: [], vacationType: 'annual' }])}
+            onAddDateGroup={() =>
+              setDateGroups([...dateGroups, { dates: [], vacationType: 'annual' }])
+            }
             onRemoveDateGroup={(index) => setDateGroups(dateGroups.filter((_, i) => i !== index))}
             onDateGroupChange={handleDateGroupChange}
             onVacationTypeChange={handleVacationTypeChange}
@@ -642,12 +758,50 @@ function ApprovalPageContent() {
       </div>
 
       <button
-        onClick={() => { setEditingRequestId(null); setShowRequestModal(true); setStep(1); setMessage('') }}
+        onClick={() => {
+          setEditingRequestId(null)
+          setShowRequestModal(true)
+          setStep(1)
+          setMessage('')
+        }}
         className="fixed bottom-24 right-4 bg-blue-500 text-white px-4 py-3 rounded-full shadow-lg z-40 text-sm font-medium"
       >
         + 결재 요청
       </button>
-    </div>
+
+      <ConfirmDialog
+        open={confirming !== null}
+        tone={confirming?.kind === 'resolveCancel' && !confirming.approve ? 'normal' : 'danger'}
+        title={
+          confirming?.kind === 'cancel'
+            ? '이 요청을 취소할까요?'
+            : confirming?.kind === 'requestCancel'
+              ? '취소를 요청할까요?'
+              : confirming?.approve
+                ? '취소 요청을 승인할까요?'
+                : '취소 요청을 거절할까요?'
+        }
+        description={
+          confirming?.kind === 'cancel'
+            ? '결재 대기 중인 요청이 사라집니다.'
+            : confirming?.kind === 'requestCancel'
+              ? '이미 승인된 건입니다. 결재권자가 취소 요청을 확인한 뒤 처리합니다.'
+              : confirming?.approve
+                ? '이 건이 취소 처리됩니다.'
+                : '요청한 사람의 취소 요청만 거절되고, 결재 상태는 승인으로 남습니다.'
+        }
+        confirmLabel={confirming?.kind === 'resolveCancel' && !confirming.approve ? '거절' : '확인'}
+        onCancel={() => setConfirming(null)}
+        onConfirm={() => {
+          if (!confirming) return
+          const current = confirming
+          setConfirming(null)
+          if (current.kind === 'cancel') handleCancelRequest(current.requestId)
+          else if (current.kind === 'requestCancel') handleRequestCancelApproval(current.requestId)
+          else handleResolveCancelRequest(current.requestId, current.approve)
+        }}
+      />
+    </main>
   )
 }
 

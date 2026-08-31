@@ -1,13 +1,8 @@
 import dayjs from 'dayjs'
 import DatePicker from 'react-multi-date-picker'
 import { X, Palmtree, Laptop, Building2 } from 'lucide-react'
-
-function typeLabel(type: string) {
-  if (type === 'vacation') return { text: '휴가', style: 'bg-orange-50 text-orange-500' }
-  if (type === 'remote') return { text: '원격근무', style: 'bg-purple-50 text-purple-500' }
-  if (type === 'holiday') return { text: '휴일근무', style: 'bg-red-50 text-red-500' }
-  return { text: type, style: 'bg-gray-100 text-gray-500' }
-}
+import { approvalTypeBadge, displayName } from '@/app/lib/labels'
+import type { ApproverOption, MyApprovalSource } from '@/app/lib/types'
 
 interface DateGroup {
   dates: string[]
@@ -28,8 +23,8 @@ interface RequestModalProps {
   dateGroups: DateGroup[]
   selectedSourceKey: string
   selectedApprover: string
-  mySources: MySource[]
-  approvers: any[]
+  mySources: MyApprovalSource[]
+  approvers: ApproverOption[]
   memo: string
   ccInput: string
   ccList: string[]
@@ -84,7 +79,7 @@ export default function RequestModal({
   onSubmit,
   onClose,
 }: RequestModalProps) {
-  const currentTypeLabel = typeLabel(requestType)
+  const currentTypeLabel = approvalTypeBadge(requestType)
 
   return (
     <div
@@ -94,8 +89,10 @@ export default function RequestModal({
     >
       <div className="bg-white dark:bg-zinc-800 rounded-2xl w-full max-w-md max-h-[90dvh] flex flex-col">
         <div className="flex justify-between items-center p-4 sm:p-6 pb-3 border-b dark:border-zinc-700">
-          <h3 className="font-semibold dark:text-white">{isEditing ? '결재 요청 수정' : '결재 요청'}</h3>
-          <button onClick={onClose} className="text-gray-400 dark:text-zinc-500">
+          <h3 className="font-semibold dark:text-white">
+            {isEditing ? '결재 요청 수정' : '결재 요청'}
+          </h3>
+          <button onClick={onClose} aria-label="닫기" className="text-gray-400 dark:text-zinc-500">
             <X size={20} strokeWidth={1.75} />
           </button>
         </div>
@@ -134,10 +131,7 @@ export default function RequestModal({
           {step === 2 && (
             <div>
               {!isEditing && (
-                <button
-                  onClick={onBack}
-                  className="text-xs text-gray-400 dark:text-zinc-500 mb-3"
-                >
+                <button onClick={onBack} className="text-xs text-gray-400 dark:text-zinc-500 mb-3">
                   ← 뒤로
                 </button>
               )}
@@ -185,7 +179,7 @@ export default function RequestModal({
                   <option value="">결재권자 선택</option>
                   {approvers.map((a) => (
                     <option key={a.user_id} value={a.user_id}>
-                      {a.profiles?.name || a.profiles?.email?.split('@')[0]}
+                      {displayName(a.profiles)}
                     </option>
                   ))}
                 </select>
@@ -205,10 +199,7 @@ export default function RequestModal({
                   </p>
                 )}
                 {dateGroups.map((group, index) => (
-                  <div
-                    key={index}
-                    className="mb-4 p-3 bg-gray-50 dark:bg-zinc-700 rounded-xl"
-                  >
+                  <div key={index} className="mb-4 p-3 bg-gray-50 dark:bg-zinc-700 rounded-xl">
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-xs text-gray-500 dark:text-zinc-400">
                         {index + 1}번째 그룹
@@ -226,10 +217,10 @@ export default function RequestModal({
                       portalTarget={document.body}
                       zIndex={9999}
                       value={group.dates}
-                      onChange={(dates: any) => {
+                      onChange={(dates) => {
                         onDateGroupChange(
                           index,
-                          dates.map((d: any) => d.format('YYYY-MM-DD'))
+                          dates.map((d) => d.format('YYYY-MM-DD'))
                         )
                       }}
                       format="YYYY-MM-DD"
@@ -278,9 +269,7 @@ export default function RequestModal({
                 <div className="mb-4">
                   <label className="text-sm text-gray-500 dark:text-zinc-400">
                     {requestType === 'holiday' ? '출근 사유' : '휴가 사유'}
-                    {requestType === 'holiday' && (
-                      <span className="text-red-400 ml-1">*</span>
-                    )}
+                    {requestType === 'holiday' && <span className="text-red-400 ml-1">*</span>}
                   </label>
                   <input
                     type="text"
@@ -366,7 +355,13 @@ export default function RequestModal({
               disabled={loading}
               className="w-full bg-blue-500 text-white py-2 rounded-lg text-sm disabled:opacity-50"
             >
-              {loading ? (isEditing ? '저장 중...' : '요청 중...') : (isEditing ? '수정 완료' : '결재 요청')}
+              {loading
+                ? isEditing
+                  ? '저장 중...'
+                  : '요청 중...'
+                : isEditing
+                  ? '수정 완료'
+                  : '결재 요청'}
             </button>
           </div>
         )}

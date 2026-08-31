@@ -4,7 +4,16 @@
 // 여기 추가하지 않는다 — 실제로 존재하는 라우트만 노출한다.
 
 import type { LucideIcon } from 'lucide-react'
-import { TrendingUp, Clock, BarChart3, Users, Building2, ClipboardList, User, Settings } from 'lucide-react'
+import {
+  TrendingUp,
+  Clock,
+  BarChart3,
+  Users,
+  Building2,
+  ClipboardList,
+  User,
+  Settings,
+} from 'lucide-react'
 
 export type SidebarPermission = 'all' | 'master' | 'teamLeaderOrAbove' | 'orgManager'
 
@@ -26,19 +35,38 @@ export interface SidebarGroup {
 export const SIDEBAR_GROUPS: SidebarGroup[] = [
   {
     items: [
-      { label: '대시보드', path: '/dashboard', icon: TrendingUp, description: '팀 근무 통계', permission: 'teamLeaderOrAbove' },
+      {
+        label: '대시보드',
+        path: '/dashboard',
+        icon: TrendingUp,
+        description: '팀 근무 통계',
+        permission: 'teamLeaderOrAbove',
+      },
       { label: '근무기록', path: '/', icon: Clock, description: '근무 입력 · 휴가 · 원격근무' },
     ],
   },
   {
     title: '근무관리',
-    items: [{ label: '리포트', path: '/report', icon: BarChart3, description: '월별 안건별 근무 시간 통계' }],
+    items: [
+      {
+        label: '리포트',
+        path: '/report',
+        icon: BarChart3,
+        description: '월별 안건별 근무 시간 통계',
+      },
+    ],
   },
   {
     title: '조직',
     items: [
       { label: '내 소속', path: '/team', icon: Users },
-      { label: '조직 관리', path: '/org', icon: Building2, description: '부문 · 부서 · 팀 구조 관리', permission: 'orgManager' },
+      {
+        label: '조직 관리',
+        path: '/org',
+        icon: Building2,
+        description: '부문 · 부서 · 팀 구조 관리',
+        permission: 'orgManager',
+      },
     ],
   },
   {

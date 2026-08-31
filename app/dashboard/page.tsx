@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import dayjs from 'dayjs'
 import isoWeek from 'dayjs/plugin/isoWeek'
 import { supabase } from '../lib/supabase'
+import { calcWorkHours } from '@/app/lib/workTime'
+import type { Team, UUID, WorkLog } from '@/app/lib/types'
 
 dayjs.extend(isoWeek)
 
@@ -18,17 +20,24 @@ interface MemberRow {
   name: string
 }
 
+/** 통계 계산에 필요한 work_logs 컬럼만 */
+type StatLog = Pick<
+  WorkLog,
+  'user_id' | 'date' | 'start_time' | 'end_time' | 'break_minutes' | 'is_next_day'
+>
+
+/** team_members + teams 조인 (팀장인 팀 목록) */
+type AdminTeamRow = { team_id: UUID; teams: TeamOption | null }
+/** team_members + profiles 조인 (팀원 목록) */
+type StatMemberRow = {
+  user_id: UUID
+  profiles: { name: string | null; email: string | null; is_master: boolean | null } | null
+}
+
 interface WeekRange {
   label: string
   start: string
   end: string
-}
-
-function calcHours(log: any): number {
-  const start = dayjs(`2000-01-01 ${log.start_time}`)
-  const end = dayjs(`2000-01-0${log.is_next_day ? '2' : '1'} ${log.end_time}`)
-  const diff = end.diff(start, 'minute') - (log.break_minutes || 0)
-  return diff / 60
 }
 
 function getMonthWeekRanges(monthDate: dayjs.Dayjs): WeekRange[] {
@@ -51,7 +60,6 @@ function getMonthWeekRanges(monthDate: dayjs.Dayjs): WeekRange[] {
 
 export default function DashboardPage() {
   const router = useRouter()
-  const [user, setUser] = useState<any>(null)
   const [checking, setChecking] = useState(true)
   const [teamOptions, setTeamOptions] = useState<TeamOption[]>([])
   const [selectedTeamId, setSelectedTeamId] = useState<string>('')
@@ -61,14 +69,18 @@ export default function DashboardPage() {
   const [targetMonth, setTargetMonth] = useState(today.month() + 1)
 
   const [members, setMembers] = useState<MemberRow[]>([])
-  const [logs, setLogs] = useState<any[]>([])
+  const [logs, setLogs] = useState<StatLog[]>([])
   const [loadingStats, setLoadingStats] = useState(false)
 
   useEffect(() => {
     const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
-      setUser(user)
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/login')
+        return
+      }
 
       const { data: profileData } = await supabase
         .from('profiles')
@@ -90,9 +102,9 @@ export default function DashboardPage() {
           .select('team_id, teams(id, name)')
           .eq('user_id', user.id)
           .eq('role', 'admin')
-        options = (adminTeams || [])
-          .map((t: any) => t.teams)
-          .filter(Boolean)
+          // 조인 결과를 supabase-js는 배열로 추론하지만, FK 관계라 실제로는 단일 객체다
+          .returns<AdminTeamRow[]>()
+        options = (adminTeams ?? []).map((t) => t.teams).filter((t): t is TeamOption => Boolean(t))
       }
 
       if (options.length === 0) {
@@ -121,10 +133,6 @@ export default function DashboardPage() {
     [targetYear, targetMonth]
   )
 
-  useEffect(() => {
-    if (selectedTeamId) fetchStats(selectedTeamId, periodStart, periodEnd)
-  }, [selectedTeamId, periodStart, periodEnd])
-
   const fetchStats = async (teamId: string, start: string, end: string) => {
     setLoadingStats(true)
 
@@ -134,10 +142,11 @@ export default function DashboardPage() {
       .eq('team_id', teamId)
       .order('display_order', { ascending: true })
       .order('created_at', { ascending: true })
+      .returns<StatMemberRow[]>()
 
-    const memberRows: MemberRow[] = (memberData || [])
-      .filter((m: any) => !m.profiles?.is_master)
-      .map((m: any) => ({
+    const memberRows: MemberRow[] = (memberData ?? [])
+      .filter((m) => !m.profiles?.is_master)
+      .map((m) => ({
         userId: m.user_id,
         name: m.profiles?.name || m.profiles?.email?.split('@')[0] || '알 수 없음',
       }))
@@ -152,19 +161,29 @@ export default function DashboardPage() {
     const { data: logData } = await supabase
       .from('work_logs')
       .select('user_id, date, start_time, end_time, break_minutes, is_next_day')
-      .in('user_id', memberRows.map((m) => m.userId))
+      .in(
+        'user_id',
+        memberRows.map((m) => m.userId)
+      )
       .gte('date', start)
       .lte('date', end)
 
-    setLogs(logData || [])
+    setLogs(logData ?? [])
     setLoadingStats(false)
   }
+
+  // 조회는 선언 뒤에서, 그리고 마이크로태스크로 미뤄서 부른다.
+  // effect 본문에서 곧바로 부르면 setState가 동기로 일어나 렌더가 연쇄된다.
+  useEffect(() => {
+    if (!selectedTeamId) return
+    void Promise.resolve().then(() => fetchStats(selectedTeamId, periodStart, periodEnd))
+  }, [selectedTeamId, periodStart, periodEnd])
 
   const perMemberHours = useMemo(() => {
     const map = new Map<string, number>()
     members.forEach((m) => map.set(m.userId, 0))
     logs.forEach((log) => {
-      map.set(log.user_id, (map.get(log.user_id) || 0) + calcHours(log))
+      map.set(log.user_id, (map.get(log.user_id) || 0) + calcWorkHours(log))
     })
     return members
       .map((m) => ({ ...m, hours: Math.round((map.get(m.userId) || 0) * 100) / 100 }))
@@ -182,7 +201,7 @@ export default function DashboardPage() {
       const weekHours = weeks.map((w) => {
         const sum = logs
           .filter((log) => log.user_id === m.userId && log.date >= w.start && log.date <= w.end)
-          .reduce((acc, log) => acc + calcHours(log), 0)
+          .reduce((acc, log) => acc + calcWorkHours(log), 0)
         return Math.round(sum * 100) / 100
       })
       result.push({ userId: m.userId, name: m.name, weekHours })
@@ -191,7 +210,10 @@ export default function DashboardPage() {
   }, [perMemberHours, logs, weeks])
 
   const moveMonth = (diff: number) => {
-    const next = dayjs(`${targetYear}-${String(targetMonth).padStart(2, '0')}-01`).add(diff, 'month')
+    const next = dayjs(`${targetYear}-${String(targetMonth).padStart(2, '0')}-01`).add(
+      diff,
+      'month'
+    )
     setTargetYear(next.year())
     setTargetMonth(next.month() + 1)
   }
@@ -205,14 +227,14 @@ export default function DashboardPage() {
 
   if (checking) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
+      <div className="grow bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-6">
         <div className="max-w-2xl mx-auto" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
+    <div className="grow bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-6">
       <div className="max-w-2xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold dark:text-white">대시보드</h1>
@@ -230,7 +252,9 @@ export default function DashboardPage() {
                 className="border rounded-lg px-2 py-1.5 text-sm dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
               >
                 {teamOptions.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
                 ))}
               </select>
             )}
@@ -250,7 +274,9 @@ export default function DashboardPage() {
               className="border rounded-lg px-2 py-1.5 text-sm dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
             >
               {yearOptions.map((y) => (
-                <option key={y} value={y}>{y}년</option>
+                <option key={y} value={y}>
+                  {y}년
+                </option>
               ))}
             </select>
             <select
@@ -259,7 +285,9 @@ export default function DashboardPage() {
               className="border rounded-lg px-2 py-1.5 text-sm dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
             >
               {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                <option key={m} value={m}>{m}월</option>
+                <option key={m} value={m}>
+                  {m}월
+                </option>
               ))}
             </select>
             <button
@@ -305,7 +333,9 @@ export default function DashboardPage() {
                 <div className="space-y-2.5">
                   {perMemberHours.map((m) => (
                     <div key={m.userId} className="flex items-center gap-2">
-                      <span className="w-16 shrink-0 text-sm dark:text-zinc-200 truncate">{m.name}</span>
+                      <span className="w-16 shrink-0 text-sm dark:text-zinc-200 truncate">
+                        {m.name}
+                      </span>
                       <div className="flex-1 h-4 bg-gray-100 dark:bg-zinc-700 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-blue-500 rounded-full"
@@ -334,7 +364,9 @@ export default function DashboardPage() {
                     <tr className="border-b dark:border-zinc-700 text-gray-400 dark:text-zinc-500">
                       <th className="py-2 text-left font-medium">팀원</th>
                       {weeks.map((w) => (
-                        <th key={w.label} className="py-2 text-right font-medium">{w.label}</th>
+                        <th key={w.label} className="py-2 text-right font-medium">
+                          {w.label}
+                        </th>
                       ))}
                     </tr>
                   </thead>
@@ -343,7 +375,10 @@ export default function DashboardPage() {
                       <tr key={row.userId} className="border-b last:border-0 dark:border-zinc-700">
                         <td className="py-2 dark:text-zinc-200 whitespace-nowrap">{row.name}</td>
                         {row.weekHours.map((h, i) => (
-                          <td key={i} className="py-2 text-right dark:text-zinc-200 whitespace-nowrap">
+                          <td
+                            key={i}
+                            className="py-2 text-right dark:text-zinc-200 whitespace-nowrap"
+                          >
                             {h}h
                           </td>
                         ))}

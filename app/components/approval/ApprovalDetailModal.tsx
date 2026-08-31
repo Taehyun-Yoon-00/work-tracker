@@ -1,23 +1,11 @@
 import dayjs from 'dayjs'
-
-function typeLabel(type: string) {
-  if (type === 'vacation') return { text: '휴가', style: 'bg-orange-50 text-orange-500' }
-  if (type === 'remote') return { text: '원격근무', style: 'bg-purple-50 text-purple-500' }
-  if (type === 'holiday') return { text: '휴일근무', style: 'bg-red-50 text-red-500' }
-  return { text: type, style: 'bg-gray-100 text-gray-500' }
-}
-
-function vacationTypeLabel(type: string) {
-  if (type === 'annual') return '연차'
-  if (type === 'morning') return '오전반차'
-  if (type === 'afternoon') return '오후반차'
-  if (type === 'special') return '특휴/대휴'
-  return type
-}
+import { approvalTypeBadge, displayName, vacationTypeLabel } from '@/app/lib/labels'
+import type { ApprovalRequestWithRelations, ApprovalStatus, DateEntry } from '@/app/lib/types'
+import type { User } from '@supabase/supabase-js'
 
 interface ApprovalDetailModalProps {
-  selectedRequest: any
-  user: any
+  selectedRequest: ApprovalRequestWithRelations
+  user: User | null
   ccInput: string
   ccList: string[]
   existingCcList: string[]
@@ -27,8 +15,8 @@ interface ApprovalDetailModalProps {
   onAddCcEmail: (email: string) => void
   onRemoveCc: (email: string) => void
   onRemoveExistingCc: (email: string) => void
-  onApprove: (requestId: string, status: string) => void
-  onEdit: (req: any) => void
+  onApprove: (requestId: string, status: ApprovalStatus) => void
+  onEdit: (req: ApprovalRequestWithRelations) => void
   onCancel: (requestId: string) => void
   onRequestCancelApproval: (requestId: string) => void
   onResolveCancelRequest: (requestId: string, approve: boolean) => void
@@ -54,7 +42,7 @@ export default function ApprovalDetailModal({
   onResolveCancelRequest,
   onClose,
 }: ApprovalDetailModalProps) {
-  const type = typeLabel(selectedRequest.type)
+  const type = approvalTypeBadge(selectedRequest.type)
   const isApprover = selectedRequest.approver_id === user?.id
   const isRequester = selectedRequest.requester_id === user?.id
   const canEditOrCancel = isRequester && selectedRequest.status === 'pending'
@@ -67,24 +55,21 @@ export default function ApprovalDetailModal({
 
         <div className="mb-4 text-sm text-gray-600 dark:text-zinc-300 space-y-2">
           <p>
-            <span className="font-medium">신청자:</span>{' '}
-            {selectedRequest.requester?.name || selectedRequest.requester?.email?.split('@')[0]}
+            <span className="font-medium">신청자:</span> {displayName(selectedRequest.requester)}
           </p>
           <p>
             <span className="font-medium">유형:</span>{' '}
-            <span className={`text-xs px-2 py-0.5 rounded-full ${type.style}`}>
-              {type.text}
-            </span>
+            <span className={`text-xs px-2 py-0.5 rounded-full ${type.style}`}>{type.text}</span>
           </p>
           <div>
             <span className="font-medium">날짜:</span>
             <ul className="mt-2 space-y-1">
-              {selectedRequest.date_entries?.map((entry: any, i: number) => (
+              {selectedRequest.date_entries?.map((entry: DateEntry, i: number) => (
                 <li key={i} className="text-xs">
                   {dayjs(entry.date).format('MM월 DD일')}
                   {selectedRequest.type === 'vacation' && (
                     <span className="ml-1 text-orange-500">
-                      ({vacationTypeLabel(entry.vacationType)})
+                      ({vacationTypeLabel(entry.vacationType ?? '')})
                     </span>
                   )}
                 </li>

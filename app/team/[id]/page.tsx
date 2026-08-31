@@ -8,61 +8,75 @@ import 'react-calendar/dist/Calendar.css'
 import dayjs from 'dayjs'
 import isoWeek from 'dayjs/plugin/isoWeek'
 dayjs.extend(isoWeek)
-import Holidays from 'date-holidays'
+import { isPublicHoliday, fetchSubstituteHolidays } from '@/app/lib/holidays'
+import { getWeeksOfMonth } from '@/app/lib/dates'
+import { displayName } from '@/app/lib/labels'
+import { useCurrentUser } from '@/app/hooks/useCurrentUser'
+import type {
+  CommutePlan,
+  Department,
+  Division,
+  Profile,
+  RemoteWork,
+  Team,
+  TeamMember,
+  UUID,
+  Vacation,
+  WithProfile,
+} from '@/app/lib/types'
 
-const hd = new Holidays('KR')
-
-type ScopeMember = { user_id: string; name: string; position: string | null }
+type ScopeMember = { user_id: UUID; name: string; position: string | null }
+/** team_members/department_memberships + profiles 조인 (조직도 구성원 풀) */
+type ScopeSourceRow = { user_id: UUID; profiles: ScopeProfile | null }
+type ScopeProfile = Pick<Profile, 'id' | 'email' | 'name' | 'position' | 'is_master'>
 type FilterScope = 'department' | 'team'
+
+/** teams + 이 팀이 속한 부서/부문(열람 권한 판정에 쓴다) */
+type TeamWithOrg = Team & {
+  departments:
+    | (Pick<Department, 'id' | 'name' | 'head_user_id' | 'division_id'> & {
+        divisions: Pick<Division, 'head_user_id'> | null
+      })
+    | null
+}
 
 export default function TeamDetailPage() {
   const router = useRouter()
   const { id } = useParams()
-  const [user, setUser] = useState<any>(null)
-  const [team, setTeam] = useState<any>(null)
-  const [members, setMembers] = useState<any[]>([])
+  const { user } = useCurrentUser()
+  const [team, setTeam] = useState<TeamWithOrg | null>(null)
+  const [members, setMembers] = useState<(TeamMember & { profiles: ScopeProfile | null })[]>([])
   const [deptMembers, setDeptMembers] = useState<ScopeMember[]>([])
-  const [filterScope, setFilterScope] = useState<FilterScope>('department')
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [vacations, setVacations] = useState<any[]>([])
+  const [scopePreference, setScopePreference] = useState<FilterScope>('department')
+  const [vacations, setVacations] = useState<WithProfile<Vacation>[]>([])
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | null>(null)
-  const [weekCommutePlans, setWeekCommutePlans] = useState<{ [key: string]: any[] }>({})
+  const [weekCommutePlans, setWeekCommutePlans] = useState<{
+    [key: string]: WithProfile<CommutePlan>[]
+  }>({})
   const [selectedCommuteWeek, setSelectedCommuteWeek] = useState<string | null>(null)
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date())
-  const [remoteWorks, setRemoteWorks] = useState<any[]>([])
+  const [remoteWorks, setRemoteWorks] = useState<WithProfile<RemoteWork>[]>([])
   const [selectedRemoteDate, setSelectedRemoteDate] = useState<Date | null>(null)
-  const [isMaster, setIsMaster] = useState(false)
   const [substituteHolidays, setSubstituteHolidays] = useState<string[]>([])
   // null = 확인 중, true = 열람 가능, false = 접근 불가(소속 인원 또는 상위 조직장이 아님)
   const [authorized, setAuthorized] = useState<boolean | null>(null)
 
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) router.push('/login')
-      else {
-        setUser(user)
-        fetchTeamData(user.id)
-      }
+  const fetchCommutePlans = async (userIds: string[]) => {
+    const { data: commutePlanData } = await supabase
+      .from('commute_plans')
+      .select('*, profiles(name, email)')
+      .in('user_id', userIds)
+
+    const plans: { [key: string]: WithProfile<CommutePlan>[] } = {}
+    if (commutePlanData) {
+      commutePlanData.forEach((p) => {
+        const key = String(p.week_number)
+        if (!plans[key]) plans[key] = []
+        plans[key].push(p)
+      })
     }
-    getUser()
-    fetchSubstituteHolidays()
-  }, [])
-
-  useEffect(() => {
-    const handleFocus = () => {
-      if (user) fetchTeamData(user.id)
-    }
-    window.addEventListener('focus', handleFocus)
-    return () => window.removeEventListener('focus', handleFocus)
-  }, [user])
-
-  // 팀에 소속된 부서가 있으면 기본은 "부서 전체"가 보이도록 하고, 부서가 없으면 "내 팀만" 강제
-  useEffect(() => {
-    if (!team?.department_id) setFilterScope('team')
-  }, [team?.department_id])
-
-  const profileDisplayName = (p: any) => p?.name || p?.email?.split('@')[0] || '이름없음'
+    setWeekCommutePlans(plans)
+  }
 
   const fetchTeamData = async (userId: string) => {
     const { data: profileData } = await supabase
@@ -76,11 +90,6 @@ export default function TeamDetailPage() {
       .select('user_id')
       .eq('user_id', userId)
       .maybeSingle()
-    if (masterFlag || generalAdminRow) {
-      setIsMaster(true) // 마스터/총괄 관리자는 자동으로 팀장 권한
-      setIsAdmin(true)
-    }
-
     const { data: teamData } = await supabase
       .from('teams')
       .select('*, departments(id, name, head_user_id, division_id, divisions(head_user_id))')
@@ -100,10 +109,9 @@ export default function TeamDetailPage() {
 
     if (memberData) {
       // 마스터(시스템 관리자) 계정은 조직 구성원 풀에서 제외 — 별도 권한 트랙
-      const visibleMemberData = memberData.filter((m: any) => !m.profiles?.is_master)
+      const visibleMemberData = memberData.filter((m) => !m.profiles?.is_master)
       setMembers(visibleMemberData)
       const myRole = memberData.find((m) => m.user_id === userId)
-      if (myRole?.role === 'admin') setIsAdmin(true)
       isMember = !!myRole
       unionUserIds = visibleMemberData.map((m) => m.user_id)
     }
@@ -122,25 +130,37 @@ export default function TeamDetailPage() {
         supabase
           .from('department_memberships')
           .select('user_id, profiles(id, email, name, position, is_master)')
-          .eq('department_id', teamData.department_id),
+          .eq('department_id', teamData.department_id)
+          // 조인 결과를 supabase-js는 배열로 추론하지만, FK 관계라 실제로는 단일 객체다
+          .returns<ScopeSourceRow[]>(),
       ])
 
-      const teamIds = (deptTeams || []).map((t: any) => t.id)
-      const { data: deptTeamMembers } = teamIds.length > 0
-        ? await supabase
-            .from('team_members')
-            .select('user_id, profiles(id, email, name, position, is_master)')
-            .in('team_id', teamIds)
-        : { data: [] as any[] }
+      const teamIds = (deptTeams ?? []).map((t) => t.id)
+      const { data: deptTeamMembers } =
+        teamIds.length > 0
+          ? await supabase
+              .from('team_members')
+              .select('user_id, profiles(id, email, name, position, is_master)')
+              .in('team_id', teamIds)
+              .returns<ScopeSourceRow[]>()
+          : { data: [] as ScopeSourceRow[] }
 
       const combinedMap = new Map<string, ScopeMember>()
-      ;(deptTeamMembers || []).forEach((m: any) => {
+      ;(deptTeamMembers ?? []).forEach((m) => {
         if (m.profiles?.is_master) return
-        combinedMap.set(m.user_id, { user_id: m.user_id, name: profileDisplayName(m.profiles), position: m.profiles?.position || null })
+        combinedMap.set(m.user_id, {
+          user_id: m.user_id,
+          name: displayName(m.profiles, '이름없음'),
+          position: m.profiles?.position || null,
+        })
       })
-      ;(directDept || []).forEach((m: any) => {
+      ;(directDept ?? []).forEach((m) => {
         if (m.profiles?.is_master) return
-        combinedMap.set(m.user_id, { user_id: m.user_id, name: profileDisplayName(m.profiles), position: m.profiles?.position || null })
+        combinedMap.set(m.user_id, {
+          user_id: m.user_id,
+          name: displayName(m.profiles, '이름없음'),
+          position: m.profiles?.position || null,
+        })
       })
       const combined = Array.from(combinedMap.values())
       setDeptMembers(combined)
@@ -151,8 +171,14 @@ export default function TeamDetailPage() {
 
     if (unionUserIds.length > 0) {
       const [{ data: vacationData }, { data: remoteData }] = await Promise.all([
-        supabase.from('vacations').select('*, profiles(id, email, name)').in('user_id', unionUserIds),
-        supabase.from('remote_works').select('*, profiles(id, email, name)').in('user_id', unionUserIds),
+        supabase
+          .from('vacations')
+          .select('*, profiles(id, email, name)')
+          .in('user_id', unionUserIds),
+        supabase
+          .from('remote_works')
+          .select('*, profiles(id, email, name)')
+          .in('user_id', unionUserIds),
       ])
       if (vacationData) setVacations(vacationData)
       if (remoteData) setRemoteWorks(remoteData)
@@ -164,34 +190,37 @@ export default function TeamDetailPage() {
     }
   }
 
-  const fetchCommutePlans = async (userIds: string[]) => {
-    const { data: commutePlanData } = await supabase
-      .from('commute_plans')
-      .select('*, profiles(name, email)')
-      .in('user_id', userIds)
+  // 데이터 조회는 선언 뒤에서, 그리고 마이크로태스크로 미뤄서 부른다.
+  // effect 본문에서 곧바로 부르면 setState가 동기로 일어나 렌더가 연쇄된다.
+  useEffect(() => {
+    if (!user) return
+    const userId = user.id
+    void Promise.resolve().then(async () => {
+      fetchTeamData(userId)
+      setSubstituteHolidays(await fetchSubstituteHolidays())
+    })
+  }, [user])
 
-    const plans: { [key: string]: any[] } = {}
-    if (commutePlanData) {
-      commutePlanData.forEach((p) => {
-        const key = String(p.week_number)
-        if (!plans[key]) plans[key] = []
-        plans[key].push(p)
-      })
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user) fetchTeamData(user.id)
     }
-    setWeekCommutePlans(plans)
-  }
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [user])
 
-  const fetchSubstituteHolidays = async () => {
-    const { data } = await supabase
-      .from('substitute_holidays')
-      .select('date')
-    if (data) setSubstituteHolidays(data.map((h) => h.date))
-  }
+  // 팀에 배정된 부서가 없으면 "부서 전체"를 고를 수 없으므로 사용자의 선택과 무관하게 팀 범위다.
+  // effect로 상태를 되돌리는 대신 파생값으로 둔다 (effect의 동기 setState는 렌더를 연쇄시킨다).
+  const filterScope: FilterScope = team?.department_id ? scopePreference : 'team'
 
   // 현재 필터 범위(부서 전체 / 내 팀만)에 해당하는 인원 목록 + 이름 조회
   const scopeMembers: ScopeMember[] =
     filterScope === 'team' || deptMembers.length === 0
-      ? members.map((m) => ({ user_id: m.user_id, name: profileDisplayName(m.profiles), position: m.profiles?.position || null }))
+      ? members.map((m) => ({
+          user_id: m.user_id,
+          name: displayName(m.profiles, '이름없음'),
+          position: m.profiles?.position || null,
+        }))
       : deptMembers
   const scopeUserIds = new Set(scopeMembers.map((m) => m.user_id))
 
@@ -208,22 +237,18 @@ export default function TeamDetailPage() {
     return member?.name || '알 수 없음'
   }
 
-  const isHoliday = (date: Date) => {
-    const day = dayjs(date).day()
-    if (day === 0 || day === 6) return true
-    const dateStr = dayjs(date).format('YYYY-MM-DD')
-    if (substituteHolidays.includes(dateStr)) return true
-    return !!hd.isHoliday(date)
-  }
-
   const getVacationsOnDate = (date: Date) => {
     const dateStr = dayjs(date).format('YYYY-MM-DD')
-    return sortByMemberOrder(vacations.filter((v) => v.date === dateStr && scopeUserIds.has(v.user_id)))
+    return sortByMemberOrder(
+      vacations.filter((v) => v.date === dateStr && scopeUserIds.has(v.user_id))
+    )
   }
 
   const getRemoteOnDate = (date: Date) => {
     const dateStr = dayjs(date).format('YYYY-MM-DD')
-    return sortByMemberOrder(remoteWorks.filter((r) => r.date === dateStr && scopeUserIds.has(r.user_id)))
+    return sortByMemberOrder(
+      remoteWorks.filter((r) => r.date === dateStr && scopeUserIds.has(r.user_id))
+    )
   }
 
   const getTileContent = ({ date }: { date: Date }) => {
@@ -250,21 +275,8 @@ export default function TeamDetailPage() {
     const dateStr = dayjs(date).format('YYYY-MM-DD')
     const isSubstitute = substituteHolidays.includes(dateStr)
     if (day === 6) return '!text-blue-500 font-semibold'
-    if (day === 0 || hd.isHoliday(date) || isSubstitute) return '!text-red-500 font-semibold'
+    if (day === 0 || isPublicHoliday(date) || isSubstitute) return '!text-red-500 font-semibold'
     return ''
-  }
-
-  const getWeeks = (month: Date) => {
-    const monthStart = dayjs(month).startOf('month')
-    const monthEnd = dayjs(month).endOf('month')
-    const firstWeekStart = monthStart.startOf('isoWeek')
-    const weeks = []
-    let current = firstWeekStart
-    while (current.isBefore(monthEnd) || current.isSame(monthEnd, 'day')) {
-      weeks.push(current)
-      current = current.add(1, 'week')
-    }
-    return weeks
   }
 
   const leaders = members.filter((m) => m.role === 'admin')
@@ -272,7 +284,7 @@ export default function TeamDetailPage() {
 
   if (authorized === null) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
+      <div className="grow bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-6">
         <div className="max-w-2xl mx-auto" />
       </div>
     )
@@ -280,11 +292,16 @@ export default function TeamDetailPage() {
 
   if (authorized === false) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
+      <div className="grow bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-6">
         <div className="max-w-2xl mx-auto">
           <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-8 text-center">
-            <p className="text-sm text-gray-500 dark:text-zinc-400">이 팀의 정보를 볼 수 있는 권한이 없어요.</p>
-            <button onClick={() => router.push('/team')} className="text-sm text-blue-500 hover:underline mt-3">
+            <p className="text-sm text-gray-500 dark:text-zinc-400">
+              이 팀의 정보를 볼 수 있는 권한이 없어요.
+            </p>
+            <button
+              onClick={() => router.push('/team')}
+              className="text-sm text-blue-500 hover:underline mt-3"
+            >
               내 소속으로 돌아가기
             </button>
           </div>
@@ -294,13 +311,14 @@ export default function TeamDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 pb-28">
+    <div className="grow bg-gray-50 dark:bg-zinc-900 p-2 pb-6">
       <div className="max-w-2xl mx-auto">
-
         {/* 헤더 */}
         <div className="mb-6">
           {departmentName && (
-            <p className="text-xs text-gray-400 dark:text-zinc-500 mb-0.5 truncate">{departmentName}</p>
+            <p className="text-xs text-gray-400 dark:text-zinc-500 mb-0.5 truncate">
+              {departmentName}
+            </p>
           )}
           <h1 className="text-2xl font-bold dark:text-white truncate">{team?.name}</h1>
           <p className="text-sm text-gray-400 dark:text-zinc-500 mt-0.5">
@@ -318,19 +336,23 @@ export default function TeamDetailPage() {
             {team?.department_id && (
               <div className="flex bg-gray-100 dark:bg-zinc-700 rounded-lg p-0.5">
                 <button
-                  onClick={() => setFilterScope('department')}
-                  className={`text-xs px-3 py-1 rounded-md transition ${filterScope === 'department'
-                    ? 'bg-white dark:bg-zinc-600 shadow text-blue-500 font-semibold'
-                    : 'text-gray-500 dark:text-zinc-400'
-                    }`}>
+                  onClick={() => setScopePreference('department')}
+                  className={`text-xs px-3 py-1 rounded-md transition ${
+                    filterScope === 'department'
+                      ? 'bg-white dark:bg-zinc-600 shadow text-blue-500 font-semibold'
+                      : 'text-gray-500 dark:text-zinc-400'
+                  }`}
+                >
                   부서 전체
                 </button>
                 <button
-                  onClick={() => setFilterScope('team')}
-                  className={`text-xs px-3 py-1 rounded-md transition ${filterScope === 'team'
-                    ? 'bg-white dark:bg-zinc-600 shadow text-blue-500 font-semibold'
-                    : 'text-gray-500 dark:text-zinc-400'
-                    }`}>
+                  onClick={() => setScopePreference('team')}
+                  className={`text-xs px-3 py-1 rounded-md transition ${
+                    filterScope === 'team'
+                      ? 'bg-white dark:bg-zinc-600 shadow text-blue-500 font-semibold'
+                      : 'text-gray-500 dark:text-zinc-400'
+                  }`}
+                >
                   내 팀만
                 </button>
               </div>
@@ -357,19 +379,22 @@ export default function TeamDetailPage() {
 
               {/* 주차별 시차출근 버튼 */}
               <div className="flex flex-col shrink-0 mt-[74px] sm:mt-[90px]">
-                {getWeeks(calendarMonth).map((weekStart, index) => {
+                {getWeeksOfMonth(calendarMonth).map((weekStart, index) => {
                   const weekNumber = String(index + 1)
                   return (
-                    <div key={weekNumber}
-                      className="flex items-center justify-center h-8 sm:h-11">
+                    <div key={weekNumber} className="flex items-center justify-center h-8 sm:h-11">
                       <button
-                        onClick={() => setSelectedCommuteWeek(
-                          selectedCommuteWeek === weekNumber ? null : weekNumber
-                        )}
-                        className={`text-[12px] px-1 py-1.5 rounded-lg border transition ${selectedCommuteWeek === weekNumber
-                          ? 'bg-purple-500 text-white border-purple-500'
-                          : 'bg-white dark:bg-zinc-700 text-purple-400 dark:text-purple-300 border-purple-300 dark:border-purple-700'
-                          }`}>
+                        onClick={() =>
+                          setSelectedCommuteWeek(
+                            selectedCommuteWeek === weekNumber ? null : weekNumber
+                          )
+                        }
+                        className={`text-[12px] px-1 py-1.5 rounded-lg border transition ${
+                          selectedCommuteWeek === weekNumber
+                            ? 'bg-purple-500 text-white border-purple-500'
+                            : 'bg-white dark:bg-zinc-700 text-purple-400 dark:text-purple-300 border-purple-300 dark:border-purple-700'
+                        }`}
+                      >
                         시차
                       </button>
                     </div>
@@ -385,7 +410,7 @@ export default function TeamDetailPage() {
                   <div>
                     <p className="text-sm font-semibold mb-2 dark:text-zinc-200">
                       {(() => {
-                        const weeks = getWeeks(calendarMonth)
+                        const weeks = getWeeksOfMonth(calendarMonth)
                         const idx = parseInt(selectedCommuteWeek) - 1
                         const weekStart = weeks[idx]
                         if (!weekStart) return ''
@@ -394,12 +419,18 @@ export default function TeamDetailPage() {
                     </p>
                     <div className="flex gap-4">
                       {['8시', '9시'].map((time) => {
-                        const planners = (weekCommutePlans[selectedCommuteWeek] || [])
-                          .filter((p) => p.commute_time === time && scopeUserIds.has(p.user_id))
+                        const planners = (weekCommutePlans[selectedCommuteWeek] || []).filter(
+                          (p) => p.commute_time === time && scopeUserIds.has(p.user_id)
+                        )
                         return (
                           <div key={time} className="flex-1">
-                            <p className={`text-base font-semibold mb-1 ${time === '8시' ? 'text-blue-500' : 'text-green-500'
-                              }`}>{time}</p>
+                            <p
+                              className={`text-base font-semibold mb-1 ${
+                                time === '8시' ? 'text-blue-500' : 'text-green-500'
+                              }`}
+                            >
+                              {time}
+                            </p>
                             <div className="min-h-[40px]">
                               {planners.length === 0 ? (
                                 <p className="text-xs text-gray-400 dark:text-zinc-500">없음</p>
@@ -415,8 +446,10 @@ export default function TeamDetailPage() {
                         )
                       })}
                     </div>
-                    <button onClick={() => setSelectedCommuteWeek(null)}
-                      className="text-xs text-gray-400 dark:text-zinc-500 hover:underline mt-2">
+                    <button
+                      onClick={() => setSelectedCommuteWeek(null)}
+                      className="text-xs text-gray-400 dark:text-zinc-500 hover:underline mt-2"
+                    >
                       닫기
                     </button>
                   </div>
@@ -430,22 +463,34 @@ export default function TeamDetailPage() {
                     <div className="flex gap-4">
                       <div className="flex-1">
                         <p className="text-base font-semibold text-orange-500 mb-1">휴가</p>
-                        {getVacationsOnDate(selectedCalendarDate || selectedRemoteDate!).length === 0 ? (
+                        {getVacationsOnDate(selectedCalendarDate || selectedRemoteDate!).length ===
+                        0 ? (
                           <p className="text-xs text-gray-400 dark:text-zinc-500">없음</p>
                         ) : (
-                          getVacationsOnDate(selectedCalendarDate || selectedRemoteDate!).map((v) => (
-                            <div key={v.id} className="flex items-center gap-1 mb-1">
-                              <p className="text-base font-medium dark:text-zinc-200">{getMemberName(v.user_id)}</p>
-                              <p className="text-[13px] text-orange-400">
-                                {v.type === 'annual' ? '연차' : v.type === 'special' ? '특휴/대휴' : v.type === 'morning' ? '오전반차' : '오후반차'}
-                              </p>
-                            </div>
-                          ))
+                          getVacationsOnDate(selectedCalendarDate || selectedRemoteDate!).map(
+                            (v) => (
+                              <div key={v.id} className="flex items-center gap-1 mb-1">
+                                <p className="text-base font-medium dark:text-zinc-200">
+                                  {getMemberName(v.user_id)}
+                                </p>
+                                <p className="text-[13px] text-orange-400">
+                                  {v.type === 'annual'
+                                    ? '연차'
+                                    : v.type === 'special'
+                                      ? '특휴/대휴'
+                                      : v.type === 'morning'
+                                        ? '오전반차'
+                                        : '오후반차'}
+                                </p>
+                              </div>
+                            )
+                          )
                         )}
                       </div>
                       <div className="flex-1">
                         <p className="text-base font-semibold text-indigo-500 mb-1">원격근무</p>
-                        {getRemoteOnDate(selectedCalendarDate || selectedRemoteDate!).length === 0 ? (
+                        {getRemoteOnDate(selectedCalendarDate || selectedRemoteDate!).length ===
+                        0 ? (
                           <p className="text-xs text-gray-400 dark:text-zinc-500">없음</p>
                         ) : (
                           getRemoteOnDate(selectedCalendarDate || selectedRemoteDate!).map((r) => (
@@ -456,11 +501,13 @@ export default function TeamDetailPage() {
                         )}
                       </div>
                     </div>
-                    <button onClick={() => {
-                      setSelectedCalendarDate(null)
-                      setSelectedRemoteDate(null)
-                    }}
-                      className="text-xs text-gray-400 dark:text-zinc-500 hover:underline mt-2">
+                    <button
+                      onClick={() => {
+                        setSelectedCalendarDate(null)
+                        setSelectedRemoteDate(null)
+                      }}
+                      className="text-xs text-gray-400 dark:text-zinc-500 hover:underline mt-2"
+                    >
                       닫기
                     </button>
                   </div>
@@ -474,17 +521,23 @@ export default function TeamDetailPage() {
         <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4">
           <h2 className="font-semibold dark:text-white mb-3">소속 인원</h2>
           {members.length === 0 ? (
-            <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-4">소속 인원이 없어요.</p>
+            <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-4">
+              소속 인원이 없어요.
+            </p>
           ) : (
             <div className="space-y-1">
               {members.map((member) => (
-                <div key={member.user_id}
-                  className="flex items-center gap-2 py-2.5 border-b dark:border-zinc-700 last:border-0">
+                <div
+                  key={member.user_id}
+                  className="flex items-center gap-2 py-2.5 border-b dark:border-zinc-700 last:border-0"
+                >
                   <span className="font-medium dark:text-white">
                     {member.profiles?.name || member.profiles?.email?.split('@')[0]}
                   </span>
                   {member.profiles?.position && (
-                    <span className="text-xs text-gray-400 dark:text-zinc-500">{member.profiles.position}</span>
+                    <span className="text-xs text-gray-400 dark:text-zinc-500">
+                      {member.profiles.position}
+                    </span>
                   )}
                   {member.role === 'admin' && (
                     <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300">
@@ -496,7 +549,6 @@ export default function TeamDetailPage() {
             </div>
           )}
         </div>
-
       </div>
     </div>
   )

@@ -20,7 +20,8 @@ export default function TopNav() {
     return () => authListener.subscription.unsubscribe()
   }, [])
 
-  const { notifications, unreadCount, loading, refetch, markAsRead, markAllAsRead } = useNotifications(userId)
+  const { notifications, unreadCount, loading, refetch, markAsRead, markAllAsRead } =
+    useNotifications(userId)
 
   // App Badge는 "읽지 않은 Notification 개수" 기준
   useAppBadge(unreadCount)
@@ -52,11 +53,13 @@ export default function TopNav() {
         </button>
       )}
 
-      <img
-        src="/logo/toray-logo.png"
-        alt="TORAY"
-        className="md:hidden h-[90px] w-auto absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-      />
+      {/* 로고 PNG는 워드마크가 전체 높이의 20%뿐이라 위아래 투명 여백이 크다.
+          그대로 두면 90px 상자가 44px 헤더 밖 위아래로 23px씩 삐져나와 아래 콘텐츠의
+          클릭을 가로챈다. 보이는 크기는 그대로 두고 헤더 높이로 잘라낸다.
+          PC에서는 사이드바가 브랜딩을 맡으므로 헤더 로고는 감춘다. */}
+      <div className="md:hidden pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden">
+        <img src="/logo/toray-logo.png" alt="TORAY" className="h-[90px] w-auto" />
+      </div>
 
       {userId && (
         <button

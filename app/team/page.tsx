@@ -21,14 +21,21 @@ type DivisionDept = { id: string; name: string; divisionName: string }
 export default function MyOrgEntryPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
-  const [status, setStatus] = useState<'unassigned' | 'department' | 'divisionHeadOnly'>('unassigned')
+  const [status, setStatus] = useState<'unassigned' | 'department' | 'divisionHeadOnly'>(
+    'unassigned'
+  )
   const [directDeptId, setDirectDeptId] = useState<string | null>(null)
   const [divisionDepts, setDivisionDepts] = useState<DivisionDept[]>([])
 
   useEffect(() => {
     const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/login')
+        return
+      }
 
       // 팀에 소속돼 있으면 바로 그 팀 페이지로 이동 (기존 UX 유지)
       const { data: myTeamData } = await supabase
@@ -78,12 +85,16 @@ export default function MyOrgEntryPage() {
       if (headDivisions && headDivisions.length > 0) {
         const deptResults = await Promise.all(
           headDivisions.map((d) =>
-            supabase.from('departments').select('id, name').eq('division_id', d.id).order('display_order', { ascending: true })
+            supabase
+              .from('departments')
+              .select('id, name')
+              .eq('division_id', d.id)
+              .order('display_order', { ascending: true })
           )
         )
         const depts: DivisionDept[] = []
         deptResults.forEach((res, idx) => {
-          ;(res.data || []).forEach((dept: any) => {
+          ;(res.data ?? []).forEach((dept) => {
             depts.push({ id: dept.id, name: dept.name, divisionName: headDivisions[idx].name })
           })
         })
@@ -109,7 +120,7 @@ export default function MyOrgEntryPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
+      <div className="grow bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-6">
         <div className="max-w-2xl mx-auto" />
       </div>
     )
@@ -121,7 +132,7 @@ export default function MyOrgEntryPage() {
 
   if (status === 'divisionHeadOnly') {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
+      <div className="grow bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-6">
         <div className="max-w-2xl mx-auto">
           <h1 className="text-2xl font-bold mb-1 dark:text-white">내 소속</h1>
           <p className="text-sm text-gray-400 dark:text-zinc-500 mb-6">
@@ -136,7 +147,9 @@ export default function MyOrgEntryPage() {
               >
                 <div className="min-w-0">
                   <p className="font-medium text-sm dark:text-white truncate">{d.name}</p>
-                  <p className="text-xs text-gray-400 dark:text-zinc-500 mt-0.5 truncate">{d.divisionName}</p>
+                  <p className="text-xs text-gray-400 dark:text-zinc-500 mt-0.5 truncate">
+                    {d.divisionName}
+                  </p>
                 </div>
                 <span className="text-gray-300 dark:text-zinc-600 shrink-0 ml-2">›</span>
               </button>
@@ -148,12 +161,14 @@ export default function MyOrgEntryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
+    <div className="grow bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-6">
       <div className="max-w-2xl mx-auto">
         <h1 className="text-2xl font-bold mb-6 dark:text-white">내 소속</h1>
         <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-8 text-center">
           <p className="text-sm text-gray-500 dark:text-zinc-400">
-            소속된 조직이 없습니다.<br />관리자에게 조직 배정을 요청해 주세요.
+            소속된 조직이 없습니다.
+            <br />
+            관리자에게 조직 배정을 요청해 주세요.
           </p>
         </div>
       </div>

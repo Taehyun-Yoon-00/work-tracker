@@ -1,16 +1,22 @@
-import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { supabaseAdmin } from '@/app/lib/supabaseAdmin'
+import { getSessionUser, isMaster } from '@/app/lib/apiAuth'
 
 // 테스트/개발 목적으로 이메일 인증 없이 계정을 즉시 생성한다.
 // Admin API(email_confirm: true)로 만들기 때문에 프로젝트의 "이메일 인증 필수" 설정을
-// 건드리지 않고도(=실제 사용자 가입 흐름은 그대로 유지한 채) 계정을 바로 로그인 가능한 상태로 만든다.
-// 반드시 마스터 계정만 호출할 수 있도록 이 라우트를 부르는 /admin 화면에서 이미 접근을 막고 있다.
+// 건드리지 않고도(=실제 사용자 가입 흐름은 그대로 유지한 채) 계정을 바로 로그인 가능한
+// 상태로 만든다.
 export async function POST(req: NextRequest) {
+  // service role 키로 RLS를 우회하는 라우트다. /admin 화면이 버튼을 가려주는 것은
+  // UI 가드일 뿐이라, 호출자 확인이 없으면 아무나 계정을 만들 수 있다.
+  const user = await getSessionUser()
+  if (!user) {
+    return NextResponse.json({ error: '로그인이 필요해요.' }, { status: 401 })
+  }
+  if (!(await isMaster(user.id))) {
+    return NextResponse.json({ error: '권한이 없어요.' }, { status: 403 })
+  }
+
   const { email, name, password } = await req.json()
 
   if (!email) {

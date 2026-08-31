@@ -27,14 +27,20 @@ export function useNotifications(userId: string | undefined) {
 
   useEffect(() => {
     if (!userId) return
-    fetchNotifications()
+    // effect 본문에서 곧바로 부르면 setLoading이 동기로 일어나 렌더가 연쇄된다.
+    void Promise.resolve().then(() => fetchNotifications())
 
     // 실시간 반영: 다른 곳에서 알림이 새로 생기거나(INSERT) 읽음 처리되면(UPDATE) 바로 목록/뱃지에 반영
     const channel = supabase
       .channel(`notifications-${userId}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `receiver_id=eq.${userId}` },
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `receiver_id=eq.${userId}`,
+        },
         (payload) => {
           const created = payload.new as Notification
           setNotifications((prev) => {
@@ -45,7 +51,12 @@ export function useNotifications(userId: string | undefined) {
       )
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'notifications', filter: `receiver_id=eq.${userId}` },
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `receiver_id=eq.${userId}`,
+        },
         (payload) => {
           const updated = payload.new as Notification
           setNotifications((prev) => prev.map((n) => (n.id === updated.id ? updated : n)))
@@ -72,17 +83,20 @@ export function useNotifications(userId: string | undefined) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId])
 
-  const markAsRead = useCallback(async (notificationId: string) => {
-    if (!userId) return
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n))
-    )
-    await supabase
-      .from('notifications')
-      .update({ is_read: true })
-      .eq('id', notificationId)
-      .eq('receiver_id', userId)
-  }, [userId])
+  const markAsRead = useCallback(
+    async (notificationId: string) => {
+      if (!userId) return
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n))
+      )
+      await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('id', notificationId)
+        .eq('receiver_id', userId)
+    },
+    [userId]
+  )
 
   const markAllAsRead = useCallback(async () => {
     if (!userId) return
@@ -98,5 +112,12 @@ export function useNotifications(userId: string | undefined) {
 
   const unreadCount = notifications.filter((n) => !n.is_read).length
 
-  return { notifications, unreadCount, loading, refetch: fetchNotifications, markAsRead, markAllAsRead }
+  return {
+    notifications,
+    unreadCount,
+    loading,
+    refetch: fetchNotifications,
+    markAsRead,
+    markAllAsRead,
+  }
 }

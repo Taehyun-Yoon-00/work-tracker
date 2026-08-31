@@ -1,18 +1,23 @@
 import ApprovalCard from './ApprovalCard'
 import DateRangeFilter from './DateRangeFilter'
 import { Palmtree, Laptop, Building2 } from 'lucide-react'
+import Card from '@/app/components/ui/Card'
+import SkeletonRows from '@/app/components/ui/SkeletonRows'
+import type { ApprovalRequestWithRelations } from '@/app/lib/types'
 
 interface ApprovalListProps {
-  requests: any[]
+  requests: ApprovalRequestWithRelations[]
   userId: string
   filterStatus: string
   filterType: string
   dateRangeStart: string
   dateRangeEnd: string
+  /** 첫 조회가 끝나기 전에는 "없어요" 대신 뼈대를 보여준다. */
+  loading: boolean
   onFilterStatusChange: (value: string) => void
   onFilterTypeChange: (value: string) => void
   onDateRangeChange: (start: string, end: string) => void
-  onCardClick: (req: any) => void
+  onCardClick: (req: ApprovalRequestWithRelations) => void
 }
 
 export default function ApprovalList({
@@ -22,6 +27,7 @@ export default function ApprovalList({
   filterType,
   dateRangeStart,
   dateRangeEnd,
+  loading,
   onFilterStatusChange,
   onFilterTypeChange,
   onDateRangeChange,
@@ -32,20 +38,29 @@ export default function ApprovalList({
       filterStatus === 'all'
         ? true
         : filterStatus === 'mine'
-        ? r.requester_id === userId
-        : filterStatus === 'pending'
-        ? r.status === 'pending'
-        : filterStatus === 'completed'
-        ? ['approved', 'rejected', 'cancelled'].includes(r.status)
-        : true
+          ? r.requester_id === userId
+          : filterStatus === 'pending'
+            ? r.status === 'pending'
+            : filterStatus === 'completed'
+              ? ['approved', 'rejected', 'cancelled'].includes(r.status)
+              : true
     const typeMatch = filterType === 'all' || r.type === filterType
     return statusMatch && typeMatch
   })
 
+  // 소속은 팀(팀 소속) 또는 부서(부서 직속) 둘 중 하나로 채워진다.
+  const sourceCount = new Set(
+    requests.map((r) => r.teams?.name ?? r.departments?.name).filter(Boolean)
+  ).size
+
   return (
     <>
       {/* 기간 선택 */}
-      <DateRangeFilter startDate={dateRangeStart} endDate={dateRangeEnd} onApply={onDateRangeChange} />
+      <DateRangeFilter
+        startDate={dateRangeStart}
+        endDate={dateRangeEnd}
+        onApply={onDateRangeChange}
+      />
 
       {/* 상태 필터 */}
       <div className="flex bg-gray-100 dark:bg-zinc-700 rounded-lg p-0.5 mb-2">
@@ -77,7 +92,7 @@ export default function ApprovalList({
             label: '전체',
             style:
               filterType === 'all'
-                ? 'bg-gray-700 text-white'
+                ? 'bg-gray-700 text-white dark:bg-zinc-100 dark:text-zinc-900'
                 : 'bg-gray-100 dark:bg-zinc-700 text-gray-500 dark:text-zinc-400',
           },
           {
@@ -120,17 +135,25 @@ export default function ApprovalList({
       </div>
 
       {/* 카드 목록 */}
-      <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4">
-        {filteredRequests.length === 0 ? (
+      <Card>
+        {loading ? (
+          <SkeletonRows rows={4} label="결재 목록" />
+        ) : filteredRequests.length === 0 ? (
           <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-4">
             결재 요청이 없어요.
           </p>
         ) : (
           filteredRequests.map((req) => (
-            <ApprovalCard key={req.id} req={req} userId={userId} onClick={onCardClick} />
+            <ApprovalCard
+              key={req.id}
+              req={req}
+              userId={userId}
+              showSource={sourceCount > 1}
+              onClick={onCardClick}
+            />
           ))
         )}
-      </div>
+      </Card>
     </>
   )
 }

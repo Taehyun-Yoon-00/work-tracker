@@ -9,7 +9,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <>
       <Sidebar />
       <TopNav />
-      <div className="flex-1 md:pl-64">{children}</div>
+      {/* 페이지가 grow로 남은 높이를 채울 수 있도록 세로 flex 컨테이너로 둔다. */}
+      <div className="flex-1 md:pl-64 flex flex-col">{children}</div>
       <BottomNav />
     </>
   )

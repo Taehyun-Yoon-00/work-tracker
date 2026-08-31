@@ -4,10 +4,15 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useRouter } from 'next/navigation'
 import dayjs from 'dayjs'
+import Card from '@/app/components/ui/Card'
+import StatCard from '@/app/components/ui/StatCard'
+import LoadError from '@/app/components/ui/LoadError'
+import ConfirmDialog from '@/app/components/ui/ConfirmDialog'
+import { useCurrentUser } from '@/app/hooks/useCurrentUser'
 
 export default function MyPage() {
   const router = useRouter()
-  const [user, setUser] = useState<any>(null)
+  const { user } = useCurrentUser()
   const [name, setName] = useState('')
   const [position, setPosition] = useState('')
   const [totalVacation, setTotalVacation] = useState<number>(0)
@@ -15,31 +20,30 @@ export default function MyPage() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [isMaster, setIsMaster] = useState(false)
+  const [loadFailed, setLoadFailed] = useState(false)
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState('')
   const [passwordMessage, setPasswordMessage] = useState('')
   const [passwordLoading, setPasswordLoading] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [showDeleteSection, setShowDeleteSection] = useState(false)
-
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
-      setUser(user)
-      fetchProfile(user.id)
-      fetchUsedVacation(user.id)
-    }
-    getUser()
-  }, [])
+  const [deleteMessage, setDeleteMessage] = useState('')
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   const fetchProfile = async (userId: string) => {
-    const { data } = await supabase
+    setLoadFailed(false)
+    const { data, error } = await supabase
       .from('profiles')
       .select('name, position, total_vacation, is_master')
       .eq('id', userId)
       .single()
+    if (error) {
+      // 실패를 넘기면 이름이 빈칸, 총 휴가가 0으로 보인다. 그대로 저장하면 값이 덮인다.
+      setLoadFailed(true)
+      return
+    }
     if (data) {
       setName(data.name || '')
       setPosition(data.position || '')
@@ -72,7 +76,19 @@ export default function MyPage() {
     }
   }
 
+  // 데이터 조회는 선언 뒤에서, 그리고 마이크로태스크로 미뤄서 부른다.
+  // effect 본문에서 곧바로 부르면 setState가 동기로 일어나 렌더가 연쇄된다.
+  useEffect(() => {
+    if (!user) return
+    const id = user.id
+    void Promise.resolve().then(() => {
+      fetchProfile(id)
+      fetchUsedVacation(id)
+    })
+  }, [user])
+
   const handleSave = async () => {
+    if (!user) return
     setLoading(true)
     setMessage('')
     const { error } = await supabase
@@ -90,24 +106,30 @@ export default function MyPage() {
       setPasswordMessage('비밀번호는 6자리 이상이어야 해요.')
       return
     }
+    // 확인 입력이 없으면 오타를 친 채로 바뀌고, 그 값을 아무도 모른다.
+    if (newPassword !== newPasswordConfirm) {
+      setPasswordMessage('두 비밀번호가 서로 달라요.')
+      return
+    }
     setPasswordLoading(true)
     const { error } = await supabase.auth.updateUser({ password: newPassword })
     if (error) setPasswordMessage('변경 실패: ' + error.message)
     else {
-      setPasswordMessage('비밀번호가 변경됐어요!')
+      setPasswordMessage('비밀번호가 변경됐어요.')
       setNewPassword('')
+      setNewPasswordConfirm('')
     }
     setPasswordLoading(false)
   }
 
   const handleDeleteAccount = async () => {
-    if (deleteConfirm !== user?.email) {
-      alert('이메일 주소가 일치하지 않아요.')
+    if (!user) return
+    if (deleteConfirm !== user.email) {
+      setDeleteMessage('이메일 주소가 일치하지 않아요.')
       return
     }
 
-    if (!confirm('정말로 탈퇴하시겠어요? 모든 데이터가 삭제되며 복구할 수 없어요.')) return
-
+    setDeleteMessage('')
     setDeleteLoading(true)
 
     const res = await fetch('/api/admin/delete-user', {
@@ -118,7 +140,7 @@ export default function MyPage() {
 
     if (!res.ok) {
       const data = await res.json()
-      alert('탈퇴 처리 중 오류가 발생했어요: ' + data.error)
+      setDeleteMessage('탈퇴 처리 중 오류가 발생했어요: ' + (data.error || '알 수 없는 오류'))
       setDeleteLoading(false)
       return
     }
@@ -131,22 +153,32 @@ export default function MyPage() {
   const remaining = totalVacation - usedVacation
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
+    <main className="grow bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-6">
       <div className="max-w-2xl mx-auto">
-
         {/* 헤더 */}
-        <div className="flex justify-between items-center mb-6">
+        <header className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold dark:text-white">마이페이지</h1>
+          {/* 로그아웃은 사이드바(PC)와 메뉴 드로어(모바일)로 옮겼다. */}
           {isMaster && (
-            <button onClick={() => router.push('/admin')}
-              className="text-sm text-red-500 hover:underline">
+            <button
+              onClick={() => router.push('/admin')}
+              className="text-sm text-red-500 hover:underline"
+            >
               회원 관리
             </button>
           )}
-        </div>
+        </header>
+
+        {loadFailed && (
+          <LoadError
+            message="프로필을 불러오지 못했습니다. 이 상태로 저장하면 기존 값이 덮일 수 있습니다."
+            onRetry={() => user && fetchProfile(user.id)}
+            className="mb-4"
+          />
+        )}
 
         {/* 프로필 설정 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
+        <Card className="mb-4">
           <h2 className="font-semibold mb-4 dark:text-white">프로필 설정</h2>
 
           <div className="mb-4">
@@ -194,47 +226,52 @@ export default function MyPage() {
 
           {message && <p className="text-sm text-center text-blue-500 mb-3">{message}</p>}
 
-          <button onClick={handleSave} disabled={loading}
-            className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50">
+          <button
+            onClick={handleSave}
+            disabled={loading}
+            className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
+          >
             {loading ? '저장 중...' : '저장'}
           </button>
-        </div>
+        </Card>
 
         {/* 휴가 현황 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
+        <Card className="mb-4">
           <h2 className="font-semibold mb-4 dark:text-white">올해 휴가 현황</h2>
           <div className="flex gap-3 mb-4">
-            <div className="flex-1 bg-blue-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">총 휴가</p>
-              <p className="text-xl font-bold text-blue-500">{totalVacation}일</p>
-            </div>
-            <div className="flex-1 bg-orange-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">사용</p>
-              <p className="text-xl font-bold text-orange-500">{usedVacation}일</p>
-            </div>
-            <div className="flex-1 bg-green-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">잔여</p>
-              <p className="text-xl font-bold text-green-500">{remaining}일</p>
-            </div>
-          </div>
-          <div className="w-full bg-gray-100 dark:bg-zinc-700 rounded-full h-3">
-            <div
-              className="bg-green-400 h-3 rounded-full transition-all"
-              style={{
-                width: totalVacation > 0
-                  ? `${Math.max(0, (remaining / totalVacation) * 100)}%`
-                  : '0%'
-              }}
+            <StatCard label="총 휴가" tone="blue" valueSize="xl" value={`${totalVacation}일`} />
+            <StatCard label="사용" tone="orange" valueSize="xl" value={`${usedVacation}일`} />
+            {/* 잔여가 음수면 초과 사용이다. 초록으로 두면 색이 정반대를 말한다. */}
+            <StatCard
+              label="잔여"
+              tone={remaining < 0 ? 'red' : 'green'}
+              valueSize="xl"
+              value={`${remaining}일`}
             />
           </div>
-          <div className="flex justify-between text-xs text-gray-400 dark:text-zinc-500 mt-1">
-            <span>0일</span>
-            <span>{totalVacation}일</span>
-          </div>
-        </div>
+          {/* 총 휴가가 0이면 0일~0일짜리 빈 막대만 남아 아무 정보도 주지 않는다. */}
+          {totalVacation > 0 ? (
+            <>
+              <div className="w-full bg-gray-100 dark:bg-zinc-700 rounded-full h-3">
+                <div
+                  className="bg-green-400 h-3 rounded-full transition-all"
+                  style={{ width: `${Math.max(0, (remaining / totalVacation) * 100)}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-xs text-gray-400 dark:text-zinc-500 mt-1">
+                <span>0일</span>
+                <span>{totalVacation}일</span>
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-gray-400 dark:text-zinc-500">
+              총 휴가 일수를 입력하면 잔여 비율이 표시됩니다.
+            </p>
+          )}
+        </Card>
 
         {/* 비밀번호 변경 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
+        <Card className="mb-4">
           <h2 className="font-semibold mb-4 dark:text-white">비밀번호 변경</h2>
           <div className="mb-3">
             <label className="text-sm text-gray-500 dark:text-zinc-400">새 비밀번호</label>
@@ -246,22 +283,36 @@ export default function MyPage() {
               className="w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
             />
           </div>
+          <div className="mb-3">
+            <label className="text-sm text-gray-500 dark:text-zinc-400">새 비밀번호 확인</label>
+            <input
+              type="password"
+              value={newPasswordConfirm}
+              onChange={(e) => setNewPasswordConfirm(e.target.value)}
+              placeholder="한 번 더 입력"
+              className="w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
+            />
+          </div>
           {passwordMessage && (
             <p className="text-sm text-center text-blue-500 mb-3">{passwordMessage}</p>
           )}
-          <button onClick={handlePasswordChange} disabled={passwordLoading}
-            className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50">
+          <button
+            onClick={handlePasswordChange}
+            disabled={passwordLoading}
+            className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
+          >
             {passwordLoading ? '변경 중...' : '비밀번호 변경'}
           </button>
-        </div>
+        </Card>
 
         {/* 회원 탈퇴 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4">
+        <Card>
           <div className="flex justify-between items-center">
             <h2 className="font-semibold dark:text-white">회원 탈퇴</h2>
             <button
               onClick={() => setShowDeleteSection(!showDeleteSection)}
-              className="text-sm text-red-400 hover:text-red-600">
+              className="text-sm text-red-400 hover:text-red-600"
+            >
               {showDeleteSection ? '닫기' : '탈퇴하기'}
             </button>
           </div>
@@ -269,7 +320,8 @@ export default function MyPage() {
           {showDeleteSection && (
             <div className="mt-4">
               <p className="text-sm text-gray-500 dark:text-zinc-400 mb-3">
-                탈퇴하면 모든 근무 기록, 휴가, 팀 정보가 삭제되며 복구할 수 없어요.<br />
+                탈퇴하면 모든 근무 기록, 휴가, 팀 정보가 삭제되며 복구할 수 없어요.
+                <br />
                 확인을 위해 이메일 주소를 입력해주세요.
               </p>
               <input
@@ -279,17 +331,34 @@ export default function MyPage() {
                 placeholder={user?.email}
                 className="w-full border border-red-200 rounded-lg px-3 py-2 mb-3 dark:bg-zinc-700 dark:border-red-900 dark:text-zinc-200"
               />
+              {deleteMessage && (
+                <p className="mb-3 text-sm text-red-600 dark:text-red-400">{deleteMessage}</p>
+              )}
               <button
-                onClick={handleDeleteAccount}
+                onClick={() => setConfirmingDelete(true)}
                 disabled={deleteLoading || deleteConfirm !== user?.email}
-                className="w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 disabled:opacity-40">
+                className="w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 disabled:opacity-40"
+              >
                 {deleteLoading ? '처리 중...' : '회원 탈퇴'}
               </button>
             </div>
           )}
-        </div>
+        </Card>
 
+        <ConfirmDialog
+          open={confirmingDelete}
+          tone="danger"
+          busy={deleteLoading}
+          title="정말 탈퇴할까요?"
+          description="근무 기록, 휴가, 팀 정보가 모두 삭제됩니다. 되돌릴 수 없습니다."
+          confirmLabel="탈퇴"
+          onCancel={() => setConfirmingDelete(false)}
+          onConfirm={() => {
+            setConfirmingDelete(false)
+            handleDeleteAccount()
+          }}
+        />
       </div>
-    </div>
+    </main>
   )
 }

@@ -8,16 +8,25 @@ import 'react-calendar/dist/Calendar.css'
 import dayjs from 'dayjs'
 import isoWeek from 'dayjs/plugin/isoWeek'
 dayjs.extend(isoWeek)
-import Holidays from 'date-holidays'
-import WorkMattersEditor, { MatterEntry, WorkCategory, emptyMatterEntry } from './components/worklog/WorkMattersEditor'
+import { isHoliday, isPublicHoliday, fetchSubstituteHolidays } from '@/app/lib/holidays'
+import { useCurrentUser } from '@/app/hooks/useCurrentUser'
+import WorkMattersEditor, {
+  MatterEntry,
+  emptyMatterEntry,
+} from './components/worklog/WorkMattersEditor'
 import { recordMatterUsage } from './lib/matterHistory'
+import { calcWorkHours } from '@/app/lib/workTime'
+import { getMonthRange, getWeekRange, getWeeksOfMonth, todayStr } from '@/app/lib/dates'
+import type { RemoteWork, Vacation, WorkCategory, WorkLog, WorkLogMatter } from '@/app/lib/types'
+import Card from '@/app/components/ui/Card'
+import StatCard from '@/app/components/ui/StatCard'
+import LoadError from '@/app/components/ui/LoadError'
+import ConfirmDialog from '@/app/components/ui/ConfirmDialog'
 import { Pencil, Trash2, Check } from 'lucide-react'
-
-const hd = new Holidays('KR')
 
 export default function Home() {
   const router = useRouter()
-  const [user, setUser] = useState<any>(null)
+  const { user } = useCurrentUser()
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [startTime, setStartTime] = useState('')
   const [endTime, setEndTime] = useState('')
@@ -26,53 +35,31 @@ export default function Home() {
   const [matters, setMatters] = useState<MatterEntry[]>([emptyMatterEntry()])
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
-  const [weeklyLogs, setWeeklyLogs] = useState<any[]>([])
+  const [weeklyLogs, setWeeklyLogs] = useState<WorkLog[]>([])
   const [vacation, setVacation] = useState<string | null>(null)
   const [vacationLoading, setVacationLoading] = useState(false)
   const [isLocked, setIsLocked] = useState(false)
-  const [monthlyLogs, setMonthlyLogs] = useState<any[]>([])
+  // 달력 표시에는 날짜만 쓰므로 date 컬럼만 조회한다
+  const [monthlyLogs, setMonthlyLogs] = useState<Pick<WorkLog, 'date'>[]>([])
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [commutePlan, setCommutePlan] = useState<string | null>(null)
   const [isRemote, setIsRemote] = useState(false)
   const [remoteLoading, setRemoteLoading] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
-  const [monthlyVacations, setMonthlyVacations] = useState<any[]>([])
+  const [monthlyVacations, setMonthlyVacations] = useState<Pick<Vacation, 'date' | 'type'>[]>([])
+  const [monthlyRemoteWorks, setMonthlyRemoteWorks] = useState<Pick<RemoteWork, 'date'>[]>([])
   const [isNextDay, setIsNextDay] = useState(false)
   const [substituteHolidays, setSubstituteHolidays] = useState<string[]>([])
   const [viewedWeek, setViewedWeek] = useState<Date>(new Date())
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) router.push('/login')
-      else setUser(user)
-    }
-    getUser()
-    fetchSubstituteHolidays()
+    fetchSubstituteHolidays().then(setSubstituteHolidays)
   }, [])
 
-  useEffect(() => {
-    if (user) {
-      fetchMonthlyLogs()
-      fetchMonthlyVacations()
-      fetchMonthCommutePlans()
-      fetchVacation(selectedDate)
-      fetchDayLog(selectedDate)
-      fetchRemote(selectedDate)
-    }
-  }, [user, selectedDate])
-
-  useEffect(() => {
-    if (user) fetchWeeklyLogs()
-  }, [user, viewedWeek])
-
-  // 날짜를 클릭하면 보고 있는 주간도 그 날짜의 주로 동기화
-  useEffect(() => {
-    setViewedWeek(selectedDate)
-  }, [selectedDate])
-
   const fetchWeeklyLogs = async () => {
-    const startOfWeek = dayjs(viewedWeek).startOf('isoWeek').format('YYYY-MM-DD')
-    const endOfWeek = dayjs(viewedWeek).endOf('isoWeek').format('YYYY-MM-DD')
+    if (!user) return
+    const { start: startOfWeek, end: endOfWeek } = getWeekRange(viewedWeek)
 
     const { data } = await supabase
       .from('work_logs')
@@ -85,22 +72,28 @@ export default function Home() {
     if (data) setWeeklyLogs(data)
   }
   const fetchMonthlyLogs = async () => {
-    const startOfMonth = dayjs(selectedDate).startOf('month').format('YYYY-MM-DD')
-    const endOfMonth = dayjs(selectedDate).endOf('month').format('YYYY-MM-DD')
+    if (!user) return
+    setLoadFailed(false)
+    const { start: startOfMonth, end: endOfMonth } = getMonthRange(selectedDate)
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('work_logs')
       .select('date')
       .eq('user_id', user.id)
       .gte('date', startOfMonth)
       .lte('date', endOfMonth)
 
+    if (error) {
+      // 실패하면 달력이 기록 없는 달처럼 보인다. 그 위에 덮어 저장하게 두면 안 된다.
+      setLoadFailed(true)
+      return
+    }
     if (data) setMonthlyLogs(data)
   }
 
   const fetchMonthlyVacations = async () => {
-    const startOfMonth = dayjs(selectedDate).startOf('month').format('YYYY-MM-DD')
-    const endOfMonth = dayjs(selectedDate).endOf('month').format('YYYY-MM-DD')
+    if (!user) return
+    const { start: startOfMonth, end: endOfMonth } = getMonthRange(selectedDate)
     const { data } = await supabase
       .from('vacations')
       .select('date, type')
@@ -110,15 +103,21 @@ export default function Home() {
     if (data) setMonthlyVacations(data)
   }
 
-  const fetchSubstituteHolidays = async () => {
+  const fetchMonthlyRemoteWorks = async () => {
+    if (!user) return
+    const { start: startOfMonth, end: endOfMonth } = getMonthRange(selectedDate)
     const { data } = await supabase
-      .from('substitute_holidays')
+      .from('remote_works')
       .select('date')
-    if (data) setSubstituteHolidays(data.map((h) => h.date))
+      .eq('user_id', user.id)
+      .gte('date', startOfMonth)
+      .lte('date', endOfMonth)
+    if (data) setMonthlyRemoteWorks(data)
   }
 
   const fetchCommutePlan = async () => {
-    const weekStart = dayjs(selectedDate).startOf('isoWeek').format('YYYY-MM-DD')
+    if (!user) return
+    const weekStart = getWeekRange(selectedDate).start
     const { data } = await supabase
       .from('commute_plans')
       .select('commute_time')
@@ -128,7 +127,6 @@ export default function Home() {
     setCommutePlan(data?.commute_time || null)
   }
 
-
   const fetchMattersFor = async (workLogId: string): Promise<MatterEntry[]> => {
     const { data } = await supabase
       .from('work_log_matters')
@@ -137,7 +135,7 @@ export default function Home() {
       .order('sort_order', { ascending: true })
 
     if (!data || data.length === 0) return [emptyMatterEntry()]
-    return data.map((m: any) => ({
+    return data.map((m: WorkLogMatter) => ({
       key: m.id,
       category: m.category as WorkCategory,
       hours: String(m.hours),
@@ -151,6 +149,7 @@ export default function Home() {
   }
 
   const fetchDayLog = async (date: Date) => {
+    if (!user) return
     const { data } = await supabase
       .from('work_logs')
       .select('*')
@@ -213,6 +212,7 @@ export default function Home() {
   }
 
   const fetchVacation = async (date: Date) => {
+    if (!user) return
     const { data } = await supabase
       .from('vacations')
       .select('type')
@@ -222,6 +222,7 @@ export default function Home() {
     setVacation(data?.type || null)
   }
   const fetchRemote = async (date: Date) => {
+    if (!user) return
     const { data } = await supabase
       .from('remote_works')
       .select('id')
@@ -232,51 +233,89 @@ export default function Home() {
   }
 
   const handleRemote = async () => {
+    if (!user) return
     setRemoteLoading(true)
     if (isRemote) {
-      await supabase.from('remote_works')
+      await supabase
+        .from('remote_works')
         .delete()
         .eq('user_id', user.id)
         .eq('date', dayjs(selectedDate).format('YYYY-MM-DD'))
       setIsRemote(false)
     } else {
-      await supabase.from('remote_works').upsert({
-        user_id: user.id,
-        date: dayjs(selectedDate).format('YYYY-MM-DD'),
-      }, { onConflict: 'user_id,date' })
+      await supabase.from('remote_works').upsert(
+        {
+          user_id: user.id,
+          date: dayjs(selectedDate).format('YYYY-MM-DD'),
+        },
+        { onConflict: 'user_id,date' }
+      )
       setIsRemote(true)
     }
+    fetchMonthlyRemoteWorks()
     setRemoteLoading(false)
   }
 
   const handleVacation = async (type: string) => {
+    if (!user) return
     setVacationLoading(true)
     if (vacation === type) {
       // 같은 버튼 누르면 취소
-      await supabase.from('vacations')
+      await supabase
+        .from('vacations')
         .delete()
         .eq('user_id', user.id)
         .eq('date', dayjs(selectedDate).format('YYYY-MM-DD'))
       setVacation(null)
     } else {
-      await supabase.from('vacations').upsert({
-        user_id: user.id,
-        date: dayjs(selectedDate).format('YYYY-MM-DD'),
-        type,
-      }, { onConflict: 'user_id,date' })
+      await supabase.from('vacations').upsert(
+        {
+          user_id: user.id,
+          date: dayjs(selectedDate).format('YYYY-MM-DD'),
+          type,
+        },
+        { onConflict: 'user_id,date' }
+      )
       setVacation(type)
+
+      // 연차를 선택하면 근무입력은 비활성화되고, 이미 저장된 근무기록이 있다면 자동으로 삭제한다
+      if (type === 'annual' || type === 'special') {
+        await supabase
+          .from('work_logs')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('date', dayjs(selectedDate).format('YYYY-MM-DD'))
+        setStartTime('')
+        setEndTime('')
+        setBreakMinutes('60')
+        setMemo('')
+        setIsNextDay(false)
+        setMatters([emptyMatterEntry()])
+        setIsLocked(false)
+        setMessage('')
+        fetchWeeklyLogs()
+        fetchMonthlyLogs()
+      }
     }
     setVacationLoading(false)
   }
-  const calcCurrentTotalHours = () => {
-    if (!startTime || !endTime) return 0
-    const start = dayjs(`2000-01-01 ${startTime}`)
-    const end = dayjs(`2000-01-0${isNextDay ? '2' : '1'} ${endTime}`)
-    const diff = end.diff(start, 'minute') - (parseInt(breakMinutes) || 0)
-    return Math.round((diff / 60) * 100) / 100
-  }
+  // 연차인 날은 근무입력을 아예 막는다 (저장되어 있어도 자동으로 지움)
+  const isAnnualVacation = vacation === 'annual' || vacation === 'special'
+  const workInputDisabled = isLocked || isAnnualVacation
+  const calcCurrentTotalHours = () =>
+    calcWorkHours({
+      start_time: startTime,
+      end_time: endTime,
+      break_minutes: parseInt(breakMinutes) || 0,
+      is_next_day: isNextDay,
+    })
 
   const handleSave = async () => {
+    if (!user) return
+    if (isAnnualVacation) {
+      setMessage('연차인 날은 근무 입력을 저장할 수 없어요.')
+      return
+    }
     if (!startTime || !endTime) {
       setMessage('출근/퇴근 시간을 입력해주세요.')
       return
@@ -307,15 +346,18 @@ export default function Home() {
 
     const { data: savedLog, error } = await supabase
       .from('work_logs')
-      .upsert({
-        user_id: user.id,
-        date: dayjs(selectedDate).format('YYYY-MM-DD'),
-        start_time: startTime,
-        end_time: endTime,
-        break_minutes: parseInt(breakMinutes),
-        memo,
-        is_next_day: isNextDay,
-      }, { onConflict: 'user_id,date' })
+      .upsert(
+        {
+          user_id: user.id,
+          date: dayjs(selectedDate).format('YYYY-MM-DD'),
+          start_time: startTime,
+          end_time: endTime,
+          break_minutes: parseInt(breakMinutes),
+          memo,
+          is_next_day: isNextDay,
+        },
+        { onConflict: 'user_id,date' }
+      )
       .select('id')
       .single()
 
@@ -351,10 +393,10 @@ export default function Home() {
     setLoading(false)
   }
   const handleDelete = async () => {
-    const confirmed = confirm('이 날의 근무기록을 삭제할까요?')
-    if (!confirmed) return
+    if (!user) return
     setDeleteLoading(true)
-    await supabase.from('work_logs')
+    await supabase
+      .from('work_logs')
       .delete()
       .eq('user_id', user.id)
       .eq('date', dayjs(selectedDate).format('YYYY-MM-DD'))
@@ -369,17 +411,10 @@ export default function Home() {
     fetchMonthlyLogs()
     setDeleteLoading(false)
   }
-  const isHoliday = (date: Date) => {
-    const day = dayjs(date).day()
-    if (day === 0 || day === 6) return true
-    const dateStr = dayjs(date).format('YYYY-MM-DD')
-    if (substituteHolidays.includes(dateStr)) return true
-    return !!hd.isHoliday(date)
-  }
   const getTileClassName = ({ date }: { date: Date }) => {
     const day = date.getDay()
     const dateStr = dayjs(date).format('YYYY-MM-DD')
-    const isToday = dateStr === dayjs().format('YYYY-MM-DD')
+    const isToday = dateStr === todayStr()
     const hasLog = monthlyLogs.some((log) => log.date === dateStr)
     const vacationOnDate = monthlyVacations.find((v) => v.date === dateStr)
     const isHalfDay = vacationOnDate?.type === 'morning' || vacationOnDate?.type === 'afternoon'
@@ -388,59 +423,87 @@ export default function Home() {
     let className = 'relative '
     // 반차인 날은 대각선 오버레이(getTileContent)가 색을 전부 담당하므로 button 자체 배경은 비움
     if (hasLog && !isToday && !isHalfDay) className += '!bg-blue-100 dark:!bg-blue-950 rounded-lg '
-    if (vacationOnDate && !isHalfDay && !isToday) className += '!bg-orange-100 dark:!bg-orange-950 rounded-lg '
+    if (vacationOnDate && !isHalfDay && !isToday)
+      className += '!bg-orange-100 dark:!bg-orange-950 rounded-lg '
     if (isHalfDay && !isToday) className += 'rounded-lg '
     if (day === 6) className += '!text-blue-500 font-semibold'
-    else if (day === 0 || hd.isHoliday(date) || isSubstitute) className += '!text-red-500 font-semibold'
+    else if (day === 0 || isPublicHoliday(date) || isSubstitute)
+      className += '!text-red-500 font-semibold'
 
     return className.trim()
   }
-  const getWeekStart = (date: Date) =>
-    dayjs(date).startOf('isoWeek').format('YYYY-MM-DD')
+  const getWeekStart = (date: Date) => dayjs(date).startOf('isoWeek').format('YYYY-MM-DD')
 
   const [weekPlans, setWeekPlans] = useState<{ [key: string]: string }>({})
 
   const fetchMonthCommutePlans = async () => {
+    if (!user) return
     const { data } = await supabase
       .from('commute_plans')
       .select('week_number, commute_time')
       .eq('user_id', user.id)
     if (data) {
       const plans: { [key: string]: string } = {}
-      data.forEach((d) => { plans[String(d.week_number)] = d.commute_time })
+      data.forEach((d) => {
+        plans[String(d.week_number)] = d.commute_time
+      })
       setWeekPlans(plans)
     }
   }
 
   const handleCommutePlan = async (weekNumber: string, time: string) => {
+    if (!user) return
     if (weekPlans[weekNumber] === time) {
-      await supabase.from('commute_plans')
+      await supabase
+        .from('commute_plans')
         .delete()
         .eq('user_id', user.id)
         .eq('week_number', parseInt(weekNumber))
-      setWeekPlans((prev) => { const n = { ...prev }; delete n[weekNumber]; return n })
+      setWeekPlans((prev) => {
+        const n = { ...prev }
+        delete n[weekNumber]
+        return n
+      })
     } else {
-      await supabase.from('commute_plans').upsert({
-        user_id: user.id,
-        week_number: parseInt(weekNumber),
-        commute_time: time,
-      }, { onConflict: 'user_id,week_number' })
+      await supabase.from('commute_plans').upsert(
+        {
+          user_id: user.id,
+          week_number: parseInt(weekNumber),
+          commute_time: time,
+        },
+        { onConflict: 'user_id,week_number' }
+      )
       setWeekPlans((prev) => ({ ...prev, [weekNumber]: time }))
     }
   }
 
   const getTileContent = ({ date }: { date: Date }) => {
     const dateStr = dayjs(date).format('YYYY-MM-DD')
-    const isToday = dateStr === dayjs().format('YYYY-MM-DD')
-    if (isToday) return null
+    const isToday = dateStr === todayStr()
+    const isRemoteOnDate = monthlyRemoteWorks.some((r) => r.date === dateStr)
+
+    // 원격근무 표시: 해당 날짜칸 왼쪽위에 작은 동그라미 (원격근무 버튼과 동일한 인디고 색)
+    const remoteDot = isRemoteOnDate ? (
+      <span
+        className="absolute top-0.5 left-0.5 w-1.5 h-1.5 rounded-full bg-indigo-500 pointer-events-none"
+        style={{ zIndex: 1 }}
+      />
+    ) : null
+
+    if (isToday) return remoteDot
 
     const vacationOnDate = monthlyVacations.find((v) => v.date === dateStr)
-    if (!vacationOnDate) return null
-    if (vacationOnDate.type !== 'morning' && vacationOnDate.type !== 'afternoon') return null
+    if (
+      !vacationOnDate ||
+      (vacationOnDate.type !== 'morning' && vacationOnDate.type !== 'afternoon')
+    ) {
+      return remoteDot
+    }
 
     const hasLog = monthlyLogs.some((log) => log.date === dateStr)
-    const isDark = typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
-    const workColor = hasLog ? (isDark ? '#172554' : '#dbeafe') : (isDark ? '#27272a' : '#ffffff')
+    const isDark =
+      typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
+    const workColor = hasLog ? (isDark ? '#172554' : '#dbeafe') : isDark ? '#27272a' : '#ffffff'
     const vacationColor = isDark ? '#431407' : '#ffedd5'
 
     // 오전반차: 좌상 주황, 우하 근무색 / 오후반차: 좌상 근무색, 우하 주황
@@ -448,44 +511,72 @@ export default function Home() {
     const bottomRight = vacationOnDate.type === 'morning' ? workColor : vacationColor
 
     return (
-      <div
-        className="absolute inset-0 rounded-lg pointer-events-none"
-        style={{
-          background: `linear-gradient(to bottom right, ${topLeft} 49.5%, ${bottomRight} 50.5%)`,
-          zIndex: 0,
-        }}
-      />
+      <>
+        <div
+          className="absolute inset-0 rounded-lg pointer-events-none"
+          style={{
+            background: `linear-gradient(to bottom right, ${topLeft} 49.5%, ${bottomRight} 50.5%)`,
+            zIndex: 0,
+          }}
+        />
+        {remoteDot}
+      </>
     )
   }
-  const calcHours = (log: any) => {
-    const start = dayjs(`2000-01-01 ${log.start_time}`)
-    const end = dayjs(`2000-01-0${log.is_next_day ? '2' : '1'} ${log.end_time}`)
-    const diff = end.diff(start, 'minute') - log.break_minutes
-    return (diff / 60).toFixed(2)
-  }
+  // 아래 조회 함수들이 선언된 뒤에 둔다. 그리고 마이크로태스크로 미뤄서 부른다 —
+  // effect 본문에서 곧바로 부르면 setState가 동기로 일어나 렌더가 연쇄된다.
+  useEffect(() => {
+    if (!user) return
+    void Promise.resolve().then(() => {
+      fetchMonthlyLogs()
+      fetchMonthlyVacations()
+      fetchMonthlyRemoteWorks()
+      fetchMonthCommutePlans()
+      fetchVacation(selectedDate)
+      fetchDayLog(selectedDate)
+      fetchRemote(selectedDate)
+    })
+  }, [user, selectedDate])
+
+  useEffect(() => {
+    if (!user) return
+    void Promise.resolve().then(() => fetchWeeklyLogs())
+  }, [user, viewedWeek])
+
+  // 날짜를 클릭하면 보고 있는 주간도 그 날짜의 주로 동기화
+  useEffect(() => {
+    void Promise.resolve().then(() => setViewedWeek(selectedDate))
+  }, [selectedDate])
+
+  const calcHours = (log: WorkLog) => calcWorkHours(log).toFixed(2)
 
   const totalWeeklyHours = weeklyLogs.reduce((acc, log) => acc + parseFloat(calcHours(log)), 0)
 
   const weekdayHours = weeklyLogs
-    .filter((log) => !isHoliday(new Date(log.date)))
+    .filter((log) => !isHoliday(new Date(log.date), substituteHolidays))
     .reduce((acc, log) => acc + parseFloat(calcHours(log)), 0)
 
   const weekendHours = weeklyLogs
-    .filter((log) => isHoliday(new Date(log.date)))
+    .filter((log) => isHoliday(new Date(log.date), substituteHolidays))
     .reduce((acc, log) => acc + parseFloat(calcHours(log)), 0)
-
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
+    <main className="grow bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-6">
       <div className="max-w-2xl mx-auto">
-
-        {/* 헤더 */}
-        <div className="flex justify-between items-center mb-6">
+        {/* 헤더 — 로그아웃은 사이드바(PC)와 메뉴 드로어(모바일)에 있다. */}
+        <header className="mb-6">
           <h1 className="text-2xl font-bold dark:text-white">근무시간 기록</h1>
-        </div>
+        </header>
 
+        {loadFailed && (
+          <LoadError
+            message="근무기록을 불러오지 못했습니다. 달력이 비어 보일 수 있습니다."
+            onRetry={fetchMonthlyLogs}
+            className="mb-4"
+          />
+        )}
 
         {/* 달력 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-3 mb-4">
+        <Card padding="p-3" className="mb-4">
           <div className="flex items-start gap-2 w-full">
             <div className="min-w-0">
               <Calendar
@@ -500,39 +591,42 @@ export default function Home() {
               />
             </div>
 
-            {/* 주차별 출근예정 버튼 */}
-            <div className="flex flex-col shrink-0 mt-[74px] sm:mt-[90px]">
+            {/* 주차별 출근예정 버튼.
+                달력의 주 행에 맞추려고 위쪽을 비워두는데, 그냥 비우면 무엇을 고르는
+                버튼인지 알 수 없어 잔해처럼 보인다. 같은 높이에 머리말을 넣는다. */}
+            <div className="flex flex-col shrink-0">
+              <div className="h-[74px] sm:h-[90px] flex items-end justify-center pb-1">
+                <span className="text-[10px] leading-tight text-center text-gray-500 dark:text-zinc-400">
+                  출근
+                  <br />
+                  예정
+                </span>
+              </div>
               {(() => {
-                const monthStart = dayjs(selectedDate).startOf('month')
-                const monthEnd = dayjs(selectedDate).endOf('month')
-                const firstWeekStart = monthStart.startOf('isoWeek')
-                const weeks = []
-                let current = firstWeekStart
-                while (current.isBefore(monthEnd) || current.isSame(monthEnd, 'day')) {
-                  weeks.push(current)
-                  current = current.add(1, 'week')
-                }
-                return weeks.map((weekStart, index) => {
+                return getWeeksOfMonth(selectedDate).map((weekStart, index) => {
                   const weekNumber = String(index + 1)
                   const plan = weekPlans[weekNumber]
                   return (
-                    <div key={weekNumber}
-                      className="flex items-center justify-center h-8 sm:h-11">
+                    <div key={weekNumber} className="flex items-center justify-center h-8 sm:h-11">
                       <div className="flex gap-0.5">
                         <button
                           onClick={() => handleCommutePlan(weekNumber, '8시')}
-                          className={`text-[12px] w-6 py-1.5 rounded-lg border transition ${plan === '8시'
+                          className={`text-[12px] w-6 py-1.5 rounded-lg border transition ${
+                            plan === '8시'
                               ? 'bg-blue-500 text-white border-blue-500'
                               : 'bg-white dark:bg-zinc-700 text-gray-400 dark:text-zinc-300 border-gray-300 dark:border-zinc-500'
-                            }`}>
+                          }`}
+                        >
                           8시
                         </button>
                         <button
                           onClick={() => handleCommutePlan(weekNumber, '9시')}
-                          className={`text-[12px] w-6 py-1.5 rounded-lg border transition ${plan === '9시'
+                          className={`text-[12px] w-6 py-1.5 rounded-lg border transition ${
+                            plan === '9시'
                               ? 'bg-green-500 text-white border-green-500'
                               : 'bg-white dark:bg-zinc-700 text-gray-400 dark:text-zinc-300 border-gray-300 dark:border-zinc-500'
-                            }`}>
+                          }`}
+                        >
                           9시
                         </button>
                       </div>
@@ -542,29 +636,36 @@ export default function Home() {
               })()}
             </div>
           </div>
-        </div>
+        </Card>
         {/* 근무시간 입력 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
+        <Card className="mb-4">
           <div className="flex justify-between items-center mb-3">
             <h2 className="font-semibold dark:text-white">
               {dayjs(selectedDate).format('YYYY년 MM월 DD일')} 근무 입력
             </h2>
-            {isLocked && (
+            {isLocked && !isAnnualVacation && (
               <div className="flex gap-2">
                 <button
                   onClick={() => setIsLocked(false)}
-                  className="flex items-center gap-1 text-xs bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300 px-3 py-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600">
+                  className="flex items-center gap-1 text-xs bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300 px-3 py-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
+                >
                   <Pencil size={12} strokeWidth={2} /> 수정
                 </button>
                 <button
-                  onClick={handleDelete}
+                  onClick={() => setConfirmingDelete(true)}
                   disabled={deleteLoading}
-                  className="flex items-center gap-1 text-xs bg-red-50 text-red-500 px-3 py-1 rounded-lg hover:bg-red-100">
+                  className="flex items-center gap-1 text-xs border border-red-300 text-red-600 px-3 py-1 rounded-lg transition hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950/50"
+                >
                   <Trash2 size={12} strokeWidth={2} /> 삭제
                 </button>
               </div>
             )}
           </div>
+          {isAnnualVacation && (
+            <p className="text-xs text-orange-500 mb-3">
+              연차인 날은 근무 입력을 할 수 없어요. 저장된 근무기록이 있었다면 자동으로 삭제됐어요.
+            </p>
+          )}
           <div className="flex gap-2 mb-2">
             <div className="flex gap-20 mb-2">
               <div className="flex-1">
@@ -572,9 +673,14 @@ export default function Home() {
                 <div className="flex gap-1 mt-1">
                   <select
                     value={startTime ? startTime.split(':')[0] : ''}
-                    onChange={(e) => setStartTime(`${e.target.value}:${startTime ? startTime.split(':')[1] : '00'}`)}
-                    disabled={isLocked}
-                    className={`flex-1 border rounded-lg px-2 py-2 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}>
+                    onChange={(e) =>
+                      setStartTime(
+                        `${e.target.value}:${startTime ? startTime.split(':')[1] : '00'}`
+                      )
+                    }
+                    disabled={workInputDisabled}
+                    className={`flex-1 border rounded-lg px-2 py-2 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${workInputDisabled ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}
+                  >
                     <option value="">시</option>
                     {Array.from({ length: 24 }, (_, i) => (
                       <option key={i} value={String(i).padStart(2, '0')}>
@@ -585,9 +691,14 @@ export default function Home() {
                   <span className="flex items-center text-gray-400">:</span>
                   <select
                     value={startTime ? startTime.split(':')[1] : ''}
-                    onChange={(e) => setStartTime(`${startTime ? startTime.split(':')[0] : '00'}:${e.target.value}`)}
-                    disabled={isLocked}
-                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}>
+                    onChange={(e) =>
+                      setStartTime(
+                        `${startTime ? startTime.split(':')[0] : '00'}:${e.target.value}`
+                      )
+                    }
+                    disabled={workInputDisabled}
+                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${workInputDisabled ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}
+                  >
                     <option value="">분</option>
                     <option value="00">00</option>
                     <option value="15">15</option>
@@ -602,9 +713,12 @@ export default function Home() {
                 <div className="flex gap-1 mt-1 items-center">
                   <select
                     value={endTime ? endTime.split(':')[0] : ''}
-                    onChange={(e) => setEndTime(`${e.target.value}:${endTime ? endTime.split(':')[1] : '00'}`)}
-                    disabled={isLocked}
-                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}>
+                    onChange={(e) =>
+                      setEndTime(`${e.target.value}:${endTime ? endTime.split(':')[1] : '00'}`)
+                    }
+                    disabled={workInputDisabled}
+                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${workInputDisabled ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}
+                  >
                     <option value="">시</option>
                     {Array.from({ length: 24 }, (_, i) => (
                       <option key={i} value={String(i).padStart(2, '0')}>
@@ -615,22 +729,27 @@ export default function Home() {
                   <span className="flex items-center text-gray-400">:</span>
                   <select
                     value={endTime ? endTime.split(':')[1] : ''}
-                    onChange={(e) => setEndTime(`${endTime ? endTime.split(':')[0] : '00'}:${e.target.value}`)}
-                    disabled={isLocked}
-                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}>
+                    onChange={(e) =>
+                      setEndTime(`${endTime ? endTime.split(':')[0] : '00'}:${e.target.value}`)
+                    }
+                    disabled={workInputDisabled}
+                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${workInputDisabled ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}
+                  >
                     <option value="">분</option>
                     <option value="00">00</option>
                     <option value="15">15</option>
                     <option value="30">30</option>
                     <option value="45">45</option>
                   </select>
-                  {!isLocked && (
+                  {!workInputDisabled && (
                     <button
                       onClick={() => setIsNextDay(!isNextDay)}
-                      className={`text-[12px] px-1.5 py-1 rounded-lg border transition shrink-0 ${isNextDay
+                      className={`text-[12px] px-1.5 py-1 rounded-lg border transition shrink-0 ${
+                        isNextDay
                           ? 'bg-blue-500 text-white border-blue-500'
                           : 'bg-white dark:bg-zinc-700 text-gray-400 dark:text-zinc-300 border-gray-300 dark:border-zinc-500'
-                        }`}>
+                      }`}
+                    >
                       익일
                     </button>
                   )}
@@ -645,34 +764,45 @@ export default function Home() {
             entries={matters}
             onChange={setMatters}
             totalHours={calcCurrentTotalHours()}
-            disabled={isLocked}
+            disabled={workInputDisabled}
           />
           <div className="mb-2">
             <label className="text-sm text-gray-500 dark:text-zinc-400">휴게시간 (분)</label>
-            <input type="number" value={breakMinutes}
+            <input
+              type="number"
+              value={breakMinutes}
               onChange={(e) => setBreakMinutes(e.target.value)}
-              disabled={isLocked}
-              className={`w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''
-                }`} />
+              disabled={workInputDisabled}
+              className={`w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${
+                workInputDisabled ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''
+              }`}
+            />
           </div>
           <div className="mb-3">
             <label className="text-sm text-gray-500 dark:text-zinc-400">메모</label>
-            <input type="text" value={memo}
+            <input
+              type="text"
+              value={memo}
               onChange={(e) => setMemo(e.target.value)}
-              disabled={isLocked}
-              className={`w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''
-                }`} />
+              disabled={workInputDisabled}
+              className={`w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${
+                workInputDisabled ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''
+              }`}
+            />
           </div>
           {message && <p className="text-sm text-center text-blue-500 mb-2">{message}</p>}
-          {!isLocked && (
-            <button onClick={handleSave} disabled={loading}
-              className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50">
+          {!workInputDisabled && (
+            <button
+              onClick={handleSave}
+              disabled={loading}
+              className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
+            >
               {loading ? '저장 중...' : '저장'}
             </button>
           )}
-        </div>
+        </Card>
         {/* 휴가 입력 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
+        <Card className="mb-4">
           <h2 className="font-semibold mb-3 dark:text-white">
             {dayjs(selectedDate).format('YYYY년 MM월 DD일')} 휴가
           </h2>
@@ -687,10 +817,12 @@ export default function Home() {
                 key={type}
                 onClick={() => handleVacation(type)}
                 disabled={vacationLoading}
-                className={`flex-1 py-2 rounded-lg text-sm font-medium transition flex items-center justify-center gap-1 ${vacation === type
+                className={`flex-1 py-2 rounded-lg text-sm font-medium transition flex items-center justify-center gap-1 ${
+                  vacation === type
                     ? 'bg-orange-500 text-white'
-                    : 'bg-orange-50 text-orange-500 hover:bg-orange-100'
-                  }`}>
+                    : 'bg-orange-50 text-orange-500 hover:bg-orange-100 dark:bg-orange-950/40 dark:text-orange-300 dark:hover:bg-orange-900/40'
+                }`}
+              >
                 {vacation === type && <Check size={14} strokeWidth={2.5} />}
                 {label}
               </button>
@@ -701,20 +833,22 @@ export default function Home() {
               다시 누르면 취소돼요
             </p>
           )}
-        </div>
+        </Card>
 
         {/* 원격근무 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
+        <Card className="mb-4">
           <h2 className="font-semibold mb-3 dark:text-white">
             {dayjs(selectedDate).format('YYYY년 MM월 DD일')} 원격근무
           </h2>
           <button
             onClick={handleRemote}
             disabled={remoteLoading}
-            className={`w-full py-2 rounded-lg text-sm font-medium transition flex items-center justify-center gap-1 ${isRemote
+            className={`w-full py-2 rounded-lg text-sm font-medium transition flex items-center justify-center gap-1 ${
+              isRemote
                 ? 'bg-indigo-500 text-white'
                 : 'bg-indigo-50 text-indigo-500 hover:bg-indigo-100'
-              }`}>
+            }`}
+          >
             {isRemote && <Check size={14} strokeWidth={2.5} />}
             원격근무
           </button>
@@ -723,16 +857,16 @@ export default function Home() {
               다시 누르면 취소돼요
             </p>
           )}
-        </div>
+        </Card>
 
         {/* 주간 합산 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-8">
-
+        <Card className="mb-8">
           <div className="flex items-center gap-2 mb-3">
             <h2 className="font-semibold flex-1 dark:text-white">주간 근무시간</h2>
             <button
               onClick={() => setViewedWeek(dayjs(viewedWeek).subtract(1, 'week').toDate())}
-              className="px-3 py-1 bg-gray-100 dark:bg-zinc-700 dark:text-zinc-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm">
+              className="px-3 py-1 bg-gray-100 dark:bg-zinc-700 dark:text-zinc-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm"
+            >
               ◀
             </button>
             <span className="text-sm font-semibold text-gray-700 dark:text-zinc-300">
@@ -741,38 +875,48 @@ export default function Home() {
             </span>
             <button
               onClick={() => setViewedWeek(dayjs(viewedWeek).add(1, 'week').toDate())}
-              className="px-3 py-1 bg-gray-100 dark:bg-zinc-700 dark:text-zinc-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm">
+              className="px-3 py-1 bg-gray-100 dark:bg-zinc-700 dark:text-zinc-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm"
+            >
               ▶
             </button>
           </div>
           <div className="flex gap-2 mb-3">
-            <div className="flex-1 bg-blue-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">전체</p>
-              <p className="text-lg font-bold text-blue-500">{totalWeeklyHours.toFixed(2)}시간</p>
-            </div>
-            <div className="flex-1 bg-green-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">평일</p>
-              <p className="text-lg font-bold text-green-500">{weekdayHours.toFixed(2)}시간</p>
-            </div>
-            <div className="flex-1 bg-orange-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">휴일</p>
-              <p className="text-lg font-bold text-orange-500">{weekendHours.toFixed(2)}시간</p>
-            </div>
+            <StatCard label="전체" tone="blue" value={`${totalWeeklyHours.toFixed(2)}시간`} />
+            <StatCard label="평일" tone="green" value={`${weekdayHours.toFixed(2)}시간`} />
+            <StatCard label="휴일" tone="orange" value={`${weekendHours.toFixed(2)}시간`} />
           </div>
           {weeklyLogs.length === 0 ? (
             <p className="text-sm text-gray-400 dark:text-zinc-500">이 주 기록이 없어요.</p>
           ) : (
             weeklyLogs.map((log) => (
-              <div key={log.id} className="flex justify-between text-sm py-2 border-b dark:border-zinc-700 dark:text-zinc-300">
+              <div
+                key={log.id}
+                className="flex justify-between text-sm py-2 border-b dark:border-zinc-700 dark:text-zinc-300"
+              >
                 <span>{dayjs(log.date).format('MM/DD (ddd)')}</span>
-                <span>{log.start_time} ~ {log.end_time}</span>
+                <span>
+                  {log.start_time.slice(0, 5)} ~ {log.end_time.slice(0, 5)}
+                </span>
                 <span className="font-semibold">{calcHours(log)}시간</span>
               </div>
             ))
           )}
-        </div>
+        </Card>
 
+        <ConfirmDialog
+          open={confirmingDelete}
+          tone="danger"
+          busy={deleteLoading}
+          title="이 날의 근무기록을 삭제할까요?"
+          description={`${dayjs(selectedDate).format('YYYY년 MM월 DD일')}의 근무 시간과 안건별 공수가 함께 삭제됩니다.`}
+          confirmLabel="삭제"
+          onCancel={() => setConfirmingDelete(false)}
+          onConfirm={() => {
+            setConfirmingDelete(false)
+            handleDelete()
+          }}
+        />
       </div>
-    </div>
+    </main>
   )
 }

@@ -9,11 +9,9 @@ import {
   removeMatterPreset,
   removeFieldSuggestion,
 } from '../../lib/matterHistory'
-
-export const FIXED_CATEGORIES = ['수주', '자사업무', '타부서업무', '영업지원'] as const
-export type FixedCategory = (typeof FIXED_CATEGORIES)[number]
-export type WorkCategory = FixedCategory | '청구안건'
-export const ALL_CATEGORIES: WorkCategory[] = [...FIXED_CATEGORIES, '청구안건']
+// 카테고리 정의는 DB CHECK 제약과 짝을 이루므로 lib/types.ts가 원본이다.
+import { ALL_CATEGORIES } from '../../lib/types'
+import type { WorkCategory } from '../../lib/types'
 
 export type MatterEntry = {
   key: string
@@ -83,16 +81,23 @@ export default function WorkMattersEditor({ entries, onChange, totalHours, disab
 
       <div className="space-y-3 mt-2">
         {entries.map((entry, idx) => (
-          <div key={entry.key} className="border border-gray-200 dark:border-zinc-600 rounded-lg p-3">
+          <div
+            key={entry.key}
+            className="border border-gray-200 dark:border-zinc-600 rounded-lg p-3"
+          >
             <div className="flex items-center gap-2">
               <select
                 value={entry.category}
                 disabled={disabled}
-                onChange={(e) => updateEntry(entry.key, { category: e.target.value as WorkCategory })}
+                onChange={(e) =>
+                  updateEntry(entry.key, { category: e.target.value as WorkCategory })
+                }
                 className="flex-1 border rounded-lg px-2 py-2 text-sm dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
               >
                 {ALL_CATEGORIES.map((c) => (
-                  <option key={c} value={c}>{c === '청구안건' ? '청구 안건' : c}</option>
+                  <option key={c} value={c}>
+                    {c === '청구안건' ? '청구 안건' : c}
+                  </option>
                 ))}
               </select>
               <input
@@ -121,7 +126,9 @@ export default function WorkMattersEditor({ entries, onChange, totalHours, disab
               <div className="mt-3 border-t border-gray-100 dark:border-zinc-700 pt-3">
                 {presets.length > 0 && (
                   <div className="mb-3">
-                    <p className="text-xs text-gray-400 dark:text-zinc-500 mb-1.5">최근 사용한 안건</p>
+                    <p className="text-xs text-gray-400 dark:text-zinc-500 mb-1.5">
+                      최근 사용한 안건
+                    </p>
                     <div className="flex flex-wrap gap-1.5">
                       {presets.map((p, i) => (
                         <span
@@ -159,7 +166,9 @@ export default function WorkMattersEditor({ entries, onChange, totalHours, disab
                     value={entry.matter[fk]}
                     disabled={disabled}
                     suggestions={getFieldSuggestions(fk)}
-                    onChange={(v) => updateEntry(entry.key, { matter: { ...entry.matter, [fk]: v } })}
+                    onChange={(v) =>
+                      updateEntry(entry.key, { matter: { ...entry.matter, [fk]: v } })
+                    }
                     onDeleteSuggestion={(v) => handleDeleteFieldSuggestion(fk, v)}
                   />
                 ))}
@@ -179,9 +188,14 @@ export default function WorkMattersEditor({ entries, onChange, totalHours, disab
         </button>
       )}
 
-      <p className={`text-xs mt-2 text-right ${matches ? 'text-gray-400 dark:text-zinc-500' : 'text-red-500'}`}>
+      <p
+        className={`text-xs mt-2 text-right ${matches ? 'text-gray-400 dark:text-zinc-500' : 'text-red-500'}`}
+      >
         입력한 시간 합계 {sumHours.toFixed(2)}시간 / 총 근무시간 {totalHours.toFixed(2)}시간
-        {!matches && (diff > 0 ? ` (${diff.toFixed(2)}시간 부족)` : ` (${Math.abs(diff).toFixed(2)}시간 초과)`)}
+        {!matches &&
+          (diff > 0
+            ? ` (${diff.toFixed(2)}시간 부족)`
+            : ` (${Math.abs(diff).toFixed(2)}시간 초과)`)}
       </p>
     </div>
   )

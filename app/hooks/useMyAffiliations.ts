@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import type { Department, Team, TeamRole, UUID } from '../lib/types'
+
+/** team_members + teams 조인 (조인 결과는 배열로 추론되므로 .returns()로 덮어쓴다) */
+type MyTeamRow = { team_id: UUID; role: TeamRole | null; teams: Pick<Team, 'id' | 'name'> | null }
+/** department_memberships + departments 조인 */
+type MyDeptRow = { department_id: UUID; departments: Pick<Department, 'id' | 'name'> | null }
 
 export interface AffiliationItem {
   key: string
@@ -26,18 +32,26 @@ export function useMyAffiliations() {
   useEffect(() => {
     let cancelled = false
     const load = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setItems([]); setLoading(false); return }
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) {
+        setItems([])
+        setLoading(false)
+        return
+      }
 
       const [teamRes, deptMembershipRes, headDeptRes, headDivRes] = await Promise.all([
         supabase
           .from('team_members')
           .select('team_id, role, teams(id, name)')
-          .eq('user_id', user.id),
+          .eq('user_id', user.id)
+          .returns<MyTeamRow[]>(),
         supabase
           .from('department_memberships')
           .select('department_id, departments(id, name)')
-          .eq('user_id', user.id),
+          .eq('user_id', user.id)
+          .returns<MyDeptRow[]>(),
         supabase.from('departments').select('id, name').eq('head_user_id', user.id),
         supabase.from('divisions').select('id, name').eq('head_user_id', user.id),
       ])
@@ -50,37 +64,56 @@ export function useMyAffiliations() {
         list.push(item)
       }
 
-      ;(headDeptRes.data || []).forEach((d: any) => {
-        add({ key: `dept-head-${d.id}`, label: `${d.name} (부서장)`, path: `/team/dept/${d.id}`, rank: 1 })
+      ;(headDeptRes.data ?? []).forEach((d) => {
+        add({
+          key: `dept-head-${d.id}`,
+          label: `${d.name} (부서장)`,
+          path: `/team/dept/${d.id}`,
+          rank: 1,
+        })
       })
 
       // 부문장: 전용 조직관리 화면으로 보내지 않고, 부문 산하 각 부서를 개별 항목으로 노출해서
       // 사이드바 "내 소속" 하위 탭에서 바로 부서(및 그 캘린더)를 선택할 수 있게 한다.
-      const headDivisions = headDivRes.data || []
+      const headDivisions = headDivRes.data ?? []
       if (headDivisions.length > 0) {
         const divisionDeptResults = await Promise.all(
-          headDivisions.map((d: any) =>
-            supabase.from('departments').select('id, name').eq('division_id', d.id).order('display_order', { ascending: true })
+          headDivisions.map((d) =>
+            supabase
+              .from('departments')
+              .select('id, name')
+              .eq('division_id', d.id)
+              .order('display_order', { ascending: true })
           )
         )
         divisionDeptResults.forEach((res) => {
-          ;(res.data || []).forEach((dept: any) => {
-            add({ key: `div-dept-${dept.id}`, label: `${dept.name}`, path: `/team/dept/${dept.id}`, rank: 0 })
+          ;(res.data ?? []).forEach((dept) => {
+            add({
+              key: `div-dept-${dept.id}`,
+              label: `${dept.name}`,
+              path: `/team/dept/${dept.id}`,
+              rank: 0,
+            })
           })
         })
       }
 
-      ;(deptMembershipRes.data || []).forEach((m: any) => {
+      ;(deptMembershipRes.data ?? []).forEach((m) => {
         const dept = m.departments
         if (!dept) return
         add({ key: `dept-${dept.id}`, label: dept.name, path: `/team/dept/${dept.id}`, rank: 3 })
       })
 
-      ;(teamRes.data || []).forEach((m: any) => {
+      ;(teamRes.data ?? []).forEach((m) => {
         const team = m.teams
         if (!team) return
         const isLead = m.role === 'admin'
-        add({ key: `team-${team.id}`, label: isLead ? `${team.name} (팀장)` : team.name, path: `/team/${team.id}`, rank: isLead ? 2 : 4 })
+        add({
+          key: `team-${team.id}`,
+          label: isLead ? `${team.name} (팀장)` : team.name,
+          path: `/team/${team.id}`,
+          rank: isLead ? 2 : 4,
+        })
       })
 
       list.sort((a, b) => a.rank - b.rank)
@@ -91,7 +124,9 @@ export function useMyAffiliations() {
       }
     }
     load()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   return { items, loading }

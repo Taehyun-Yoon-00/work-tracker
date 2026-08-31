@@ -29,7 +29,10 @@ export default function MenuDrawer({ open, onClose }: MenuDrawerProps) {
 
   // 드로어를 document.body에 포탈로 렌더링 — TopNav(z-40)의 스태킹 컨텍스트 안에 갇히면
   // 형제 요소인 BottomNav(z-50)에게 항상 가려지므로, 최상위로 빼내야 z-index가 제대로 먹는다.
-  useEffect(() => setMounted(true), [])
+  // setState를 effect 본문에서 곧바로 부르면 렌더가 연쇄되므로 마이크로태스크로 미룬다.
+  useEffect(() => {
+    void Promise.resolve().then(() => setMounted(true))
+  }, [])
 
   const hasPermission = (item: SidebarItem) => {
     if (item.permission === 'master') return isMaster
@@ -59,9 +62,15 @@ export default function MenuDrawer({ open, onClose }: MenuDrawerProps) {
                 : 'text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-700'
             }`}
           >
-            <span className="shrink-0"><item.icon size={18} strokeWidth={1.75} /></span>
+            <span className="shrink-0">
+              <item.icon size={18} strokeWidth={1.75} />
+            </span>
             <span className="truncate flex-1 text-left">{item.label}</span>
-            <ChevronDown size={14} strokeWidth={2} className={`shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown
+              size={14}
+              strokeWidth={2}
+              className={`shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+            />
           </button>
           {isOpen && (
             <div className="ml-6 pl-3 border-l-2 border-gray-100 dark:border-zinc-700 mt-0.5 space-y-0.5">
@@ -70,7 +79,11 @@ export default function MenuDrawer({ open, onClose }: MenuDrawerProps) {
                 return (
                   <button
                     key={a.key}
-                    onClick={() => { onClose(); router.push(a.path) }}
+                    onClick={() => {
+                      onClose()
+                      router.push(a.path)
+                    }}
+                    aria-current={active ? 'page' : undefined}
                     className={`w-full text-left px-2.5 py-1.5 rounded-lg text-[13px] truncate transition ${
                       active
                         ? 'bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-300 font-medium'
@@ -94,13 +107,16 @@ export default function MenuDrawer({ open, onClose }: MenuDrawerProps) {
           onClose()
           router.push(item.path)
         }}
+        aria-current={active ? 'page' : undefined}
         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition ${
           active
             ? 'bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-300 font-medium'
             : 'text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-700'
         }`}
       >
-        <span className="shrink-0"><item.icon size={18} strokeWidth={1.75} /></span>
+        <span className="shrink-0">
+          <item.icon size={18} strokeWidth={1.75} />
+        </span>
         <span className="truncate">{item.label}</span>
       </button>
     )
@@ -167,7 +183,9 @@ export default function MenuDrawer({ open, onClose }: MenuDrawerProps) {
             onClick={handleLogout}
             className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs text-gray-400 dark:text-zinc-500 hover:bg-gray-100 dark:hover:bg-zinc-700 hover:text-gray-600 dark:hover:text-zinc-300 transition mt-1"
           >
-            <span className="shrink-0"><LogOut size={14} strokeWidth={1.75} /></span>
+            <span className="shrink-0">
+              <LogOut size={14} strokeWidth={1.75} />
+            </span>
             <span>로그아웃</span>
           </button>
         </div>

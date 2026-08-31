@@ -31,7 +31,11 @@ export function hasTopOrgAccess(isMaster: boolean, isGeneralAdmin: boolean): boo
   return isMaster || isGeneralAdmin
 }
 
-export function isDivisionHead(userId: string, division: DivisionRow, hasTopAccess: boolean): boolean {
+export function isDivisionHead(
+  userId: string,
+  division: DivisionRow,
+  hasTopAccess: boolean
+): boolean {
   return hasTopAccess || division.head_user_id === userId
 }
 
