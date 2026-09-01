@@ -28,7 +28,12 @@ function isEmptyMatter(m: MatterFields) {
 }
 
 function sameMatter(a: MatterFields, b: MatterFields) {
-  return a.place === b.place && a.division === b.division && a.content === b.content && a.costCode === b.costCode
+  return (
+    a.place === b.place &&
+    a.division === b.division &&
+    a.content === b.content &&
+    a.costCode === b.costCode
+  )
 }
 
 // ── 조합(세트) 단위 최근 사용 안건 ──────────────────────────────
@@ -46,6 +51,12 @@ function saveMatterPreset(matter: MatterFields) {
   if (typeof window === 'undefined' || isEmptyMatter(matter)) return
   const existing = getMatterPresets().filter((p) => !sameMatter(p, matter))
   const next = [matter, ...existing].slice(0, MAX_PRESETS)
+  localStorage.setItem(PRESETS_KEY, JSON.stringify(next))
+}
+
+export function removeMatterPreset(matter: MatterFields) {
+  if (typeof window === 'undefined') return
+  const next = getMatterPresets().filter((p) => !sameMatter(p, matter))
   localStorage.setItem(PRESETS_KEY, JSON.stringify(next))
 }
 
@@ -68,6 +79,13 @@ export function getFieldSuggestions(field: keyof MatterFields): string[] {
   return getFieldHistory()[field] || []
 }
 
+export function removeFieldSuggestion(field: keyof MatterFields, value: string) {
+  if (typeof window === 'undefined') return
+  const history = getFieldHistory()
+  history[field] = (history[field] || []).filter((v) => v !== value)
+  localStorage.setItem(FIELD_HISTORY_KEY, JSON.stringify(history))
+}
+
 function saveFieldValues(matter: MatterFields) {
   if (typeof window === 'undefined') return
   const history = getFieldHistory()
@@ -84,22 +102,4 @@ function saveFieldValues(matter: MatterFields) {
 export function recordMatterUsage(matter: MatterFields) {
   saveMatterPreset(matter)
   saveFieldValues(matter)
-}
-
-// ── 히스토리 삭제 ────────────────────────────────────────────────
-// "최근 사용한 안건" 프리셋 중 하나를 로컬 저장소에서 삭제
-export function removeMatterPreset(matter: MatterFields): MatterFields[] {
-  if (typeof window === 'undefined') return []
-  const next = getMatterPresets().filter((p) => !sameMatter(p, matter))
-  localStorage.setItem(PRESETS_KEY, JSON.stringify(next))
-  return next
-}
-
-// 필드별 자동완성 히스토리 중 값 하나를 로컬 저장소에서 삭제
-export function removeFieldSuggestion(field: keyof MatterFields, value: string): string[] {
-  if (typeof window === 'undefined') return []
-  const history = getFieldHistory()
-  history[field] = (history[field] || []).filter((v) => v !== value)
-  localStorage.setItem(FIELD_HISTORY_KEY, JSON.stringify(history))
-  return history[field]
 }

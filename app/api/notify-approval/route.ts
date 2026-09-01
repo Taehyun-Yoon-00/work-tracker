@@ -2,48 +2,48 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { supabaseAdmin } from '../../lib/supabaseAdmin'
 import { notifyAndPush } from '../../lib/notifications'
+import { getSessionUser } from '@/app/lib/apiAuth'
+import { APPROVAL_TYPE_LABEL, VACATION_TYPE_LABEL } from '@/app/lib/labels'
 
 const resend = new Resend(process.env.RESEND_API_KEY!)
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://work-tracker-ebon.vercel.app'
 
-const TYPE_LABEL: Record<string, string> = {
-  vacation: '휴가',
-  remote: '원격근무',
-  holiday: '휴일근무',
-}
-
 const TYPE_COLOR: Record<string, { bg: string; text: string }> = {
   vacation: { bg: '#fef3c7', text: '#d97706' },
-  remote:   { bg: '#ede9fe', text: '#7c3aed' },
-  holiday:  { bg: '#fee2e2', text: '#dc2626' },
+  remote: { bg: '#ede9fe', text: '#7c3aed' },
+  holiday: { bg: '#fee2e2', text: '#dc2626' },
 }
 
-const VACATION_TYPE_LABEL: Record<string, string> = {
-  annual: '연차',
-  morning: '오전반차',
-  afternoon: '오후반차',
-  special: '특휴/대휴',
+function formatDateEntries(
+  type: string,
+  dateEntries: { date: string; vacationType?: string }[]
+): string {
+  return dateEntries
+    .map((e) => {
+      const date = new Date(e.date)
+      const formatted = `${date.getMonth() + 1}월 ${date.getDate()}일`
+      if (type === 'vacation' && e.vacationType) {
+        return `${formatted} (${VACATION_TYPE_LABEL[e.vacationType as keyof typeof VACATION_TYPE_LABEL] ?? e.vacationType})`
+      }
+      return formatted
+    })
+    .join('\n')
 }
 
-function formatDateEntries(type: string, dateEntries: { date: string; vacationType?: string }[]): string {
-  return dateEntries.map((e) => {
-    const date = new Date(e.date)
-    const formatted = `${date.getMonth() + 1}월 ${date.getDate()}일`
-    if (type === 'vacation' && e.vacationType) {
-      return `${formatted} (${VACATION_TYPE_LABEL[e.vacationType] ?? e.vacationType})`
-    }
-    return formatted
-  }).join('\n')
-}
-
-function buildRequestEmailHtml({ requesterName, approverName, type, dateEntries, memo }: {
+function buildRequestEmailHtml({
+  requesterName,
+  approverName,
+  type,
+  dateEntries,
+  memo,
+}: {
   requesterName: string
   approverName: string
   type: string
   dateEntries: { date: string; vacationType?: string }[]
   memo?: string
 }): string {
-  const typeLabel = TYPE_LABEL[type] ?? type
+  const typeLabel = APPROVAL_TYPE_LABEL[type as keyof typeof APPROVAL_TYPE_LABEL] ?? type
   const typeColor = TYPE_COLOR[type] ?? { bg: '#f3f4f6', text: '#374151' }
   const memoLabel = type === 'holiday' ? '출근 사유' : '사유'
   const dateRows = formatDateEntries(type, dateEntries)
@@ -93,7 +93,15 @@ function buildRequestEmailHtml({ requesterName, approverName, type, dateEntries,
 </body></html>`
 }
 
-function buildApprovedEmailHtml({ requesterName, approverName, type, dateEntries, memo, status, actionAt }: {
+function buildApprovedEmailHtml({
+  requesterName,
+  approverName,
+  type,
+  dateEntries,
+  memo,
+  status,
+  actionAt,
+}: {
   requesterName: string
   approverName: string
   type: string
@@ -102,7 +110,7 @@ function buildApprovedEmailHtml({ requesterName, approverName, type, dateEntries
   status: 'approved' | 'rejected'
   actionAt: string
 }): string {
-  const typeLabel = TYPE_LABEL[type] ?? type
+  const typeLabel = APPROVAL_TYPE_LABEL[type as keyof typeof APPROVAL_TYPE_LABEL] ?? type
   const typeColor = TYPE_COLOR[type] ?? { bg: '#f3f4f6', text: '#374151' }
   const memoLabel = type === 'holiday' ? '출근 사유' : '사유'
   const isApproved = status === 'approved'
@@ -176,13 +184,18 @@ function buildApprovedEmailHtml({ requesterName, approverName, type, dateEntries
 </body></html>`
 }
 
-function buildCancelRequestEmailHtml({ requesterName, approverName, type, dateEntries }: {
+function buildCancelRequestEmailHtml({
+  requesterName,
+  approverName,
+  type,
+  dateEntries,
+}: {
   requesterName: string
   approverName: string
   type: string
   dateEntries: { date: string; vacationType?: string }[]
 }): string {
-  const typeLabel = TYPE_LABEL[type] ?? type
+  const typeLabel = APPROVAL_TYPE_LABEL[type as keyof typeof APPROVAL_TYPE_LABEL] ?? type
   const typeColor = TYPE_COLOR[type] ?? { bg: '#f3f4f6', text: '#374151' }
   const dateRows = formatDateEntries(type, dateEntries)
     .split('\n')
@@ -230,14 +243,20 @@ function buildCancelRequestEmailHtml({ requesterName, approverName, type, dateEn
 </body></html>`
 }
 
-function buildCancelResultEmailHtml({ requesterName, approverName, type, dateEntries, approved }: {
+function buildCancelResultEmailHtml({
+  requesterName,
+  approverName,
+  type,
+  dateEntries,
+  approved,
+}: {
   requesterName: string
   approverName: string
   type: string
   dateEntries: { date: string; vacationType?: string }[]
   approved: boolean
 }): string {
-  const typeLabel = TYPE_LABEL[type] ?? type
+  const typeLabel = APPROVAL_TYPE_LABEL[type as keyof typeof APPROVAL_TYPE_LABEL] ?? type
   const typeColor = TYPE_COLOR[type] ?? { bg: '#f3f4f6', text: '#374151' }
   const dateRows = formatDateEntries(type, dateEntries)
     .split('\n')
@@ -292,16 +311,41 @@ function buildCancelResultEmailHtml({ requesterName, approverName, type, dateEnt
 
 export async function POST(req: NextRequest) {
   try {
+    // 사내 도메인 명의로 임의 주소에 메일을 보낼 수 있는 엔드포인트다.
+    // 인증이 없으면 외부에서 스푸핑 메일 발송에 쓰일 수 있다.
+    const user = await getSessionUser()
+    if (!user) {
+      return NextResponse.json({ error: '로그인이 필요해요.' }, { status: 401 })
+    }
+
     const body = await req.json()
-    const { emailType = 'request', approvalId, approverId, approverEmail, approverName, requesterId, requesterName, requesterEmail, type, dateEntries, memo, ccEmails, status, actionAt } = body
+    const {
+      emailType = 'request',
+      approvalId,
+      approverId,
+      approverEmail,
+      approverName,
+      requesterId,
+      requesterName,
+      requesterEmail,
+      type,
+      dateEntries,
+      memo,
+      ccEmails,
+      status,
+      actionAt,
+    } = body
 
     if (!type || !dateEntries?.length) {
       return NextResponse.json({ error: '필수 파라미터가 누락됐어요.' }, { status: 400 })
     }
 
-    const typeLabel = TYPE_LABEL[type] ?? type
+    const typeLabel = APPROVAL_TYPE_LABEL[type as keyof typeof APPROVAL_TYPE_LABEL] ?? type
     const firstDate = dateEntries[0]?.date
-      ? (() => { const d = new Date(dateEntries[0].date); return `${d.getMonth() + 1}월 ${d.getDate()}일` })()
+      ? (() => {
+          const d = new Date(dateEntries[0].date)
+          return `${d.getMonth() + 1}월 ${d.getDate()}일`
+        })()
       : ''
     const subjectSuffix = dateEntries.length > 1 ? ` 외 ${dateEntries.length - 1}일` : ''
 
@@ -332,9 +376,9 @@ export async function POST(req: NextRequest) {
       if (emailError) {
         return NextResponse.json({ success: true, emailError: emailError.message }, { status: 200 })
       }
-
     } else if (emailType === 'result') {
-      if (!requesterEmail) return NextResponse.json({ error: 'requesterEmail 누락' }, { status: 400 })
+      if (!requesterEmail)
+        return NextResponse.json({ error: 'requesterEmail 누락' }, { status: 400 })
 
       const statusText = status === 'approved' ? '승인' : '반려'
       const { error: emailError } = await resend.emails.send({
@@ -342,7 +386,15 @@ export async function POST(req: NextRequest) {
         to: [requesterEmail],
         cc: ccEmails?.length ? ccEmails : undefined,
         subject: `[결재 ${statusText}] ${requesterName}님의 ${typeLabel} — ${firstDate}${subjectSuffix}`,
-        html: buildApprovedEmailHtml({ requesterName, approverName, type, dateEntries, memo, status, actionAt }),
+        html: buildApprovedEmailHtml({
+          requesterName,
+          approverName,
+          type,
+          dateEntries,
+          memo,
+          status,
+          actionAt,
+        }),
       })
       if (emailError) console.error('결재 결과 메일 발송 실패:', emailError.message)
 
@@ -361,7 +413,6 @@ export async function POST(req: NextRequest) {
       if (emailError) {
         return NextResponse.json({ success: true, emailError: emailError.message }, { status: 200 })
       }
-
     } else if (emailType === 'cancel_request') {
       if (!approverEmail) return NextResponse.json({ error: 'approverEmail 누락' }, { status: 400 })
 
@@ -387,9 +438,9 @@ export async function POST(req: NextRequest) {
       if (emailError) {
         return NextResponse.json({ success: true, emailError: emailError.message }, { status: 200 })
       }
-
     } else if (emailType === 'cancel_result') {
-      if (!requesterEmail) return NextResponse.json({ error: 'requesterEmail 누락' }, { status: 400 })
+      if (!requesterEmail)
+        return NextResponse.json({ error: 'requesterEmail 누락' }, { status: 400 })
       const approved = !!body.cancelApproved
       const resultText = approved ? '취소 처리됨' : '취소 거절됨'
 
@@ -398,7 +449,13 @@ export async function POST(req: NextRequest) {
         to: [requesterEmail],
         cc: ccEmails?.length ? ccEmails : undefined,
         subject: `[승인 취소 요청 ${resultText}] ${requesterName}님의 ${typeLabel} — ${firstDate}${subjectSuffix}`,
-        html: buildCancelResultEmailHtml({ requesterName, approverName, type, dateEntries, approved }),
+        html: buildCancelResultEmailHtml({
+          requesterName,
+          approverName,
+          type,
+          dateEntries,
+          approved,
+        }),
       })
       if (emailError) console.error('취소 요청 결과 메일 발송 실패:', emailError.message)
 

@@ -1,0 +1,8 @@
+.next
+node_modules
+public/sw.js
+public/workbox-*.js
+public/worker-*.js
+public/swe-worker-*.js
+package-lock.json
+supabase/.temp

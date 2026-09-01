@@ -1,5 +1,6 @@
 import dayjs from 'dayjs'
 import DatePicker from 'react-multi-date-picker'
+import { X, Palmtree, Laptop, Building2 } from 'lucide-react'
 
 function typeLabel(type: string) {
   if (type === 'vacation') return { text: '휴가', style: 'bg-orange-50 text-orange-500' }
@@ -13,14 +14,21 @@ interface DateGroup {
   vacationType: string
 }
 
+interface MySource {
+  key: string
+  label: string
+  teamId: string | null
+  departmentId: string
+}
+
 interface RequestModalProps {
   step: number
   requestType: string
   isEditing?: boolean
   dateGroups: DateGroup[]
-  selectedTeamId: string
+  selectedSourceKey: string
   selectedApprover: string
-  myTeams: any[]
+  mySources: MySource[]
   approvers: any[]
   memo: string
   ccInput: string
@@ -31,7 +39,7 @@ interface RequestModalProps {
   message: string
   onSelectType: (type: string) => void
   onBack: () => void
-  onTeamChange: (teamId: string) => void
+  onSourceChange: (sourceKey: string) => void
   onApproverChange: (approverId: string) => void
   onAddDateGroup: () => void
   onRemoveDateGroup: (index: number) => void
@@ -50,9 +58,9 @@ export default function RequestModal({
   requestType,
   isEditing = false,
   dateGroups,
-  selectedTeamId,
+  selectedSourceKey,
   selectedApprover,
-  myTeams,
+  mySources,
   approvers,
   memo,
   ccInput,
@@ -63,7 +71,7 @@ export default function RequestModal({
   message,
   onSelectType,
   onBack,
-  onTeamChange,
+  onSourceChange,
   onApproverChange,
   onAddDateGroup,
   onRemoveDateGroup,
@@ -86,9 +94,11 @@ export default function RequestModal({
     >
       <div className="bg-white dark:bg-zinc-800 rounded-2xl w-full max-w-md max-h-[90dvh] flex flex-col">
         <div className="flex justify-between items-center p-4 sm:p-6 pb-3 border-b dark:border-zinc-700">
-          <h3 className="font-semibold dark:text-white">{isEditing ? '결재 요청 수정' : '결재 요청'}</h3>
-          <button onClick={onClose} className="text-gray-400 dark:text-zinc-500 text-lg">
-            ✕
+          <h3 className="font-semibold dark:text-white">
+            {isEditing ? '결재 요청 수정' : '결재 요청'}
+          </h3>
+          <button onClick={onClose} className="text-gray-400 dark:text-zinc-500">
+            <X size={20} strokeWidth={1.75} />
           </button>
         </div>
 
@@ -102,21 +112,21 @@ export default function RequestModal({
               <div className="flex flex-col gap-2">
                 <button
                   onClick={() => onSelectType('vacation')}
-                  className="w-full py-3 border-2 dark:border-zinc-600 rounded-xl text-sm font-medium dark:text-zinc-300 hover:border-orange-400 hover:text-orange-500 transition text-left px-4"
+                  className="w-full py-3 border-2 dark:border-zinc-600 rounded-xl text-sm font-medium dark:text-zinc-300 hover:border-orange-400 hover:text-orange-500 transition text-left px-4 flex items-center gap-2"
                 >
-                  🌴 휴가
+                  <Palmtree size={16} strokeWidth={1.75} /> 휴가
                 </button>
                 <button
                   onClick={() => onSelectType('remote')}
-                  className="w-full py-3 border-2 dark:border-zinc-600 rounded-xl text-sm font-medium dark:text-zinc-300 hover:border-purple-400 hover:text-purple-500 transition text-left px-4"
+                  className="w-full py-3 border-2 dark:border-zinc-600 rounded-xl text-sm font-medium dark:text-zinc-300 hover:border-purple-400 hover:text-purple-500 transition text-left px-4 flex items-center gap-2"
                 >
-                  💻 원격근무
+                  <Laptop size={16} strokeWidth={1.75} /> 원격근무
                 </button>
                 <button
                   onClick={() => onSelectType('holiday')}
-                  className="w-full py-3 border-2 dark:border-zinc-600 rounded-xl text-sm font-medium dark:text-zinc-300 hover:border-red-400 hover:text-red-500 transition text-left px-4"
+                  className="w-full py-3 border-2 dark:border-zinc-600 rounded-xl text-sm font-medium dark:text-zinc-300 hover:border-red-400 hover:text-red-500 transition text-left px-4 flex items-center gap-2"
                 >
-                  🏢 휴일근무
+                  <Building2 size={16} strokeWidth={1.75} /> 휴일근무
                 </button>
               </div>
             </div>
@@ -126,10 +136,7 @@ export default function RequestModal({
           {step === 2 && (
             <div>
               {!isEditing && (
-                <button
-                  onClick={onBack}
-                  className="text-xs text-gray-400 dark:text-zinc-500 mb-3"
-                >
+                <button onClick={onBack} className="text-xs text-gray-400 dark:text-zinc-500 mb-3">
                   ← 뒤로
                 </button>
               )}
@@ -143,21 +150,27 @@ export default function RequestModal({
                 </span>
               </div>
 
-              {/* 팀 선택 */}
+              {/* 내 소속 */}
               <div className="mb-3">
-                <label className="text-sm text-gray-500 dark:text-zinc-400">팀 선택</label>
-                <select
-                  value={selectedTeamId}
-                  onChange={(e) => onTeamChange(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 mt-1 text-sm dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
-                >
-                  <option value="">팀 선택</option>
-                  {myTeams.map((t) => (
-                    <option key={t.team_id} value={t.team_id}>
-                      {t.teams?.name}
-                    </option>
-                  ))}
-                </select>
+                <label className="text-sm text-gray-500 dark:text-zinc-400">내 소속</label>
+                {mySources.length <= 1 ? (
+                  <p className="w-full border rounded-lg px-3 py-2 mt-1 text-sm bg-gray-50 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200">
+                    {mySources[0]?.label || '소속된 부서/팀이 없어요'}
+                  </p>
+                ) : (
+                  <select
+                    value={selectedSourceKey}
+                    onChange={(e) => onSourceChange(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2 mt-1 text-sm dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
+                  >
+                    <option value="">내 소속 선택</option>
+                    {mySources.map((s) => (
+                      <option key={s.key} value={s.key}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               {/* 결재권자 선택 */}
@@ -191,10 +204,7 @@ export default function RequestModal({
                   </p>
                 )}
                 {dateGroups.map((group, index) => (
-                  <div
-                    key={index}
-                    className="mb-4 p-3 bg-gray-50 dark:bg-zinc-700 rounded-xl"
-                  >
+                  <div key={index} className="mb-4 p-3 bg-gray-50 dark:bg-zinc-700 rounded-xl">
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-xs text-gray-500 dark:text-zinc-400">
                         {index + 1}번째 그룹
@@ -220,8 +230,6 @@ export default function RequestModal({
                       }}
                       format="YYYY-MM-DD"
                       className="w-full text-sm"
-                      months={Array.from({ length: 12 }, (_, i) => String(i + 1))}
-                      headerOrder={['LEFT_BUTTON', 'YEAR_MONTH', 'RIGHT_BUTTON']}
                     />
                     {group.dates.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-3">
@@ -266,9 +274,7 @@ export default function RequestModal({
                 <div className="mb-4">
                   <label className="text-sm text-gray-500 dark:text-zinc-400">
                     {requestType === 'holiday' ? '출근 사유' : '휴가 사유'}
-                    {requestType === 'holiday' && (
-                      <span className="text-red-400 ml-1">*</span>
-                    )}
+                    {requestType === 'holiday' && <span className="text-red-400 ml-1">*</span>}
                   </label>
                   <input
                     type="text"
@@ -354,7 +360,13 @@ export default function RequestModal({
               disabled={loading}
               className="w-full bg-blue-500 text-white py-2 rounded-lg text-sm disabled:opacity-50"
             >
-              {loading ? (isEditing ? '저장 중...' : '요청 중...') : (isEditing ? '수정 완료' : '결재 요청')}
+              {loading
+                ? isEditing
+                  ? '저장 중...'
+                  : '요청 중...'
+                : isEditing
+                  ? '수정 완료'
+                  : '결재 요청'}
             </button>
           </div>
         )}

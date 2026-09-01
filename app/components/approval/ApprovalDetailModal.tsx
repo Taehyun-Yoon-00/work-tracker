@@ -72,9 +72,7 @@ export default function ApprovalDetailModal({
           </p>
           <p>
             <span className="font-medium">유형:</span>{' '}
-            <span className={`text-xs px-2 py-0.5 rounded-full ${type.style}`}>
-              {type.text}
-            </span>
+            <span className={`text-xs px-2 py-0.5 rounded-full ${type.style}`}>{type.text}</span>
           </p>
           <div>
             <span className="font-medium">날짜:</span>

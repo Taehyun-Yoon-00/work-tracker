@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useRouter } from 'next/navigation'
+import { MailCheck } from 'lucide-react'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -51,7 +52,9 @@ export default function LoginPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-zinc-900">
         <div className="bg-white dark:bg-zinc-800 p-8 rounded-xl shadow-md w-full max-w-md text-center">
-          <div className="text-5xl mb-4">📧</div>
+          <div className="flex justify-center mb-4 text-blue-500">
+            <MailCheck size={48} strokeWidth={1.5} />
+          </div>
           <h2 className="text-xl font-bold mb-2 dark:text-white">인증 메일을 보냈어요!</h2>
           <p className="text-gray-500 dark:text-zinc-400 text-sm mb-1">
             <span className="font-medium text-gray-700 dark:text-zinc-200">{email}</span>
@@ -100,9 +103,7 @@ export default function LoginPage() {
           className="w-full border rounded-lg px-4 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 dark:placeholder-gray-400"
         />
 
-        {message && (
-          <p className="text-sm text-center text-red-500 mb-4">{message}</p>
-        )}
+        {message && <p className="text-sm text-center text-red-500 mb-4">{message}</p>}
 
         <button
           onClick={handleAuth}
@@ -113,7 +114,10 @@ export default function LoginPage() {
         </button>
 
         <p
-          onClick={() => { setIsSignUp(!isSignUp); setMessage('') }}
+          onClick={() => {
+            setIsSignUp(!isSignUp)
+            setMessage('')
+          }}
           className="text-center text-sm text-gray-500 dark:text-zinc-400 mt-4 cursor-pointer hover:underline"
         >
           {isSignUp ? '이미 계정이 있어요 → 로그인' : '계정이 없어요 → 회원가입'}

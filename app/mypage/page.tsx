@@ -4,11 +4,13 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useRouter } from 'next/navigation'
 import dayjs from 'dayjs'
+import ConfirmDialog from '../components/ui/ConfirmDialog'
 
 export default function MyPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [name, setName] = useState('')
+  const [position, setPosition] = useState('')
   const [totalVacation, setTotalVacation] = useState<number>(0)
   const [usedVacation, setUsedVacation] = useState<number>(0)
   const [loading, setLoading] = useState(false)
@@ -20,12 +22,19 @@ export default function MyPage() {
   const [passwordLoading, setPasswordLoading] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteMessage, setDeleteMessage] = useState('')
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [showDeleteSection, setShowDeleteSection] = useState(false)
 
   useEffect(() => {
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/login')
+        return
+      }
       setUser(user)
       fetchProfile(user.id)
       fetchUsedVacation(user.id)
@@ -36,11 +45,12 @@ export default function MyPage() {
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase
       .from('profiles')
-      .select('name, total_vacation, is_master')
+      .select('name, position, total_vacation, is_master')
       .eq('id', userId)
       .single()
     if (data) {
       setName(data.name || '')
+      setPosition(data.position || '')
       setTotalVacation(data.total_vacation || 0)
       if (data.is_master) setIsMaster(true)
     }
@@ -75,17 +85,12 @@ export default function MyPage() {
     setMessage('')
     const { error } = await supabase
       .from('profiles')
-      .update({ name, total_vacation: totalVacation })
+      .update({ name, position, total_vacation: totalVacation })
       .eq('id', user.id)
 
     if (error) setMessage('저장 실패: ' + error.message)
     else setMessage('저장 완료!')
     setLoading(false)
-  }
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
   }
 
   const handlePasswordChange = async () => {
@@ -104,13 +109,13 @@ export default function MyPage() {
   }
 
   const handleDeleteAccount = async () => {
-    if (deleteConfirm !== user?.email) {
-      alert('이메일 주소가 일치하지 않아요.')
+    if (!user) return
+    if (deleteConfirm !== user.email) {
+      setDeleteMessage('이메일 주소가 일치하지 않아요.')
       return
     }
 
-    if (!confirm('정말로 탈퇴하시겠어요? 모든 데이터가 삭제되며 복구할 수 없어요.')) return
-
+    setDeleteMessage('')
     setDeleteLoading(true)
 
     const res = await fetch('/api/admin/delete-user', {
@@ -121,7 +126,7 @@ export default function MyPage() {
 
     if (!res.ok) {
       const data = await res.json()
-      alert('탈퇴 처리 중 오류가 발생했어요: ' + data.error)
+      setDeleteMessage('탈퇴 처리 중 오류가 발생했어요: ' + (data.error || '알 수 없는 오류'))
       setDeleteLoading(false)
       return
     }
@@ -136,22 +141,17 @@ export default function MyPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
       <div className="max-w-2xl mx-auto">
-
         {/* 헤더 */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold dark:text-white">마이페이지</h1>
-          <div className="flex gap-3">
-            {isMaster && (
-              <button onClick={() => router.push('/admin')}
-                className="text-sm text-red-500 hover:underline">
-                회원 관리
-              </button>
-            )}
-            <button onClick={handleLogout}
-              className="text-sm text-gray-500 dark:text-zinc-400 hover:underline">
-              로그아웃
+          {isMaster && (
+            <button
+              onClick={() => router.push('/admin')}
+              className="text-sm text-red-500 hover:underline"
+            >
+              회원 관리
             </button>
-          </div>
+          )}
         </div>
 
         {/* 프로필 설정 */}
@@ -175,6 +175,17 @@ export default function MyPage() {
           </div>
 
           <div className="mb-4">
+            <label className="text-sm text-gray-500 dark:text-zinc-400">직급</label>
+            <input
+              type="text"
+              value={position}
+              onChange={(e) => setPosition(e.target.value)}
+              placeholder="직급을 입력해주세요"
+              className="w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
+            />
+          </div>
+
+          <div className="mb-4">
             <label className="text-sm text-gray-500 dark:text-zinc-400">총 휴가 일수</label>
             <div className="flex items-center gap-2 mt-1">
               <input
@@ -192,8 +203,11 @@ export default function MyPage() {
 
           {message && <p className="text-sm text-center text-blue-500 mb-3">{message}</p>}
 
-          <button onClick={handleSave} disabled={loading}
-            className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50">
+          <button
+            onClick={handleSave}
+            disabled={loading}
+            className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
+          >
             {loading ? '저장 중...' : '저장'}
           </button>
         </div>
@@ -219,9 +233,8 @@ export default function MyPage() {
             <div
               className="bg-green-400 h-3 rounded-full transition-all"
               style={{
-                width: totalVacation > 0
-                  ? `${Math.max(0, (remaining / totalVacation) * 100)}%`
-                  : '0%'
+                width:
+                  totalVacation > 0 ? `${Math.max(0, (remaining / totalVacation) * 100)}%` : '0%',
               }}
             />
           </div>
@@ -247,8 +260,11 @@ export default function MyPage() {
           {passwordMessage && (
             <p className="text-sm text-center text-blue-500 mb-3">{passwordMessage}</p>
           )}
-          <button onClick={handlePasswordChange} disabled={passwordLoading}
-            className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50">
+          <button
+            onClick={handlePasswordChange}
+            disabled={passwordLoading}
+            className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
+          >
             {passwordLoading ? '변경 중...' : '비밀번호 변경'}
           </button>
         </div>
@@ -259,7 +275,8 @@ export default function MyPage() {
             <h2 className="font-semibold dark:text-white">회원 탈퇴</h2>
             <button
               onClick={() => setShowDeleteSection(!showDeleteSection)}
-              className="text-sm text-red-400 hover:text-red-600">
+              className="text-sm text-red-400 hover:text-red-600"
+            >
               {showDeleteSection ? '닫기' : '탈퇴하기'}
             </button>
           </div>
@@ -267,7 +284,8 @@ export default function MyPage() {
           {showDeleteSection && (
             <div className="mt-4">
               <p className="text-sm text-gray-500 dark:text-zinc-400 mb-3">
-                탈퇴하면 모든 근무 기록, 휴가, 팀 정보가 삭제되며 복구할 수 없어요.<br />
+                탈퇴하면 모든 근무 기록, 휴가, 팀 정보가 삭제되며 복구할 수 없어요.
+                <br />
                 확인을 위해 이메일 주소를 입력해주세요.
               </p>
               <input
@@ -277,16 +295,31 @@ export default function MyPage() {
                 placeholder={user?.email}
                 className="w-full border border-red-200 rounded-lg px-3 py-2 mb-3 dark:bg-zinc-700 dark:border-red-900 dark:text-zinc-200"
               />
+              {deleteMessage && <p className="text-sm text-red-500 mb-3">{deleteMessage}</p>}
               <button
-                onClick={handleDeleteAccount}
+                onClick={() => setConfirmingDelete(true)}
                 disabled={deleteLoading || deleteConfirm !== user?.email}
-                className="w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 disabled:opacity-40">
+                className="w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 disabled:opacity-40"
+              >
                 {deleteLoading ? '처리 중...' : '회원 탈퇴'}
               </button>
             </div>
           )}
         </div>
 
+        <ConfirmDialog
+          open={confirmingDelete}
+          tone="danger"
+          busy={deleteLoading}
+          title="정말로 탈퇴하시겠어요?"
+          description="모든 근무 기록, 휴가, 팀 정보가 삭제되며 복구할 수 없어요."
+          confirmLabel="탈퇴"
+          onCancel={() => setConfirmingDelete(false)}
+          onConfirm={() => {
+            setConfirmingDelete(false)
+            handleDeleteAccount()
+          }}
+        />
       </div>
     </div>
   )

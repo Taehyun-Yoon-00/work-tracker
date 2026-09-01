@@ -6,11 +6,16 @@ import { useRouter, useParams } from 'next/navigation'
 import Calendar from 'react-calendar'
 import 'react-calendar/dist/Calendar.css'
 import dayjs from 'dayjs'
-import isoWeek from 'dayjs/plugin/isoWeek'
-dayjs.extend(isoWeek)
-import Holidays from 'date-holidays'
+// isoWeek 플러그인은 lib/dates가 한 번만 등록한다. side-effect import로 이 파일에서도 적용된다.
+import { getWeeksOfMonth } from '../../lib/dates'
+import {
+  isHoliday as isHolidayShared,
+  isPublicHoliday,
+  fetchSubstituteHolidays,
+} from '../../lib/holidays'
 
-const hd = new Holidays('KR')
+type ScopeMember = { user_id: string; name: string; position: string | null }
+type FilterScope = 'department' | 'team'
 
 export default function TeamDetailPage() {
   const router = useRouter()
@@ -18,14 +23,10 @@ export default function TeamDetailPage() {
   const [user, setUser] = useState<any>(null)
   const [team, setTeam] = useState<any>(null)
   const [members, setMembers] = useState<any[]>([])
+  const [deptMembers, setDeptMembers] = useState<ScopeMember[]>([])
+  const [filterScope, setFilterScope] = useState<FilterScope>('department')
   const [isAdmin, setIsAdmin] = useState(false)
-  const [requests, setRequests] = useState<any[]>([])
-  const [expandedUser, setExpandedUser] = useState<string | null>(null)
-  const [memberLogs, setMemberLogs] = useState<{ [key: string]: any[] }>({})
-  const [memberWeeklyLogs, setMemberWeeklyLogs] = useState<{ [key: string]: any[] }>({})
   const [vacations, setVacations] = useState<any[]>([])
-  const [selectedWeek, setSelectedWeek] = useState<{ [key: string]: Date }>({})
-  const [periodMode, setPeriodMode] = useState<'calendar' | 'custom'>('calendar')
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | null>(null)
   const [weekCommutePlans, setWeekCommutePlans] = useState<{ [key: string]: any[] }>({})
   const [selectedCommuteWeek, setSelectedCommuteWeek] = useState<string | null>(null)
@@ -34,30 +35,14 @@ export default function TeamDetailPage() {
   const [selectedRemoteDate, setSelectedRemoteDate] = useState<Date | null>(null)
   const [isMaster, setIsMaster] = useState(false)
   const [substituteHolidays, setSubstituteHolidays] = useState<string[]>([])
-
-  const getPeriod = () => {
-    const now = dayjs(calendarMonth)
-    if (periodMode === 'calendar') {
-      return {
-        start: now.startOf('month').format('YYYY-MM-DD'),
-        end: now.endOf('month').format('YYYY-MM-DD'),
-        label: `${now.format('MM')}월 1일 ~ ${now.endOf('month').format('DD')}일`
-      }
-    } else {
-      // 달력이 표시 중인 "월"을 기준으로 고정: 전월 16일 ~ 해당 월 15일
-      const start = now.subtract(1, 'month').startOf('month').date(16)
-      const end = now.startOf('month').date(15)
-      return {
-        start: start.format('YYYY-MM-DD'),
-        end: end.format('YYYY-MM-DD'),
-        label: `${start.format('MM')}월 16일 ~ ${end.format('MM')}월 15일`
-      }
-    }
-  }
+  // null = 확인 중, true = 열람 가능, false = 접근 불가(소속 인원 또는 상위 조직장이 아님)
+  const [authorized, setAuthorized] = useState<boolean | null>(null)
 
   useEffect(() => {
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
       if (!user) router.push('/login')
       else {
         setUser(user)
@@ -65,9 +50,9 @@ export default function TeamDetailPage() {
       }
     }
     getUser()
-    fetchSubstituteHolidays()
-
+    loadSubstituteHolidays()
   }, [])
+
   useEffect(() => {
     const handleFocus = () => {
       if (user) fetchTeamData(user.id)
@@ -76,28 +61,133 @@ export default function TeamDetailPage() {
     return () => window.removeEventListener('focus', handleFocus)
   }, [user])
 
+  // 팀에 소속된 부서가 있으면 기본은 "부서 전체"가 보이도록 하고, 부서가 없으면 "내 팀만" 강제
   useEffect(() => {
-    if (members.length > 0) {
-      fetchMonthlyLogs(members)
+    if (!team?.department_id) setFilterScope('team')
+  }, [team?.department_id])
+
+  const profileDisplayName = (p: any) => p?.name || p?.email?.split('@')[0] || '이름없음'
+
+  const fetchTeamData = async (userId: string) => {
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('is_master')
+      .eq('id', userId)
+      .single()
+    const masterFlag = !!profileData?.is_master
+    const { data: generalAdminRow } = await supabase
+      .from('general_admins')
+      .select('user_id')
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (masterFlag || generalAdminRow) {
+      setIsMaster(true) // 마스터/총괄 관리자는 자동으로 팀장 권한
+      setIsAdmin(true)
     }
-  }, [calendarMonth, periodMode])
 
-  useEffect(() => {
-    if (members.length > 0) fetchCommutePlans(members)
-  }, [calendarMonth, members])
+    const { data: teamData } = await supabase
+      .from('teams')
+      .select('*, departments(id, name, head_user_id, division_id, divisions(head_user_id))')
+      .eq('id', id)
+      .single()
+    if (teamData) setTeam(teamData)
 
-  useEffect(() => {
-    if (expandedUser && members.length > 0) {
-      const member = members.find((m) => m.user_id === expandedUser)
-      if (member) fetchWeeklyLogsForMember(member.user_id)
+    const { data: memberData } = await supabase
+      .from('team_members')
+      .select('*, profiles(id, email, name, position, is_master)')
+      .eq('team_id', id)
+      .order('display_order', { ascending: true })
+      .order('created_at', { ascending: true })
+
+    let unionUserIds: string[] = []
+    let isMember = false
+
+    if (memberData) {
+      // 마스터(시스템 관리자) 계정은 조직 구성원 풀에서 제외 — 별도 권한 트랙
+      const visibleMemberData = memberData.filter((m: any) => !m.profiles?.is_master)
+      setMembers(visibleMemberData)
+      const myRole = memberData.find((m) => m.user_id === userId)
+      if (myRole?.role === 'admin') setIsAdmin(true)
+      isMember = !!myRole
+      unionUserIds = visibleMemberData.map((m) => m.user_id)
     }
-  }, [selectedWeek, expandedUser])
 
-  const fetchCommutePlans = async (memberData: any[]) => {
+    // 열람 권한: 팀 소속 인원 본인, 이 팀이 속한 부서의 부서장, 그 부서가 속한 부문의 부문장,
+    // 총괄 관리자, 시스템 관리자(마스터)만 볼 수 있다. 그 외에는 접근을 차단한다.
+    const deptHeadId = teamData?.departments?.head_user_id
+    const divisionHeadId = teamData?.departments?.divisions?.head_user_id
+    const canViewAsOrgHead = deptHeadId === userId || divisionHeadId === userId
+    setAuthorized(masterFlag || !!generalAdminRow || isMember || canViewAsOrgHead)
+
+    // 부서 전체 스코프: 같은 부서의 다른 팀 + 부서 직접 소속 인원까지 모아둔다.
+    if (teamData?.department_id) {
+      const [{ data: deptTeams }, { data: directDept }] = await Promise.all([
+        supabase.from('teams').select('id').eq('department_id', teamData.department_id),
+        supabase
+          .from('department_memberships')
+          .select('user_id, profiles(id, email, name, position, is_master)')
+          .eq('department_id', teamData.department_id),
+      ])
+
+      const teamIds = (deptTeams || []).map((t: any) => t.id)
+      const { data: deptTeamMembers } =
+        teamIds.length > 0
+          ? await supabase
+              .from('team_members')
+              .select('user_id, profiles(id, email, name, position, is_master)')
+              .in('team_id', teamIds)
+          : { data: [] as any[] }
+
+      const combinedMap = new Map<string, ScopeMember>()
+      ;(deptTeamMembers || []).forEach((m: any) => {
+        if (m.profiles?.is_master) return
+        combinedMap.set(m.user_id, {
+          user_id: m.user_id,
+          name: profileDisplayName(m.profiles),
+          position: m.profiles?.position || null,
+        })
+      })
+      ;(directDept || []).forEach((m: any) => {
+        if (m.profiles?.is_master) return
+        combinedMap.set(m.user_id, {
+          user_id: m.user_id,
+          name: profileDisplayName(m.profiles),
+          position: m.profiles?.position || null,
+        })
+      })
+      const combined = Array.from(combinedMap.values())
+      setDeptMembers(combined)
+      unionUserIds = Array.from(new Set([...unionUserIds, ...combined.map((m) => m.user_id)]))
+    } else {
+      setDeptMembers([])
+    }
+
+    if (unionUserIds.length > 0) {
+      const [{ data: vacationData }, { data: remoteData }] = await Promise.all([
+        supabase
+          .from('vacations')
+          .select('*, profiles(id, email, name)')
+          .in('user_id', unionUserIds),
+        supabase
+          .from('remote_works')
+          .select('*, profiles(id, email, name)')
+          .in('user_id', unionUserIds),
+      ])
+      if (vacationData) setVacations(vacationData)
+      if (remoteData) setRemoteWorks(remoteData)
+      fetchCommutePlans(unionUserIds)
+    } else {
+      setVacations([])
+      setRemoteWorks([])
+      setWeekCommutePlans({})
+    }
+  }
+
+  const fetchCommutePlans = async (userIds: string[]) => {
     const { data: commutePlanData } = await supabase
       .from('commute_plans')
       .select('*, profiles(name, email)')
-      .in('user_id', memberData.map((m) => m.user_id))
+      .in('user_id', userIds)
 
     const plans: { [key: string]: any[] } = {}
     if (commutePlanData) {
@@ -110,148 +200,48 @@ export default function TeamDetailPage() {
     setWeekCommutePlans(plans)
   }
 
-  const fetchTeamData = async (userId: string) => {
-
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('is_master')
-      .eq('id', userId)
-      .single()
-    if (profileData?.is_master) {
-      setIsMaster(true)
-      setIsAdmin(true)  // 마스터는 자동으로 팀장 권한
-    }
-
-    const { data: teamData } = await supabase
-      .from('teams').select('*').eq('id', id).single()
-    if (teamData) setTeam(teamData)
-
-    const { data: memberData } = await supabase
-      .from('team_members')
-      .select('*, profiles(id, email, name)')
-      .eq('team_id', id)
-      .order('display_order', { ascending: true })
-      .order('created_at', { ascending: true })
-
-    if (memberData) {
-      setMembers(memberData)
-      const myRole = memberData.find((m) => m.user_id === userId)
-      if (myRole?.role === 'admin') setIsAdmin(true)
-      fetchMonthlyLogs(memberData)
-
-      fetchCommutePlans(memberData)
-
-
-    }
-
-    const { data: requestData } = await supabase
-      .from('team_requests')
-      .select('*, profiles(email, name)')
-      .eq('team_id', id)
-      .eq('status', 'pending')
-    if (requestData) setRequests(requestData)
-
-    const { data: vacationData } = await supabase
-      .from('vacations')
-      .select('*, profiles(id, email, name)')
-      .in('user_id', memberData?.map((m) => m.user_id) || [])
-    if (vacationData) setVacations(vacationData)
-
-    const { data: remoteData } = await supabase
-      .from('remote_works')
-      .select('*, profiles(id, email, name)')
-      .in('user_id', memberData?.map((m) => m.user_id) || [])
-    if (remoteData) setRemoteWorks(remoteData)
+  const loadSubstituteHolidays = async () => {
+    setSubstituteHolidays(await fetchSubstituteHolidays())
   }
 
-  const fetchMonthlyLogs = async (memberData: any[]) => {
-    const { start, end } = getPeriod()
-    const logs: { [key: string]: any[] } = {}
-    for (const member of memberData) {
-      const { data } = await supabase
-        .from('work_logs').select('*')
-        .eq('user_id', member.user_id)
-        .gte('date', start)
-        .lte('date', end)
-        .order('date', { ascending: true })
-      logs[member.user_id] = data || []
-    }
-    setMemberLogs(logs)
-  }
-
-  const fetchWeeklyLogsForMember = async (userId: string) => {
-    const week = selectedWeek[userId] || new Date()
-    const start = dayjs(week).startOf('isoWeek').format('YYYY-MM-DD')
-    const end = dayjs(week).endOf('isoWeek').format('YYYY-MM-DD')
-    const { data } = await supabase
-      .from('work_logs').select('*')
-      .eq('user_id', userId)
-      .gte('date', start)
-      .lte('date', end)
-      .order('date', { ascending: true })
-    setMemberWeeklyLogs((prev) => ({ ...prev, [userId]: data || [] }))
-  }
-
-  const fetchSubstituteHolidays = async () => {
-    const { data } = await supabase
-      .from('substitute_holidays')
-      .select('date')
-    if (data) setSubstituteHolidays(data.map((h) => h.date))
-  }
-
-  const calcHours = (log: any) => {
-    const start = dayjs(`2000-01-01 ${log.start_time}`)
-    const end = dayjs(`2000-01-01 ${log.end_time}`)
-    const diff = end.diff(start, 'minute') - log.break_minutes
-    return (diff / 60).toFixed(2)
-  }
+  // 현재 필터 범위(부서 전체 / 내 팀만)에 해당하는 인원 목록 + 이름 조회
+  const scopeMembers: ScopeMember[] =
+    filterScope === 'team' || deptMembers.length === 0
+      ? members.map((m) => ({
+          user_id: m.user_id,
+          name: profileDisplayName(m.profiles),
+          position: m.profiles?.position || null,
+        }))
+      : deptMembers
+  const scopeUserIds = new Set(scopeMembers.map((m) => m.user_id))
 
   const sortByMemberOrder = <T extends { user_id: string }>(list: T[]): T[] => {
     return [...list].sort((a, b) => {
-      const ai = members.findIndex((m) => m.user_id === a.user_id)
-      const bi = members.findIndex((m) => m.user_id === b.user_id)
+      const ai = scopeMembers.findIndex((m) => m.user_id === a.user_id)
+      const bi = scopeMembers.findIndex((m) => m.user_id === b.user_id)
       return (ai === -1 ? 9999 : ai) - (bi === -1 ? 9999 : bi)
     })
   }
 
   const getMemberName = (userId: string) => {
-    const member = members.find((m) => m.user_id === userId)
-    return member?.profiles?.name || member?.profiles?.email?.split('@')[0] || '알 수 없음'
+    const member = scopeMembers.find((m) => m.user_id === userId)
+    return member?.name || '알 수 없음'
   }
 
-  const isHoliday = (date: Date) => {
-    const day = dayjs(date).day()
-    if (day === 0 || day === 6) return true
-    const dateStr = dayjs(date).format('YYYY-MM-DD')
-    if (substituteHolidays.includes(dateStr)) return true
-    return !!hd.isHoliday(date)
-  }
-
-  const getMonthlyStats = (userId: string) => {
-    const logs = memberLogs[userId] || []
-    return logs.reduce((acc, log) => acc + parseFloat(calcHours(log)), 0).toFixed(2)
-  }
-
-  const getWeeklyStats = (userId: string) => {
-    const logs = memberWeeklyLogs[userId] || []
-    const total = logs.reduce((acc, log) => acc + parseFloat(calcHours(log)), 0)
-    const weekday = logs
-      .filter((log) => !isHoliday(new Date(log.date)))
-      .reduce((acc, log) => acc + parseFloat(calcHours(log)), 0)
-    const holiday = logs
-      .filter((log) => isHoliday(new Date(log.date)))
-      .reduce((acc, log) => acc + parseFloat(calcHours(log)), 0)
-    return { total, weekday, holiday }
-  }
+  const isHoliday = (date: Date) => isHolidayShared(date, substituteHolidays)
 
   const getVacationsOnDate = (date: Date) => {
     const dateStr = dayjs(date).format('YYYY-MM-DD')
-    return sortByMemberOrder(vacations.filter((v) => v.date === dateStr))
+    return sortByMemberOrder(
+      vacations.filter((v) => v.date === dateStr && scopeUserIds.has(v.user_id))
+    )
   }
 
   const getRemoteOnDate = (date: Date) => {
     const dateStr = dayjs(date).format('YYYY-MM-DD')
-    return sortByMemberOrder(remoteWorks.filter((r) => r.date === dateStr))
+    return sortByMemberOrder(
+      remoteWorks.filter((r) => r.date === dateStr && scopeUserIds.has(r.user_id))
+    )
   }
 
   const getTileContent = ({ date }: { date: Date }) => {
@@ -278,117 +268,93 @@ export default function TeamDetailPage() {
     const dateStr = dayjs(date).format('YYYY-MM-DD')
     const isSubstitute = substituteHolidays.includes(dateStr)
     if (day === 6) return '!text-blue-500 font-semibold'
-    if (day === 0 || hd.isHoliday(date) || isSubstitute) return '!text-red-500 font-semibold'
+    if (day === 0 || isPublicHoliday(date) || isSubstitute) return '!text-red-500 font-semibold'
     return ''
   }
 
   const getWeeks = (month: Date) => {
-    const monthStart = dayjs(month).startOf('month')
-    const monthEnd = dayjs(month).endOf('month')
-    const firstWeekStart = monthStart.startOf('isoWeek')
-    const weeks = []
-    let current = firstWeekStart
-    while (current.isBefore(monthEnd) || current.isSame(monthEnd, 'day')) {
-      weeks.push(current)
-      current = current.add(1, 'week')
-    }
-    return weeks
+    return getWeeksOfMonth(dayjs(month))
   }
 
-  const handleApprove = async (requestId: string, userId: string) => {
-    const { data: existing } = await supabase
-      .from('team_members')
-      .select('id')
-      .eq('team_id', id)
-      .eq('user_id', userId)
-      .single()
-    if (!existing) {
-      await supabase.from('team_members').insert({
-        team_id: id, user_id: userId, role: 'member'
-      })
-    }
-    await supabase.from('team_requests')
-      .update({ status: 'approved' })
-      .eq('id', requestId)
-    fetchTeamData(user.id)
+  const leaders = members.filter((m) => m.role === 'admin')
+  const departmentName = team?.departments?.name as string | undefined
+
+  if (authorized === null) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
+        <div className="max-w-2xl mx-auto" />
+      </div>
+    )
   }
 
-  const handleReject = async (requestId: string) => {
-    await supabase.from('team_requests')
-      .update({ status: 'rejected' }).eq('id', requestId)
-    fetchTeamData(user.id)
+  if (authorized === false) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
+        <div className="max-w-2xl mx-auto">
+          <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-8 text-center">
+            <p className="text-sm text-gray-500 dark:text-zinc-400">
+              이 팀의 정보를 볼 수 있는 권한이 없어요.
+            </p>
+            <button
+              onClick={() => router.push('/team')}
+              className="text-sm text-blue-500 hover:underline mt-3"
+            >
+              내 소속으로 돌아가기
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
-
-  const handleExpandMember = (userId: string) => {
-    if (expandedUser === userId) {
-      setExpandedUser(null)
-    } else {
-      setExpandedUser(userId)
-      if (!selectedWeek[userId]) {
-        setSelectedWeek((prev) => ({ ...prev, [userId]: new Date() }))
-      }
-      fetchWeeklyLogsForMember(userId)
-    }
-  }
-
-  const changeWeek = (userId: string, direction: number) => {
-    const current = selectedWeek[userId] || new Date()
-    const newWeek = dayjs(current).add(direction, 'week').toDate()
-    setSelectedWeek((prev) => ({ ...prev, [userId]: newWeek }))
-  }
-
-  const { label } = getPeriod()
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 pb-28">
       <div className="max-w-2xl mx-auto">
-
         {/* 헤더 */}
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold dark:text-white">{team?.name}</h1>
-          <div className="flex gap-3">
-            {(isAdmin || isMaster) && (
-              <button onClick={() => router.push(`/team/${id}/manage`)}
-                className="text-sm text-blue-500 hover:underline">
-                팀 관리
-              </button>
-            )}
-            <button onClick={() => router.push('/team')}
-              className="text-sm text-gray-500 dark:text-zinc-400 hover:underline">
-              ← 팀 목록
-            </button>
-          </div>
+        <div className="mb-6">
+          {departmentName && (
+            <p className="text-xs text-gray-400 dark:text-zinc-500 mb-0.5 truncate">
+              {departmentName}
+            </p>
+          )}
+          <h1 className="text-2xl font-bold dark:text-white truncate">{team?.name}</h1>
+          <p className="text-sm text-gray-400 dark:text-zinc-500 mt-0.5">
+            {leaders.length > 0
+              ? `팀장 ${leaders.map((l) => l.profiles?.name || l.profiles?.email?.split('@')[0]).join(', ')}`
+              : '팀장 미지정'}
+            {' · '}소속 인원 {members.length}명
+          </p>
         </div>
-
-        {/* 가입 신청 (팀장만) */}
-        {(isAdmin || isMaster) && requests.length > 0 && (
-          <div className="bg-yellow-50 dark:bg-yellow-950 rounded-xl shadow p-4 mb-4">
-            <h2 className="font-semibold mb-3 dark:text-white">가입 신청 ({requests.length})</h2>
-            {requests.map((req) => (
-              <div key={req.id}
-                className="flex justify-between items-center py-2 border-b dark:border-zinc-700 last:border-0">
-                <div>
-                  <p className="text-sm font-medium dark:text-zinc-200">{req.profiles?.name || '이름 미설정'}</p>
-                  <p className="text-xs text-gray-400 dark:text-zinc-500">{req.profiles?.email}</p>
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={() => handleApprove(req.id, req.user_id)}
-                    className="text-xs bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600">
-                    승인
-                  </button>
-                  <button onClick={() => handleReject(req.id)}
-                    className="text-xs bg-gray-200 dark:bg-zinc-700 dark:text-zinc-300 px-3 py-1 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
-                    거절
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
 
         {/* 달력 */}
         <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-3 mb-4">
-          <h2 className="font-semibold mb-3 dark:text-white">팀 캘린더</h2>
+          <div className="flex justify-between items-center mb-3">
+            <h2 className="font-semibold dark:text-white">팀 캘린더</h2>
+            {team?.department_id && (
+              <div className="flex bg-gray-100 dark:bg-zinc-700 rounded-lg p-0.5">
+                <button
+                  onClick={() => setFilterScope('department')}
+                  className={`text-xs px-3 py-1 rounded-md transition ${
+                    filterScope === 'department'
+                      ? 'bg-white dark:bg-zinc-600 shadow text-blue-500 font-semibold'
+                      : 'text-gray-500 dark:text-zinc-400'
+                  }`}
+                >
+                  부서 전체
+                </button>
+                <button
+                  onClick={() => setFilterScope('team')}
+                  className={`text-xs px-3 py-1 rounded-md transition ${
+                    filterScope === 'team'
+                      ? 'bg-white dark:bg-zinc-600 shadow text-blue-500 font-semibold'
+                      : 'text-gray-500 dark:text-zinc-400'
+                  }`}
+                >
+                  내 팀만
+                </button>
+              </div>
+            )}
+          </div>
           <div className="flex flex-col gap-3">
             {/* 달력 + 시차출근 버튼 */}
             <div className="flex items-start gap-2 ">
@@ -413,16 +379,19 @@ export default function TeamDetailPage() {
                 {getWeeks(calendarMonth).map((weekStart, index) => {
                   const weekNumber = String(index + 1)
                   return (
-                    <div key={weekNumber}
-                      className="flex items-center justify-center h-8 sm:h-11">
+                    <div key={weekNumber} className="flex items-center justify-center h-8 sm:h-11">
                       <button
-                        onClick={() => setSelectedCommuteWeek(
-                          selectedCommuteWeek === weekNumber ? null : weekNumber
-                        )}
-                        className={`text-[12px] px-1 py-1.5 rounded-lg border transition ${selectedCommuteWeek === weekNumber
-                          ? 'bg-purple-500 text-white border-purple-500'
-                          : 'bg-white dark:bg-zinc-700 text-purple-400 dark:text-purple-300 border-purple-300 dark:border-purple-700'
-                          }`}>
+                        onClick={() =>
+                          setSelectedCommuteWeek(
+                            selectedCommuteWeek === weekNumber ? null : weekNumber
+                          )
+                        }
+                        className={`text-[12px] px-1 py-1.5 rounded-lg border transition ${
+                          selectedCommuteWeek === weekNumber
+                            ? 'bg-purple-500 text-white border-purple-500'
+                            : 'bg-white dark:bg-zinc-700 text-purple-400 dark:text-purple-300 border-purple-300 dark:border-purple-700'
+                        }`}
+                      >
                         시차
                       </button>
                     </div>
@@ -447,12 +416,18 @@ export default function TeamDetailPage() {
                     </p>
                     <div className="flex gap-4">
                       {['8시', '9시'].map((time) => {
-                        const planners = (weekCommutePlans[selectedCommuteWeek] || [])
-                          .filter((p) => p.commute_time === time)
+                        const planners = (weekCommutePlans[selectedCommuteWeek] || []).filter(
+                          (p) => p.commute_time === time && scopeUserIds.has(p.user_id)
+                        )
                         return (
                           <div key={time} className="flex-1">
-                            <p className={`text-base font-semibold mb-1 ${time === '8시' ? 'text-blue-500' : 'text-green-500'
-                              }`}>{time}</p>
+                            <p
+                              className={`text-base font-semibold mb-1 ${
+                                time === '8시' ? 'text-blue-500' : 'text-green-500'
+                              }`}
+                            >
+                              {time}
+                            </p>
                             <div className="min-h-[40px]">
                               {planners.length === 0 ? (
                                 <p className="text-xs text-gray-400 dark:text-zinc-500">없음</p>
@@ -468,8 +443,10 @@ export default function TeamDetailPage() {
                         )
                       })}
                     </div>
-                    <button onClick={() => setSelectedCommuteWeek(null)}
-                      className="text-xs text-gray-400 dark:text-zinc-500 hover:underline mt-2">
+                    <button
+                      onClick={() => setSelectedCommuteWeek(null)}
+                      className="text-xs text-gray-400 dark:text-zinc-500 hover:underline mt-2"
+                    >
                       닫기
                     </button>
                   </div>
@@ -483,22 +460,34 @@ export default function TeamDetailPage() {
                     <div className="flex gap-4">
                       <div className="flex-1">
                         <p className="text-base font-semibold text-orange-500 mb-1">휴가</p>
-                        {getVacationsOnDate(selectedCalendarDate || selectedRemoteDate!).length === 0 ? (
+                        {getVacationsOnDate(selectedCalendarDate || selectedRemoteDate!).length ===
+                        0 ? (
                           <p className="text-xs text-gray-400 dark:text-zinc-500">없음</p>
                         ) : (
-                          getVacationsOnDate(selectedCalendarDate || selectedRemoteDate!).map((v) => (
-                            <div key={v.id} className="flex items-center gap-1 mb-1">
-                              <p className="text-base font-medium dark:text-zinc-200">{getMemberName(v.user_id)}</p>
-                              <p className="text-[13px] text-orange-400">
-                                {v.type === 'annual' ? '연차' : v.type === 'special' ? '특휴/대휴' : v.type === 'morning' ? '오전반차' : '오후반차'}
-                              </p>
-                            </div>
-                          ))
+                          getVacationsOnDate(selectedCalendarDate || selectedRemoteDate!).map(
+                            (v) => (
+                              <div key={v.id} className="flex items-center gap-1 mb-1">
+                                <p className="text-base font-medium dark:text-zinc-200">
+                                  {getMemberName(v.user_id)}
+                                </p>
+                                <p className="text-[13px] text-orange-400">
+                                  {v.type === 'annual'
+                                    ? '연차'
+                                    : v.type === 'special'
+                                      ? '특휴/대휴'
+                                      : v.type === 'morning'
+                                        ? '오전반차'
+                                        : '오후반차'}
+                                </p>
+                              </div>
+                            )
+                          )
                         )}
                       </div>
                       <div className="flex-1">
                         <p className="text-base font-semibold text-indigo-500 mb-1">원격근무</p>
-                        {getRemoteOnDate(selectedCalendarDate || selectedRemoteDate!).length === 0 ? (
+                        {getRemoteOnDate(selectedCalendarDate || selectedRemoteDate!).length ===
+                        0 ? (
                           <p className="text-xs text-gray-400 dark:text-zinc-500">없음</p>
                         ) : (
                           getRemoteOnDate(selectedCalendarDate || selectedRemoteDate!).map((r) => (
@@ -509,11 +498,13 @@ export default function TeamDetailPage() {
                         )}
                       </div>
                     </div>
-                    <button onClick={() => {
-                      setSelectedCalendarDate(null)
-                      setSelectedRemoteDate(null)
-                    }}
-                      className="text-xs text-gray-400 dark:text-zinc-500 hover:underline mt-2">
+                    <button
+                      onClick={() => {
+                        setSelectedCalendarDate(null)
+                        setSelectedRemoteDate(null)
+                      }}
+                      className="text-xs text-gray-400 dark:text-zinc-500 hover:underline mt-2"
+                    >
                       닫기
                     </button>
                   </div>
@@ -523,130 +514,38 @@ export default function TeamDetailPage() {
           </div>
         </div>
 
-        {/* 팀원 리스트 */}
+        {/* 소속 인원 리스트 */}
         <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4">
-          <div className="flex justify-between items-center mb-3">
-            <h2 className="font-semibold dark:text-white">팀원 근무시간</h2>
-            <div className="flex bg-gray-100 dark:bg-zinc-700 rounded-lg p-0.5">
-              <button
-                onClick={() => setPeriodMode('calendar')}
-                className={`text-xs px-3 py-1 rounded-md transition ${periodMode === 'calendar'
-                  ? 'bg-white dark:bg-zinc-600 shadow text-blue-500 font-semibold'
-                  : 'text-gray-500 dark:text-zinc-400'
-                  }`}>
-                1일~말일
-              </button>
-              <button
-                onClick={() => setPeriodMode('custom')}
-                className={`text-xs px-3 py-1 rounded-md transition ${periodMode === 'custom'
-                  ? 'bg-white dark:bg-zinc-600 shadow text-blue-500 font-semibold'
-                  : 'text-gray-500 dark:text-zinc-400'
-                  }`}>
-                16일~15일
-              </button>
-            </div>
-          </div>
-          {/*<p className="text-base text-gray-400 mb-3 text-right">{label}</p>*/}
-
-          {members.map((member) => {
-            const isExpanded = expandedUser === member.user_id
-            const weeklyStats = getWeeklyStats(member.user_id)
-            const currentWeek = selectedWeek[member.user_id] || new Date()
-
-            return (
-              <div key={member.user_id} className="border-b dark:border-zinc-700 last:border-0">
+          <h2 className="font-semibold dark:text-white mb-3">소속 인원</h2>
+          {members.length === 0 ? (
+            <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-4">
+              소속 인원이 없어요.
+            </p>
+          ) : (
+            <div className="space-y-1">
+              {members.map((member) => (
                 <div
-                  className="flex justify-between items-center py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 px-1"
-                  onClick={() => handleExpandMember(member.user_id)}>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium dark:text-white">
-                      {member.profiles?.name || member.profiles?.email?.split('@')[0]}
+                  key={member.user_id}
+                  className="flex items-center gap-2 py-2.5 border-b dark:border-zinc-700 last:border-0"
+                >
+                  <span className="font-medium dark:text-white">
+                    {member.profiles?.name || member.profiles?.email?.split('@')[0]}
+                  </span>
+                  {member.profiles?.position && (
+                    <span className="text-xs text-gray-400 dark:text-zinc-500">
+                      {member.profiles.position}
                     </span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${member.role === 'admin'
-                      ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300'
-                      : 'bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-400'
-                      }`}>
-                      {member.role === 'admin' ? '팀장' : '팀원'}
+                  )}
+                  {member.role === 'admin' && (
+                    <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300">
+                      팀장
                     </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-gray-500 dark:text-zinc-400">{label}</p>
-                      <p className="font-bold text-blue-500">
-                        {getMonthlyStats(member.user_id)}시간
-                      </p>
-                    </div>
-                    <span className="text-sm text-gray-400 dark:text-zinc-500">{isExpanded ? '▲' : '▼'}</span>
-                  </div>
+                  )}
                 </div>
-
-                {isExpanded && (
-                  <div className="pb-4 px-1">
-                    <div className="mb-3">
-                      <p className="text-xs font-semibold text-gray-400 dark:text-zinc-500 mb-2">주간 근무시간</p>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => changeWeek(member.user_id, -1)}
-                          className="px-3 py-1 bg-gray-100 dark:bg-zinc-700 dark:text-zinc-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm">
-                          ◀
-                        </button>
-                        <span className="text-sm font-semibold flex-1 text-center text-gray-700 dark:text-zinc-300">
-                          {dayjs(currentWeek).startOf('isoWeek').format('MM/DD')} ~{' '}
-                          {dayjs(currentWeek).endOf('isoWeek').format('MM/DD')}
-                        </span>
-                        <button
-                          onClick={() => changeWeek(member.user_id, 1)}
-                          className="px-3 py-1 bg-gray-100 dark:bg-zinc-700 dark:text-zinc-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm">
-                          ▶
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2 mb-3">
-                      <div className="flex-1 bg-blue-50 rounded-lg p-3 text-center">
-                        <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">전체</p>
-                        <p className="text-lg font-bold text-blue-500">
-                          {weeklyStats.total.toFixed(2)}시간
-                        </p>
-                      </div>
-                      <div className="flex-1 bg-green-50 rounded-lg p-3 text-center">
-                        <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">평일</p>
-                        <p className="text-lg font-bold text-green-500">
-                          {weeklyStats.weekday.toFixed(2)}시간
-                        </p>
-                      </div>
-                      <div className="flex-1 bg-orange-50 rounded-lg p-3 text-center">
-                        <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">휴일</p>
-                        <p className="text-lg font-bold text-orange-500">
-                          {weeklyStats.holiday.toFixed(2)}시간
-                        </p>
-                      </div>
-                    </div>
-
-                    {(isAdmin || isMaster) && (
-                      <div className="bg-gray-50 dark:bg-zinc-700 rounded-lg p-3">
-                        <p className="text-xs text-gray-500 dark:text-zinc-400 mb-2 font-semibold">일별 상세</p>
-                        {(memberWeeklyLogs[member.user_id] || []).length === 0 ? (
-                          <p className="text-sm text-gray-400 dark:text-zinc-500">이 주 기록이 없어요.</p>
-                        ) : (
-                          memberWeeklyLogs[member.user_id].map((log) => (
-                            <div key={log.id}
-                              className="flex justify-between text-sm py-1 border-b dark:border-zinc-600 last:border-0 dark:text-zinc-300">
-                              <span>{dayjs(log.date).format('MM/DD (ddd)')}</span>
-                              <span>{log.start_time} ~ {log.end_time}</span>
-                              <span className="font-semibold">{calcHours(log)}시간</span>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )
-          })}
+              ))}
+            </div>
+          )}
         </div>
-
       </div>
     </div>
   )

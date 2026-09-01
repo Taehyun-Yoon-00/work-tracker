@@ -1,5 +1,6 @@
 import ApprovalCard from './ApprovalCard'
 import DateRangeFilter from './DateRangeFilter'
+import { Palmtree, Laptop, Building2 } from 'lucide-react'
 
 interface ApprovalListProps {
   requests: any[]
@@ -44,7 +45,11 @@ export default function ApprovalList({
   return (
     <>
       {/* 기간 선택 */}
-      <DateRangeFilter startDate={dateRangeStart} endDate={dateRangeEnd} onApply={onDateRangeChange} />
+      <DateRangeFilter
+        startDate={dateRangeStart}
+        endDate={dateRangeEnd}
+        onApply={onDateRangeChange}
+      />
 
       {/* 상태 필터 */}
       <div className="flex bg-gray-100 dark:bg-zinc-700 rounded-lg p-0.5 mb-2">
@@ -57,10 +62,11 @@ export default function ApprovalList({
           <button
             key={value}
             onClick={() => onFilterStatusChange(value)}
-            className={`flex-1 text-xs py-1.5 rounded-md transition ${filterStatus === value
-              ? 'bg-white dark:bg-zinc-600 shadow text-blue-500 font-semibold'
-              : 'text-gray-500 dark:text-zinc-400'
-              }`}
+            className={`flex-1 text-xs py-1.5 rounded-md transition ${
+              filterStatus === value
+                ? 'bg-white dark:bg-zinc-600 shadow text-blue-500 font-semibold'
+                : 'text-gray-500 dark:text-zinc-400'
+            }`}
           >
             {label}
           </button>
@@ -80,7 +86,8 @@ export default function ApprovalList({
           },
           {
             value: 'vacation',
-            label: '🌴 휴가',
+            label: '휴가',
+            Icon: Palmtree,
             style:
               filterType === 'vacation'
                 ? 'bg-orange-500 text-white'
@@ -88,7 +95,8 @@ export default function ApprovalList({
           },
           {
             value: 'remote',
-            label: '💻 원격근무',
+            label: '원격근무',
+            Icon: Laptop,
             style:
               filterType === 'remote'
                 ? 'bg-purple-500 text-white'
@@ -96,18 +104,20 @@ export default function ApprovalList({
           },
           {
             value: 'holiday',
-            label: '🏢 휴일근무',
+            label: '휴일근무',
+            Icon: Building2,
             style:
               filterType === 'holiday'
                 ? 'bg-red-500 text-white'
                 : 'bg-red-50 dark:bg-zinc-700 text-red-500 dark:text-red-300',
           },
-        ].map(({ value, label, style }) => (
+        ].map(({ value, label, style, Icon }) => (
           <button
             key={value}
             onClick={() => onFilterTypeChange(value)}
-            className={`px-3 py-1 rounded-full text-xs font-medium transition ${style}`}
+            className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition ${style}`}
           >
+            {Icon && <Icon size={12} strokeWidth={2} />}
             {label}
           </button>
         ))}

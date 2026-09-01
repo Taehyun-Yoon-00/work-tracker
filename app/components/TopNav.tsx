@@ -20,7 +20,8 @@ export default function TopNav() {
     return () => authListener.subscription.unsubscribe()
   }, [])
 
-  const { notifications, unreadCount, loading, refetch, markAsRead, markAllAsRead } = useNotifications(userId)
+  const { notifications, unreadCount, loading, refetch, markAsRead, markAllAsRead } =
+    useNotifications(userId)
 
   // App Badge는 "읽지 않은 Notification 개수" 기준
   useAppBadge(unreadCount)
@@ -29,12 +30,12 @@ export default function TopNav() {
   usePushSubscription(userId)
 
   return (
-    <div className="fixed top-0 inset-x-0 h-11 bg-white dark:bg-zinc-800 border-b border-gray-200 dark:border-zinc-700 z-40">
+    <div className="fixed top-0 inset-x-0 md:left-64 h-11 bg-white dark:bg-zinc-800 border-b border-gray-200 dark:border-zinc-700 z-40">
       {userId && (
         <button
           onClick={() => setMenuOpen(true)}
           aria-label="메뉴 열기"
-          className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-full text-gray-500 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-700 hover:text-gray-700 dark:hover:text-white transition"
+          className="md:hidden absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-full text-gray-500 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-700 hover:text-gray-700 dark:hover:text-white transition"
         >
           <svg
             viewBox="0 0 24 24"
@@ -55,7 +56,7 @@ export default function TopNav() {
       <img
         src="/logo/toray-logo.png"
         alt="TORAY"
-        className="h-[90px] w-auto absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+        className="md:hidden h-[90px] w-auto absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
       />
 
       {userId && (

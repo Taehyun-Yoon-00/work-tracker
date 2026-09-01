@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { getSessionUser, isMaster } from '@/app/lib/apiAuth'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,6 +8,15 @@ const supabaseAdmin = createClient(
 )
 
 export async function POST(req: NextRequest) {
+  // 응답으로 임시 비밀번호를 돌려주는 라우트다. 마스터만 호출할 수 있어야 한다.
+  const user = await getSessionUser()
+  if (!user) {
+    return NextResponse.json({ error: '로그인이 필요해요.' }, { status: 401 })
+  }
+  if (!(await isMaster(user.id))) {
+    return NextResponse.json({ error: '권한이 없어요.' }, { status: 403 })
+  }
+
   const { userId } = await req.json()
 
   if (!userId) {

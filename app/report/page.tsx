@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import dayjs from 'dayjs'
 import { supabase } from '../lib/supabase'
+import { getSettlementPeriod } from '../lib/dates'
 
 interface MatterRow {
   category: string
@@ -37,22 +38,24 @@ export default function ReportPage() {
 
   useEffect(() => {
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/login')
+        return
+      }
       setUser(user)
     }
     getUser()
   }, [])
 
-  // 선택한 "당월"을 기준으로 전월 16일 ~ 당월 15일 범위를 계산
+  // 선택한 "당월"을 기준으로 전월 16일 ~ 당월 15일 범위를 계산.
+  // 이 규칙은 팀 상세 페이지와도 같아서 lib/dates.ts의 getSettlementPeriod를 함께 쓴다.
   const { periodStart, periodEnd } = useMemo(() => {
     const targetMonthStart = dayjs(`${targetYear}-${String(targetMonth).padStart(2, '0')}-01`)
-    const start = targetMonthStart.subtract(1, 'month').date(16)
-    const end = targetMonthStart.date(15)
-    return {
-      periodStart: start.format('YYYY-MM-DD'),
-      periodEnd: end.format('YYYY-MM-DD'),
-    }
+    const { start, end } = getSettlementPeriod(targetMonthStart)
+    return { periodStart: start, periodEnd: end }
   }, [targetYear, targetMonth])
 
   useEffect(() => {
@@ -63,7 +66,9 @@ export default function ReportPage() {
     setLoading(true)
     const { data, error } = await supabase
       .from('work_log_matters')
-      .select('category, hours, matter_place, matter_division, matter_content, matter_cost_code, work_logs!inner(date, user_id)')
+      .select(
+        'category, hours, matter_place, matter_division, matter_content, matter_cost_code, work_logs!inner(date, user_id)'
+      )
       .eq('work_logs.user_id', user.id)
       .gte('work_logs.date', periodStart)
       .lte('work_logs.date', periodEnd)
@@ -92,7 +97,10 @@ export default function ReportPage() {
   const totalHours = Math.round(summary.reduce((acc, r) => acc + r.hours, 0) * 100) / 100
 
   const moveMonth = (diff: number) => {
-    const next = dayjs(`${targetYear}-${String(targetMonth).padStart(2, '0')}-01`).add(diff, 'month')
+    const next = dayjs(`${targetYear}-${String(targetMonth).padStart(2, '0')}-01`).add(
+      diff,
+      'month'
+    )
     setTargetYear(next.year())
     setTargetMonth(next.month() + 1)
   }
@@ -128,7 +136,9 @@ export default function ReportPage() {
               className="border rounded-lg px-2 py-1.5 text-sm dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
             >
               {yearOptions.map((y) => (
-                <option key={y} value={y}>{y}년</option>
+                <option key={y} value={y}>
+                  {y}년
+                </option>
               ))}
             </select>
 
@@ -138,7 +148,9 @@ export default function ReportPage() {
               className="border rounded-lg px-2 py-1.5 text-sm dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
             >
               {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                <option key={m} value={m}>{m}월</option>
+                <option key={m} value={m}>
+                  {m}월
+                </option>
               ))}
             </select>
 
@@ -158,7 +170,9 @@ export default function ReportPage() {
         {/* 안건별 합계시간 */}
         <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4">
           {loading ? (
-            <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-6">불러오는 중...</p>
+            <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-6">
+              불러오는 중...
+            </p>
           ) : summary.length === 0 ? (
             <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-6">
               해당 기간에 기록된 근무가 없어요.

@@ -37,13 +37,17 @@ export default function ApprovalCard({ req, userId, onClick }: ApprovalCardProps
             <span className="text-sm font-medium dark:text-zinc-200">
               {req.requester?.name || req.requester?.email?.split('@')[0]}
             </span>
-            <span className={`text-xs px-2 py-0.5 rounded-full ${type.style}`}>
-              {type.text}
-            </span>
-            {req.teams?.name && (
+            <span className={`text-xs px-2 py-0.5 rounded-full ${type.style}`}>{type.text}</span>
+            {req.teams?.name ? (
               <span className="text-xs bg-blue-50 text-blue-500 px-2 py-0.5 rounded-full">
                 {req.teams.name}
               </span>
+            ) : (
+              req.departments?.name && (
+                <span className="text-xs bg-blue-50 text-blue-500 px-2 py-0.5 rounded-full">
+                  {req.departments.name}
+                </span>
+              )
             )}
             {isRequester && (
               <span className="text-xs bg-orange-50 text-orange-400 px-2 py-0.5 rounded-full">
@@ -64,9 +68,7 @@ export default function ApprovalCard({ req, userId, onClick }: ApprovalCardProps
           <p className="text-xs text-gray-400 dark:text-zinc-500">
             결재권자: {req.approver?.name || req.approver?.email?.split('@')[0]}
           </p>
-          {req.memo && (
-            <p className="text-xs text-gray-400 dark:text-zinc-500">사유: {req.memo}</p>
-          )}
+          {req.memo && <p className="text-xs text-gray-400 dark:text-zinc-500">사유: {req.memo}</p>}
           {req.status === 'approved' && req.approved_at && (
             <p className="text-xs text-green-500 mt-0.5">
               승인일: {dayjs(req.approved_at).format('YYYY-MM-DD HH:mm')}

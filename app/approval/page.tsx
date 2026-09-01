@@ -8,14 +8,25 @@ import { usePushSubscription } from '../hooks/usePushSubscription'
 import ApprovalList from '../components/approval/ApprovalList'
 import ApprovalDetailModal from '../components/approval/ApprovalDetailModal'
 import RequestModal from '../components/approval/RequestModal'
+import ConfirmDialog from '../components/ui/ConfirmDialog'
 
 const CC_STORAGE_KEY = 'approval_cc_history'
+
+// "내 소속" = 내가 속한 팀, 또는 팀 없이 부서에 직접 소속된 경우 그 부서
+interface MySource {
+  key: string // `team:<teamId>` 또는 `dept:<departmentId>`
+  label: string
+  teamId: string | null
+  departmentId: string
+}
 
 function getCcHistory(): string[] {
   if (typeof window === 'undefined') return []
   try {
     return JSON.parse(localStorage.getItem(CC_STORAGE_KEY) || '[]')
-  } catch { return [] }
+  } catch {
+    return []
+  }
 }
 
 function saveCcHistory(emails: string[]) {
@@ -29,19 +40,32 @@ function ApprovalPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [user, setUser] = useState<any>(null)
+  // window.confirm 대신 쓰는 확인창 상태. 액션마다 별도 state를 두지 않고
+  // 제목/설명/실행할 함수만 채워 넣는 방식으로 재사용한다.
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    title: string
+    description?: string
+    confirmLabel?: string
+    tone?: 'danger' | 'normal'
+    onConfirm: () => void
+  } | null>(null)
   const [requests, setRequests] = useState<any[]>([])
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterType, setFilterType] = useState<string>('all')
-  const [dateRangeStart, setDateRangeStart] = useState<string>(dayjs().startOf('month').format('YYYY-MM-DD'))
-  const [dateRangeEnd, setDateRangeEnd] = useState<string>(dayjs().endOf('month').format('YYYY-MM-DD'))
+  const [dateRangeStart, setDateRangeStart] = useState<string>(
+    dayjs().startOf('month').format('YYYY-MM-DD')
+  )
+  const [dateRangeEnd, setDateRangeEnd] = useState<string>(
+    dayjs().endOf('month').format('YYYY-MM-DD')
+  )
   const [showRequestModal, setShowRequestModal] = useState(false)
   const [step, setStep] = useState(1)
   const [requestType, setRequestType] = useState<string>('')
   const [dateGroups, setDateGroups] = useState<{ dates: string[]; vacationType: string }[]>([])
   const [selectedApprover, setSelectedApprover] = useState<string>('')
-  const [selectedTeamId, setSelectedTeamId] = useState<string>('')
+  const [selectedSourceKey, setSelectedSourceKey] = useState<string>('')
   const [approvers, setApprovers] = useState<any[]>([])
-  const [myTeams, setMyTeams] = useState<any[]>([])
+  const [mySources, setMySources] = useState<MySource[]>([])
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [selectedRequest, setSelectedRequest] = useState<any>(null)
@@ -57,28 +81,42 @@ function ApprovalPageContent() {
 
   useEffect(() => {
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/login')
+        return
+      }
       setUser(user)
       fetchRequests(user.id, dateRangeStart, dateRangeEnd)
-      fetchMyTeams(user.id)
+      fetchMySources(user.id)
     }
     getUser()
   }, [])
 
   const fetchRequests = async (userId: string, rangeStart: string, rangeEnd: string) => {
-    const { data: myTeamData } = await supabase
-      .from('team_members')
-      .select('team_id')
-      .eq('user_id', userId)
-    const myTeamIds = myTeamData?.map((t) => t.team_id) ?? []
+    const [{ data: myTeamData }, { data: myDeptDirectData }] = await Promise.all([
+      supabase.from('team_members').select('team_id, teams(department_id)').eq('user_id', userId),
+      supabase.from('department_memberships').select('department_id').eq('user_id', userId),
+    ])
+    const myTeamIds = (myTeamData || []).map((t: any) => t.team_id)
+    const myDeptIds = Array.from(
+      new Set([
+        ...(myTeamData || []).map((t: any) => t.teams?.department_id).filter(Boolean),
+        ...(myDeptDirectData || []).map((d: any) => d.department_id),
+      ])
+    )
 
     const orConditions = [`requester_id.eq.${userId}`, `approver_id.eq.${userId}`]
     if (myTeamIds.length > 0) orConditions.push(`team_id.in.(${myTeamIds.join(',')})`)
+    if (myDeptIds.length > 0) orConditions.push(`department_id.in.(${myDeptIds.join(',')})`)
 
     const { data } = await supabase
       .from('approval_requests')
-      .select(`*, requester:profiles!approval_requests_requester_id_fkey(name,email), approver:profiles!approval_requests_approver_id_fkey(name,email), teams(name)`)
+      .select(
+        `*, requester:profiles!approval_requests_requester_id_fkey(name,email), approver:profiles!approval_requests_approver_id_fkey(name,email), teams(name), departments(name)`
+      )
       .or(orConditions.join(','))
       .gte('created_at', dayjs(rangeStart).startOf('day').toISOString())
       .lte('created_at', dayjs(rangeEnd).endOf('day').toISOString())
@@ -92,24 +130,110 @@ function ApprovalPageContent() {
     if (user) fetchRequests(user.id, start, end)
   }
 
-  const fetchMyTeams = async (userId: string) => {
-    const { data } = await supabase
-      .from('team_members')
-      .select('team_id, teams(id,name)')
-      .eq('user_id', userId)
-    if (data) setMyTeams(data)
+  // 내 소속(팀 또는 부서 직접 소속) 목록
+  const fetchMySources = async (userId: string): Promise<MySource[]> => {
+    const [{ data: teamData }, { data: deptData }] = await Promise.all([
+      supabase
+        .from('team_members')
+        .select('team_id, teams(id, name, department_id)')
+        .eq('user_id', userId),
+      supabase
+        .from('department_memberships')
+        .select('department_id, departments(id, name)')
+        .eq('user_id', userId),
+    ])
+
+    const sources: MySource[] = [
+      ...(teamData || [])
+        .filter((t: any) => t.teams)
+        .map((t: any) => ({
+          key: `team:${t.team_id}`,
+          label: t.teams.name,
+          teamId: t.team_id as string,
+          departmentId: t.teams.department_id as string,
+        })),
+      ...(deptData || [])
+        .filter((d: any) => d.departments)
+        .map((d: any) => ({
+          key: `dept:${d.department_id}`,
+          label: d.departments.name,
+          teamId: null,
+          departmentId: d.department_id as string,
+        })),
+    ]
+    setMySources(sources)
+    return sources
   }
 
-  const fetchApprovers = async (teamId: string) => {
-    setSelectedTeamId(teamId)
+  // 결재권자 후보 = 부서장(자동) + 위임된 결재권자(유형별 체크) + (팀이 있다면) 그 팀의 팀장
+  const fetchApproversForSource = async (source: MySource, type: string) => {
+    setSelectedSourceKey(source.key)
     setSelectedApprover('')
-    const { data } = await supabase
-      .from('team_members')
-      .select('user_id, profiles(id,name,email)')
-      .eq('team_id', teamId)
-      .eq('role', 'admin')
-    if (data) setApprovers(data)
+
+    const candidates = new Map<string, any>()
+
+    const { data: dept } = await supabase
+      .from('departments')
+      .select('id, head_user_id')
+      .eq('id', source.departmentId)
+      .single()
+
+    if (dept?.head_user_id) {
+      const { data: headProfile } = await supabase
+        .from('profiles')
+        .select('id, name, email')
+        .eq('id', dept.head_user_id)
+        .single()
+      if (headProfile)
+        candidates.set(headProfile.id, { user_id: headProfile.id, profiles: headProfile })
+    }
+
+    const typeColumn =
+      type === 'vacation' ? 'can_vacation' : type === 'remote' ? 'can_remote' : 'can_holiday'
+    const { data: delegates } = await supabase
+      .from('department_approvers')
+      .select(`user_id, ${typeColumn}, profiles(id, name, email)`)
+      .eq('department_id', source.departmentId)
+
+    ;(delegates || []).forEach((d: any) => {
+      if (d[typeColumn] && d.profiles)
+        candidates.set(d.user_id, { user_id: d.user_id, profiles: d.profiles })
+    })
+
+    if (source.teamId) {
+      const { data: leads } = await supabase
+        .from('team_members')
+        .select('user_id, profiles(id, name, email)')
+        .eq('team_id', source.teamId)
+        .eq('role', 'admin')
+      ;(leads || []).forEach((l: any) => {
+        if (l.profiles) candidates.set(l.user_id, l)
+      })
+    }
+
+    setApprovers(Array.from(candidates.values()))
   }
+
+  // 다중 소속일 때 사용자가 드롭다운에서 소속을 바꾼 경우
+  const handleSourceChange = (key: string) => {
+    const source = mySources.find((s) => s.key === key)
+    if (source) fetchApproversForSource(source, requestType)
+    else {
+      setSelectedSourceKey('')
+      setApprovers([])
+    }
+  }
+
+  // step2 진입 시(또는 유형을 바꿔 다시 진입 시) 소속이 하나뿐이면 자동으로, 이미 골라둔 소속이 있으면 새 유형 기준으로 재조회
+  useEffect(() => {
+    if (step !== 2 || !requestType || editingRequestId) return
+    if (mySources.length === 1) {
+      fetchApproversForSource(mySources[0], requestType)
+    } else if (selectedSourceKey) {
+      const source = mySources.find((s) => s.key === selectedSourceKey)
+      if (source) fetchApproversForSource(source, requestType)
+    }
+  }, [step, requestType])
 
   const handleCcInput = (val: string) => {
     setCcInput(val)
@@ -137,13 +261,26 @@ function ApprovalPageContent() {
   const removeCc = (email: string) => setCcList(ccList.filter((e) => e !== email))
 
   const handleSubmitRequest = async () => {
-    if (!requestType || !selectedApprover || !selectedTeamId) { setMessage('모든 항목을 입력해주세요.'); return }
-    if (dateGroups.length === 0) { setMessage('날짜를 추가해주세요.'); return }
+    const selectedSource = mySources.find((s) => s.key === selectedSourceKey)
+    if (!requestType || !selectedApprover || !selectedSource) {
+      setMessage('모든 항목을 입력해주세요.')
+      return
+    }
+    if (dateGroups.length === 0) {
+      setMessage('날짜를 추가해주세요.')
+      return
+    }
     const flattenedEntries = dateGroups.flatMap((group) =>
       group.dates.map((date) => ({ date, vacationType: group.vacationType }))
     )
-    if (flattenedEntries.length === 0) { setMessage('날짜를 선택해주세요.'); return }
-    if (requestType === 'holiday' && !memo.trim()) { setMessage('출근 사유를 입력해주세요.'); return }
+    if (flattenedEntries.length === 0) {
+      setMessage('날짜를 선택해주세요.')
+      return
+    }
+    if (requestType === 'holiday' && !memo.trim()) {
+      setMessage('출근 사유를 입력해주세요.')
+      return
+    }
 
     setLoading(true)
     setMessage('')
@@ -155,11 +292,12 @@ function ApprovalPageContent() {
         .from('approval_requests')
         .update({
           approver_id: selectedApprover,
-          team_id: selectedTeamId,
+          team_id: selectedSource.teamId,
+          department_id: selectedSource.departmentId,
           date: flattenedEntries[0].date,
           dates: flattenedEntries.map((e) => e.date),
           date_entries: flattenedEntries,
-          memo: (requestType === 'vacation' || requestType === 'holiday') ? memo : null,
+          memo: requestType === 'vacation' || requestType === 'holiday' ? memo : null,
           cc_emails: ccList.length > 0 ? ccList : null,
         })
         .eq('id', editingRequestId)
@@ -176,17 +314,22 @@ function ApprovalPageContent() {
       return
     }
 
-    const { data: inserted, error } = await supabase.from('approval_requests').insert({
-      requester_id: user.id,
-      approver_id: selectedApprover,
-      team_id: selectedTeamId,
-      type: requestType,
-      date: flattenedEntries[0].date,
-      dates: flattenedEntries.map((e) => e.date),
-      date_entries: flattenedEntries,
-      memo: (requestType === 'vacation' || requestType === 'holiday') ? memo : null,
-      cc_emails: ccList.length > 0 ? ccList : null,
-    }).select('id').single()
+    const { data: inserted, error } = await supabase
+      .from('approval_requests')
+      .insert({
+        requester_id: user.id,
+        approver_id: selectedApprover,
+        team_id: selectedSource.teamId,
+        department_id: selectedSource.departmentId,
+        type: requestType,
+        date: flattenedEntries[0].date,
+        dates: flattenedEntries.map((e) => e.date),
+        date_entries: flattenedEntries,
+        memo: requestType === 'vacation' || requestType === 'holiday' ? memo : null,
+        cc_emails: ccList.length > 0 ? ccList : null,
+      })
+      .select('id')
+      .single()
 
     if (error) {
       setMessage('요청 실패: ' + error.message)
@@ -209,7 +352,7 @@ function ApprovalPageContent() {
             requesterName,
             type: requestType,
             dateEntries: flattenedEntries,
-            memo: (requestType === 'vacation' || requestType === 'holiday') ? memo : undefined,
+            memo: requestType === 'vacation' || requestType === 'holiday' ? memo : undefined,
             ccEmails: ccList,
           }),
         }).catch((e) => console.error('알림 메일 발송 실패:', e))
@@ -226,7 +369,10 @@ function ApprovalPageContent() {
     const updateData: any = { status }
     if (status === 'approved') updateData.approved_at = new Date().toISOString()
     if (status === 'rejected') updateData.rejected_at = new Date().toISOString()
-    if (status === 'pending') { updateData.approved_at = null; updateData.rejected_at = null }
+    if (status === 'pending') {
+      updateData.approved_at = null
+      updateData.rejected_at = null
+    }
 
     // DB에 저장 후 실제 저장된 시간값을 가져옴 → 앱과 메일이 동일한 값 사용
     const { data: updated } = await supabase
@@ -302,7 +448,16 @@ function ApprovalPageContent() {
     setCcList(req.cc_emails || [])
     setCcInput('')
 
-    await fetchApprovers(req.team_id)
+    const sources = mySources.length > 0 ? mySources : await fetchMySources(user.id)
+    const matched = sources.find((s) =>
+      req.team_id ? s.teamId === req.team_id : s.departmentId === req.department_id
+    )
+    if (matched) {
+      await fetchApproversForSource(matched, req.type)
+    } else {
+      setSelectedSourceKey('')
+      setApprovers([])
+    }
     setSelectedApprover(req.approver_id)
 
     setStep(2)
@@ -311,7 +466,6 @@ function ApprovalPageContent() {
   }
 
   const handleCancelRequest = async (requestId: string) => {
-    if (!confirm('이 요청을 취소할까요?')) return
     // 취소는 알림/메일 없이 상태만 변경 (이력은 남김)
     await supabase
       .from('approval_requests')
@@ -327,10 +481,20 @@ function ApprovalPageContent() {
     fetchRequests(user.id, dateRangeStart, dateRangeEnd)
   }
 
+  const confirmCancelRequest = (requestId: string) => {
+    setPendingConfirm({
+      title: '이 요청을 취소할까요?',
+      confirmLabel: '취소하기',
+      tone: 'danger',
+      onConfirm: () => {
+        setPendingConfirm(null)
+        handleCancelRequest(requestId)
+      },
+    })
+  }
+
   // 요청자: 이미 승인된 건에 대한 취소 요청
   const handleRequestCancelApproval = async (requestId: string) => {
-    if (!confirm('이미 승인된 건이에요. 취소를 요청할까요?')) return
-
     await supabase
       .from('approval_requests')
       .update({ cancel_requested: true, cancel_requested_at: new Date().toISOString() })
@@ -368,11 +532,19 @@ function ApprovalPageContent() {
     fetchRequests(user.id, dateRangeStart, dateRangeEnd)
   }
 
+  const confirmRequestCancelApproval = (requestId: string) => {
+    setPendingConfirm({
+      title: '이미 승인된 건이에요. 취소를 요청할까요?',
+      confirmLabel: '요청하기',
+      onConfirm: () => {
+        setPendingConfirm(null)
+        handleRequestCancelApproval(requestId)
+      },
+    })
+  }
+
   // 결재권자: 취소 요청을 승인(=건을 취소 처리)하거나 거절
   const handleResolveCancelRequest = async (requestId: string, approve: boolean) => {
-    const confirmMsg = approve ? '취소 요청을 승인할까요? 이 건은 취소 처리돼요.' : '취소 요청을 거절할까요?'
-    if (!confirm(confirmMsg)) return
-
     const updateData: any = { cancel_requested: false }
     if (approve) {
       updateData.status = 'cancelled'
@@ -417,6 +589,19 @@ function ApprovalPageContent() {
     fetchRequests(user.id, dateRangeStart, dateRangeEnd)
   }
 
+  const confirmResolveCancelRequest = (requestId: string, approve: boolean) => {
+    setPendingConfirm({
+      title: approve ? '취소 요청을 승인할까요?' : '취소 요청을 거절할까요?',
+      description: approve ? '이 건은 취소 처리돼요.' : undefined,
+      confirmLabel: approve ? '승인' : '거절',
+      tone: approve ? 'danger' : 'normal',
+      onConfirm: () => {
+        setPendingConfirm(null)
+        handleResolveCancelRequest(requestId, approve)
+      },
+    })
+  }
+
   const resetModal = () => {
     setShowRequestModal(false)
     setStep(1)
@@ -424,7 +609,7 @@ function ApprovalPageContent() {
     setDateGroups([])
     setMemo('')
     setSelectedApprover('')
-    setSelectedTeamId('')
+    setSelectedSourceKey('')
     setApprovers([])
     setMessage('')
     setCcList([])
@@ -469,7 +654,6 @@ function ApprovalPageContent() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
       <div className="max-w-2xl mx-auto">
-
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold dark:text-white">결재</h1>
         </div>
@@ -504,9 +688,9 @@ function ApprovalPageContent() {
             }
             onApprove={handleApprove}
             onEdit={handleEditRequest}
-            onCancel={handleCancelRequest}
-            onRequestCancelApproval={handleRequestCancelApproval}
-            onResolveCancelRequest={handleResolveCancelRequest}
+            onCancel={confirmCancelRequest}
+            onRequestCancelApproval={confirmRequestCancelApproval}
+            onResolveCancelRequest={confirmResolveCancelRequest}
             onClose={handleDetailClose}
           />
         )}
@@ -517,9 +701,9 @@ function ApprovalPageContent() {
             requestType={requestType}
             isEditing={!!editingRequestId}
             dateGroups={dateGroups}
-            selectedTeamId={selectedTeamId}
+            selectedSourceKey={selectedSourceKey}
             selectedApprover={selectedApprover}
-            myTeams={myTeams}
+            mySources={mySources}
             approvers={approvers}
             memo={memo}
             ccInput={ccInput}
@@ -528,11 +712,16 @@ function ApprovalPageContent() {
             showCcSuggestions={showCcSuggestions}
             loading={loading}
             message={message}
-            onSelectType={(type) => { setRequestType(type); setStep(2) }}
+            onSelectType={(type) => {
+              setRequestType(type)
+              setStep(2)
+            }}
             onBack={() => setStep(1)}
-            onTeamChange={fetchApprovers}
+            onSourceChange={handleSourceChange}
             onApproverChange={setSelectedApprover}
-            onAddDateGroup={() => setDateGroups([...dateGroups, { dates: [], vacationType: 'annual' }])}
+            onAddDateGroup={() =>
+              setDateGroups([...dateGroups, { dates: [], vacationType: 'annual' }])
+            }
             onRemoveDateGroup={(index) => setDateGroups(dateGroups.filter((_, i) => i !== index))}
             onDateGroupChange={handleDateGroupChange}
             onVacationTypeChange={handleVacationTypeChange}
@@ -547,11 +736,26 @@ function ApprovalPageContent() {
       </div>
 
       <button
-        onClick={() => { setEditingRequestId(null); setShowRequestModal(true); setStep(1); setMessage('') }}
+        onClick={() => {
+          setEditingRequestId(null)
+          setShowRequestModal(true)
+          setStep(1)
+          setMessage('')
+        }}
         className="fixed bottom-24 right-4 bg-blue-500 text-white px-4 py-3 rounded-full shadow-lg z-40 text-sm font-medium"
       >
         + 결재 요청
       </button>
+
+      <ConfirmDialog
+        open={!!pendingConfirm}
+        tone={pendingConfirm?.tone ?? 'normal'}
+        title={pendingConfirm?.title ?? ''}
+        description={pendingConfirm?.description}
+        confirmLabel={pendingConfirm?.confirmLabel}
+        onCancel={() => setPendingConfirm(null)}
+        onConfirm={() => pendingConfirm?.onConfirm()}
+      />
     </div>
   )
 }
