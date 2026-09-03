@@ -15,14 +15,15 @@ import {
   Settings,
 } from 'lucide-react'
 
-export type SidebarPermission = 'all' | 'master' | 'teamLeaderOrAbove' | 'orgManager'
+export type SidebarPermission = 'all' | 'master' | 'teamLeaderOrAbove' | 'orgManager' | 'dashboardViewer'
 
 export interface SidebarItem {
   label: string
   path: string
   icon: LucideIcon
   description?: string
-  /** 'all'(기본값): 로그인한 모든 사용자, 'master': is_master 계정만, 'teamLeaderOrAbove': 팀장 이상 */
+  /** 'all'(기본값): 로그인한 모든 사용자, 'master': is_master 계정만, 'teamLeaderOrAbove': 팀장 이상,
+   * 'dashboardViewer': 팀장 이상 또는 부서장/부문장/총괄 관리자 (대시보드 조회 가능한 모든 역할) */
   permission?: SidebarPermission
 }
 
@@ -34,20 +35,17 @@ export interface SidebarGroup {
 
 export const SIDEBAR_GROUPS: SidebarGroup[] = [
   {
+    
+    title: '근무관리',
     items: [
       {
         label: '대시보드',
         path: '/dashboard',
         icon: TrendingUp,
         description: '팀 근무 통계',
-        permission: 'teamLeaderOrAbove',
+        permission: 'dashboardViewer',
       },
       { label: '근무기록', path: '/', icon: Clock, description: '근무 입력 · 휴가 · 원격근무' },
-    ],
-  },
-  {
-    title: '근무관리',
-    items: [
       {
         label: '리포트',
         path: '/report',

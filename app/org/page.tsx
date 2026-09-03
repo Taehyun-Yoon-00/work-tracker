@@ -14,6 +14,7 @@ import {
   canManageDivision,
   hasTopOrgAccess,
 } from '../lib/orgPermissions'
+import { pinHeadFirst } from '../lib/orgOrder'
 
 interface TeamRow {
   id: string
@@ -32,6 +33,7 @@ interface TeamMemberRow extends MemberRow {
 // 조직 관리 화면 안에서만 쓰는 순서변경 모드 상태.
 // 'departments': 부문의 부서 목록 순서, 'teams': 부서의 팀 목록 순서, 'deptMembers': 부서의 구성원 순서(부서 직속 + 팀별)
 type ReorderState =
+  | { kind: 'divisions' }
   | { kind: 'departments'; divisionId: string }
   | { kind: 'teams'; departmentId: string }
   | { kind: 'deptMembers'; departmentId: string }
@@ -49,6 +51,30 @@ interface ApproverDelegateRow {
   can_remote: boolean
   can_holiday: boolean
 }
+// 부문/팀 단위 결재권자 위임 (019_division_team_approvers) — department 버전과 같은 모양,
+// 소속 컬럼명만 다르다.
+interface DivisionApproverDelegateRow {
+  id: string
+  division_id: string
+  user_id: string
+  name: string
+  can_vacation: boolean
+  can_remote: boolean
+  can_holiday: boolean
+}
+interface TeamApproverDelegateRow {
+  id: string
+  team_id: string
+  user_id: string
+  name: string
+  can_vacation: boolean
+  can_remote: boolean
+  can_holiday: boolean
+}
+// 결재권자 위임 테이블은 부문/부서/팀 세 군데가 완전히 같은 모양이라 하나의 모달/제출
+// 로직을 공유한다. scope가 어느 테이블(division_approvers/department_approvers/team_approvers)
+// 에 쓸지를 가른다.
+type ApproverScope = 'division' | 'department' | 'team'
 
 type ModalState =
   | { kind: 'createDivision' }
@@ -57,7 +83,7 @@ type ModalState =
   | { kind: 'assignDivisionHead'; divisionId: string }
   | { kind: 'assignDepartmentHead'; departmentId: string }
   | { kind: 'assignTeamHead'; teamId: string; departmentId: string }
-  | { kind: 'addApprover'; departmentId: string }
+  | { kind: 'addApprover'; scope: ApproverScope; targetId: string }
   | null
 
 type Selection =
@@ -75,7 +101,7 @@ export default function OrgPage() {
   // window.confirm/alert 대신 쓰는 확인창/오류 메시지 상태
   const [pendingConfirm, setPendingConfirm] = useState<{
     title: string
-    description?: string
+    description?: ReactNode
     confirmLabel?: string
     tone?: 'danger' | 'normal'
     onConfirm: () => void
@@ -93,6 +119,12 @@ export default function OrgPage() {
   // 순서변경 모드 (req 6): null이면 평소대로, 값이 있으면 해당 목록만 드래그 가능하고 나머지는 비활성화
   const [reorder, setReorder] = useState<ReorderState>(null)
   const [approverDelegates, setApproverDelegates] = useState<ApproverDelegateRow[]>([])
+  const [divisionApproverDelegates, setDivisionApproverDelegates] = useState<
+    DivisionApproverDelegateRow[]
+  >([])
+  const [teamApproverDelegates, setTeamApproverDelegates] = useState<TeamApproverDelegateRow[]>(
+    []
+  )
   const [allProfiles, setAllProfiles] = useState<ProfileOption[]>([])
 
   // 사이드바 트리에서 펼쳐진 부문 목록 (기본은 모두 접힌 상태)
@@ -181,40 +213,51 @@ export default function OrgPage() {
   }, [])
 
   const fetchAll = async () => {
-    const [divRes, depRes, teamRes, tmRes, dmRes, apRes, profRes] = await Promise.all([
-      supabase.from('divisions').select('id, name, head_user_id').order('name'),
-      supabase
-        .from('departments')
-        .select('id, division_id, name, head_user_id')
-        .order('division_id')
-        .order('display_order'),
-      supabase
-        .from('teams')
-        .select('id, department_id, name, display_order')
-        .order('department_id')
-        .order('display_order'),
-      supabase
-        .from('team_members')
-        .select('team_id, user_id, role, profiles(name, email, is_master)')
-        .order('team_id')
-        .order('display_order'),
-      supabase
-        .from('department_memberships')
-        .select('department_id, user_id, profiles(name, email, is_master)')
-        .order('department_id')
-        .order('display_order'),
-      supabase
-        .from('department_approvers')
-        .select(
-          'id, department_id, user_id, can_vacation, can_remote, can_holiday, profiles(name, email, is_master)'
-        ),
-      // 마스터(시스템 관리자) 계정은 조직 관리 화면에 노출하지 않는다 — 별도 권한 트랙이라 조직 구성원 풀에서 제외
-      supabase
-        .from('profiles')
-        .select('id, name, email')
-        .or('is_master.eq.false,is_master.is.null')
-        .order('name'),
-    ])
+    const [divRes, depRes, teamRes, tmRes, dmRes, apRes, divApRes, teamApRes, profRes] =
+      await Promise.all([
+        supabase.from('divisions').select('id, name, head_user_id, display_order').order('display_order'),
+        supabase
+          .from('departments')
+          .select('id, division_id, name, head_user_id')
+          .order('division_id')
+          .order('display_order'),
+        supabase
+          .from('teams')
+          .select('id, department_id, name, display_order')
+          .order('department_id')
+          .order('display_order'),
+        supabase
+          .from('team_members')
+          .select('team_id, user_id, role, profiles(name, email, is_master)')
+          .order('team_id')
+          .order('display_order'),
+        supabase
+          .from('department_memberships')
+          .select('department_id, user_id, profiles(name, email, is_master)')
+          .order('department_id')
+          .order('display_order'),
+        supabase
+          .from('department_approvers')
+          .select(
+            'id, department_id, user_id, can_vacation, can_remote, can_holiday, profiles(name, email, is_master)'
+          ),
+        supabase
+          .from('division_approvers')
+          .select(
+            'id, division_id, user_id, can_vacation, can_remote, can_holiday, profiles(name, email, is_master)'
+          ),
+        supabase
+          .from('team_approvers')
+          .select(
+            'id, team_id, user_id, can_vacation, can_remote, can_holiday, profiles(name, email, is_master)'
+          ),
+        // 마스터(시스템 관리자) 계정은 조직 관리 화면에 노출하지 않는다 — 별도 권한 트랙이라 조직 구성원 풀에서 제외
+        supabase
+          .from('profiles')
+          .select('id, name, email')
+          .or('is_master.eq.false,is_master.is.null')
+          .order('name'),
+      ])
 
     const divs: DivisionRow[] = divRes.data || []
     setDivisions(divs)
@@ -252,6 +295,32 @@ export default function OrgPage() {
           can_holiday: a.can_holiday,
         }))
     )
+    setDivisionApproverDelegates(
+      (divApRes.data || [])
+        .filter((a: any) => !a.profiles?.is_master)
+        .map((a: any) => ({
+          id: a.id,
+          division_id: a.division_id,
+          user_id: a.user_id,
+          name: a.profiles?.name || a.profiles?.email?.split('@')[0] || '이름없음',
+          can_vacation: a.can_vacation,
+          can_remote: a.can_remote,
+          can_holiday: a.can_holiday,
+        }))
+    )
+    setTeamApproverDelegates(
+      (teamApRes.data || [])
+        .filter((a: any) => !a.profiles?.is_master)
+        .map((a: any) => ({
+          id: a.id,
+          team_id: a.team_id,
+          user_id: a.user_id,
+          name: a.profiles?.name || a.profiles?.email?.split('@')[0] || '이름없음',
+          can_vacation: a.can_vacation,
+          can_remote: a.can_remote,
+          can_holiday: a.can_holiday,
+        }))
+    )
     setAllProfiles(
       (profRes.data || []).map((p: any) => ({
         id: p.id,
@@ -271,15 +340,20 @@ export default function OrgPage() {
 
   const teamsInDept = (departmentId: string) =>
     teams.filter((t) => t.department_id === departmentId)
-  // 팀 구성원 목록: 팀장(admin)이 항상 최상단에 오도록 정렬한다
+  // 팀 구성원 목록: 팀장(admin)이 항상 최상단에 오도록 정렬한다.
+  // 대시보드/내소속과 동일한 규칙(lib/orgOrder의 pinHeadFirst)을 그대로 사용한다.
   const membersOfTeam = (teamId: string) =>
-    teamMembers
-      .filter((m) => m.team_id === teamId)
-      .sort((a, b) => (a.role === 'admin' ? -1 : b.role === 'admin' ? 1 : 0))
+    pinHeadFirst(
+      teamMembers.filter((m) => m.team_id === teamId).map((m) => ({ ...m, isHead: m.role === 'admin' }))
+    )
   const directOfDept = (departmentId: string) =>
     directMembers.filter((m) => m.department_id === departmentId)
   const approversOfDept = (departmentId: string) =>
     approverDelegates.filter((a) => a.department_id === departmentId)
+  const approversOfDivision = (divisionId: string) =>
+    divisionApproverDelegates.filter((a) => a.division_id === divisionId)
+  const approversOfTeam = (teamId: string) =>
+    teamApproverDelegates.filter((a) => a.team_id === teamId)
   const departmentsOfDivision = (divisionId: string) =>
     departments.filter((d) => d.division_id === divisionId)
 
@@ -306,6 +380,20 @@ export default function OrgPage() {
     return ids
   }
   const headcountOfDivision = (divisionId: string) => memberIdsOfDivision(divisionId).size
+
+  // ---------- 조직장 임명 후보 ----------
+  // 부문장을 임명하는 총괄 관리자/마스터는 이미 조직 전체에 대한 권한을 가지므로
+  // 후보 제한이 필요 없다. 하지만 그 아래(부문장이 부서장을, 부서장이 팀장을 임명)로
+  // 내려가면 "자신의 권한이 미치는 인원(해당 부문/부서 소속) + 미지정 인원"만 후보로
+  // 노출해서, 다른 부문·부서 소속 인원을 함부로 데려오지 못하게 한다.
+  const candidatesForDivision = (divisionId: string): ProfileOption[] => {
+    const ids = memberIdsOfDivision(divisionId)
+    return allProfiles.filter((p) => ids.has(p.id) || unassignedProfiles.some((u) => u.id === p.id))
+  }
+  const candidatesForDepartment = (departmentId: string): ProfileOption[] => {
+    const ids = memberIdsOfDept(departmentId)
+    return allProfiles.filter((p) => ids.has(p.id) || unassignedProfiles.some((u) => u.id === p.id))
+  }
 
   // ---------- 미지정 인원 ----------
   // 어느 팀에도, 어느 부서에도(직접 소속으로도) 속하지 않은 사람 = 미지정 인원.
@@ -430,7 +518,9 @@ export default function OrgPage() {
 
     if (modal.kind === 'createDivision') {
       if (!modalInput.trim()) return
-      const { error } = await supabase.from('divisions').insert({ name: modalInput.trim() })
+      const { error } = await supabase
+        .from('divisions')
+        .insert({ name: modalInput.trim(), display_order: divisions.length })
       if (error) {
         setMessage('부문 생성 실패: ' + error.message)
         return
@@ -537,13 +627,15 @@ export default function OrgPage() {
         setMessage('결재권자로 위임할 사람을 선택해주세요.')
         return
       }
-      const { error } = await supabase.from('department_approvers').upsert(
+      const table = approverTableOf(modal.scope)
+      const idField = approverIdFieldOf(modal.scope)
+      const { error } = await supabase.from(table).upsert(
         {
-          department_id: modal.departmentId,
+          [idField]: modal.targetId,
           user_id: modalUserId,
           ...modalChecks,
         },
-        { onConflict: 'department_id,user_id' }
+        { onConflict: `${idField},user_id` }
       )
       if (error) {
         setMessage('결재권자 위임 실패: ' + error.message)
@@ -555,19 +647,28 @@ export default function OrgPage() {
     fetchAll()
   }
 
-  const handleRemoveApprover = async (id: string) => {
-    await supabase.from('department_approvers').delete().eq('id', id)
+  // 결재권자 위임 테이블은 부문/부서/팀 세 군데가 완전히 같은 모양이라 scope로 테이블/컬럼명만 가른다.
+  const approverTableOf = (scope: ApproverScope) =>
+    scope === 'division'
+      ? 'division_approvers'
+      : scope === 'team'
+        ? 'team_approvers'
+        : 'department_approvers'
+  const approverIdFieldOf = (scope: ApproverScope) => `${scope}_id`
+
+  const handleRemoveApprover = async (scope: ApproverScope, id: string) => {
+    await supabase.from(approverTableOf(scope)).delete().eq('id', id)
     fetchAll()
   }
 
-  const confirmRemoveApprover = (id: string) => {
+  const confirmRemoveApprover = (scope: ApproverScope, id: string) => {
     setPendingConfirm({
       title: '이 사람의 결재권자 위임을 해제할까요?',
       confirmLabel: '해제',
       tone: 'danger',
       onConfirm: () => {
         setPendingConfirm(null)
-        handleRemoveApprover(id)
+        handleRemoveApprover(scope, id)
       },
     })
   }
@@ -778,7 +879,11 @@ export default function OrgPage() {
     fetchAll()
   }
 
-  // ---------- 부문/부서 삭제 (하위 항목이 없을 때만 허용) ----------
+  // ---------- 부문/부서/팀 삭제 ----------
+  // 하위 조직이나 인원이 남아있어도 삭제할 수 있다. 팀/부서/부문을 지우면
+  // 그 아래 팀도 함께 지워지고(DB에서 CASCADE), 소속돼 있던 인원은 그 소속에서만
+  // 끊어질 뿐 계정 자체는 남아 "미지정 인원"으로 이동한다 — 삭제 전 몇 명이
+  // 영향을 받는지 확인창에서 미리 안내한다.
   const handleDeleteDivision = async (division: DivisionRow) => {
     const { error } = await supabase.from('divisions').delete().eq('id', division.id)
     if (error) {
@@ -790,12 +895,18 @@ export default function OrgPage() {
   }
 
   const confirmDeleteDivision = (division: DivisionRow) => {
-    if (departmentsOfDivision(division.id).length > 0) {
-      setMessage('하위 부서가 있는 부문은 삭제할 수 없어요. 먼저 부서를 정리해주세요.')
-      return
-    }
+    const deptCount = departmentsOfDivision(division.id).length
+    const memberCount = headcountOfDivision(division.id)
+    const warning =
+      deptCount > 0 || memberCount > 0 ? (
+        <>
+          이 부문에는 부서 {deptCount}개, 인원 {memberCount}명이 있어요. 삭제하면 하위 부서와
+          팀이 모두 함께 삭제되고, 소속돼 있던 인원은 <strong>미지정 인원</strong> 상태가 돼요.
+        </>
+      ) : undefined
     setPendingConfirm({
       title: `'${division.name}' 부문을 삭제할까요?`,
+      description: warning,
       confirmLabel: '삭제',
       tone: 'danger',
       onConfirm: () => {
@@ -821,12 +932,17 @@ export default function OrgPage() {
   }
 
   const confirmDeleteTeam = (team: TeamRow) => {
-    if (membersOfTeam(team.id).length > 0) {
-      setMessage('소속된 구성원이 있는 팀은 삭제할 수 없어요. 먼저 인원을 정리해주세요.')
-      return
-    }
+    const memberCount = membersOfTeam(team.id).length
+    const warning =
+      memberCount > 0 ? (
+        <>
+          이 팀에는 구성원 {memberCount}명이 있어요. 삭제하면 인원은{' '}
+          <strong>미지정 인원</strong> 상태가 돼요.
+        </>
+      ) : undefined
     setPendingConfirm({
       title: `'${team.name}' 팀을 삭제할까요?`,
+      description: warning,
       confirmLabel: '삭제',
       tone: 'danger',
       onConfirm: () => {
@@ -851,14 +967,18 @@ export default function OrgPage() {
   }
 
   const confirmDeleteDepartment = (department: DepartmentRow) => {
-    const hasTeams = teamsInDept(department.id).length > 0
-    const hasDirect = directOfDept(department.id).length > 0
-    if (hasTeams || hasDirect) {
-      setMessage('소속된 팀이나 구성원이 있는 부서는 삭제할 수 없어요. 먼저 인원을 정리해주세요.')
-      return
-    }
+    const teamCount = teamsInDept(department.id).length
+    const memberCount = headcountOfDept(department.id)
+    const warning =
+      teamCount > 0 || memberCount > 0 ? (
+        <>
+          이 부서에는 팀 {teamCount}개, 인원 {memberCount}명이 있어요. 삭제하면 하위 팀도 함께
+          삭제되고, 소속돼 있던 인원은 <strong>미지정 인원</strong> 상태가 돼요.
+        </>
+      ) : undefined
     setPendingConfirm({
       title: `'${department.name}' 부서를 삭제할까요?`,
+      description: warning,
       confirmLabel: '삭제',
       tone: 'danger',
       onConfirm: () => {
@@ -888,6 +1008,10 @@ export default function OrgPage() {
     return result
   }
 
+  const startReorderDivisions = () => {
+    setMenuOpenId(null)
+    setReorder({ kind: 'divisions' })
+  }
   const startReorderDepartments = (divisionId: string) => {
     setSelected({ type: 'division', id: divisionId })
     setActiveTab('structure')
@@ -913,7 +1037,13 @@ export default function OrgPage() {
   const finishReorder = async () => {
     if (!reorder) return
     try {
-      if (reorder.kind === 'departments') {
+      if (reorder.kind === 'divisions') {
+        await Promise.all(
+          divisions.map((d, idx) =>
+            supabase.from('divisions').update({ display_order: idx }).eq('id', d.id)
+          )
+        )
+      } else if (reorder.kind === 'departments') {
         const group = departments.filter((d) => d.division_id === reorder.divisionId)
         await Promise.all(
           group.map((d, idx) =>
@@ -1348,36 +1478,90 @@ export default function OrgPage() {
         )}
 
         {activeTab === 'permissions' && (
-          <div className="space-y-4">
-            <p className="text-xs text-gray-400 dark:text-zinc-500">
-              결재권자 위임은 각 부서 화면에서 관리할 수 있어요. 부서를 선택해주세요.
-            </p>
-            {deptList.map((department) => (
-              <div key={department.id}>
-                <button
-                  onClick={() => selectDepartment(department.id)}
-                  className="text-xs font-semibold text-gray-500 dark:text-zinc-400 mb-1.5 hover:underline"
-                >
-                  {department.name} ›
-                </button>
-                <div className="flex flex-wrap gap-1.5">
-                  <span className="text-[11px] bg-gray-100 dark:bg-zinc-700 text-gray-500 dark:text-zinc-400 px-2 py-0.5 rounded-full">
-                    {profileName(department.head_user_id) || '부서장 공석'} · 부장(자동)
-                  </span>
-                  {approversOfDept(department.id).map((a) => (
-                    <span
-                      key={a.id}
-                      className="text-[11px] bg-purple-50 text-purple-500 px-2 py-0.5 rounded-full"
-                    >
-                      {a.name}{' '}
+          <div className="space-y-5">
+            {/* 부문장은 부문 산하 모든 부서에 대한 결재권을 가진다 (부서장의 결재가 부문장에게 올라감).
+                부서장과 같은 패턴으로 부문장도 결재권자를 위임할 수 있다. */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-gray-400 dark:text-zinc-500">
+                  결재권자 · 부문 산하 모든 부서의 결재를 받아요
+                </p>
+                {canManageThisDivision && (
+                  <button
+                    onClick={() =>
+                      openModal({ kind: 'addApprover', scope: 'division', targetId: division.id })
+                    }
+                    className="text-xs text-blue-500 hover:underline font-medium"
+                  >
+                    + 결재권자 위임
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                <span className="text-[11px] bg-gray-100 dark:bg-zinc-700 text-gray-500 dark:text-zinc-400 px-2 py-0.5 rounded-full">
+                  {profileName(division.head_user_id) || '부문장 공석'} · 부문장(자동)
+                </span>
+                {approversOfDivision(division.id).map((a) => (
+                  <span
+                    key={a.id}
+                    className="text-[11px] bg-purple-50 text-purple-500 px-2 py-0.5 rounded-full flex items-center gap-1"
+                  >
+                    {a.name}
+                    <span className="text-purple-300">
                       {[a.can_vacation && '휴가', a.can_remote && '원격', a.can_holiday && '휴일']
                         .filter(Boolean)
                         .join('·')}
                     </span>
-                  ))}
-                </div>
+                    {canManageThisDivision && (
+                      <button
+                        onClick={() => confirmRemoveApprover('division', a.id)}
+                        className="text-purple-400 hover:text-red-500 inline-flex items-center"
+                      >
+                        <X size={12} strokeWidth={2} />
+                      </button>
+                    )}
+                  </span>
+                ))}
               </div>
-            ))}
+            </div>
+
+            <div>
+              <p className="text-xs text-gray-400 dark:text-zinc-500 mb-2">
+                부서별 결재권자는 각 부서 화면에서 관리할 수 있어요.
+              </p>
+              <div className="space-y-3">
+                {deptList.map((department) => (
+                  <div key={department.id}>
+                    <button
+                      onClick={() => selectDepartment(department.id)}
+                      className="text-xs font-semibold text-gray-500 dark:text-zinc-400 mb-1.5 hover:underline"
+                    >
+                      {department.name} ›
+                    </button>
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="text-[11px] bg-gray-100 dark:bg-zinc-700 text-gray-500 dark:text-zinc-400 px-2 py-0.5 rounded-full">
+                        {profileName(department.head_user_id) || '부서장 공석'} · 부장(자동)
+                      </span>
+                      {approversOfDept(department.id).map((a) => (
+                        <span
+                          key={a.id}
+                          className="text-[11px] bg-purple-50 text-purple-500 px-2 py-0.5 rounded-full"
+                        >
+                          {a.name}{' '}
+                          {[
+                            a.can_vacation && '휴가',
+                            a.can_remote && '원격',
+                            a.can_holiday && '휴일',
+                          ]
+                            .filter(Boolean)
+                            .join('·')}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -1900,7 +2084,9 @@ export default function OrgPage() {
               <p className="text-xs text-gray-400 dark:text-zinc-500">결재권자</p>
               {canManageThisDept && (
                 <button
-                  onClick={() => openModal({ kind: 'addApprover', departmentId: department.id })}
+                  onClick={() =>
+                    openModal({ kind: 'addApprover', scope: 'department', targetId: department.id })
+                  }
                   className="text-xs text-blue-500 hover:underline font-medium"
                 >
                   + 결재권자 위임
@@ -1924,7 +2110,7 @@ export default function OrgPage() {
                   </span>
                   {canManageThisDept && (
                     <button
-                      onClick={() => confirmRemoveApprover(a.id)}
+                      onClick={() => confirmRemoveApprover('department', a.id)}
                       className="text-purple-400 hover:text-red-500 inline-flex items-center"
                     >
                       <X size={12} strokeWidth={2} />
@@ -2081,31 +2267,74 @@ export default function OrgPage() {
         )}
 
         {activeTab === 'permissions' && (
-          <div className="space-y-3">
-            <p className="text-xs text-gray-400 dark:text-zinc-500">
-              결재권자 위임은 팀이 아니라 부서 단위로 관리돼요.{' '}
+          <div className="space-y-5">
+            {/* 팀장도 부서장/부문장과 같은 패턴으로 결재권자를 위임할 수 있다.
+                팀원들이 결재를 올릴 때 결재권자로 팀장을 선택할 수 있는 것과 짝이 되는 관리 화면. */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-gray-400 dark:text-zinc-500">결재권자 · 이 팀</p>
+                {canManageThisDept && (
+                  <button
+                    onClick={() =>
+                      openModal({ kind: 'addApprover', scope: 'team', targetId: team.id })
+                    }
+                    className="text-xs text-blue-500 hover:underline font-medium"
+                  >
+                    + 결재권자 위임
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                <span className="text-[11px] bg-gray-100 dark:bg-zinc-700 text-gray-500 dark:text-zinc-400 px-2 py-0.5 rounded-full">
+                  {lead ? lead.name : '팀장 공석'} · 팀장(자동)
+                </span>
+                {approversOfTeam(team.id).map((a) => (
+                  <span
+                    key={a.id}
+                    className="text-[11px] bg-purple-50 text-purple-500 px-2 py-0.5 rounded-full flex items-center gap-1"
+                  >
+                    {a.name}
+                    <span className="text-purple-300">
+                      {[a.can_vacation && '휴가', a.can_remote && '원격', a.can_holiday && '휴일']
+                        .filter(Boolean)
+                        .join('·')}
+                    </span>
+                    {canManageThisDept && (
+                      <button
+                        onClick={() => confirmRemoveApprover('team', a.id)}
+                        className="text-purple-400 hover:text-red-500 inline-flex items-center"
+                      >
+                        <X size={12} strokeWidth={2} />
+                      </button>
+                    )}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div>
               <button
                 onClick={() => selectDepartment(department.id)}
-                className="text-blue-500 hover:underline"
+                className="text-xs text-gray-400 dark:text-zinc-500 hover:underline"
               >
-                {department.name} 관리로 이동
+                {department.name}의 결재권자 관리로 이동 ›
               </button>
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              <span className="text-[11px] bg-gray-100 dark:bg-zinc-700 text-gray-500 dark:text-zinc-400 px-2 py-0.5 rounded-full">
-                {profileName(department.head_user_id) || '부서장 공석'} · 부장(자동)
-              </span>
-              {delegates.map((a) => (
-                <span
-                  key={a.id}
-                  className="text-[11px] bg-purple-50 text-purple-500 px-2 py-0.5 rounded-full"
-                >
-                  {a.name}{' '}
-                  {[a.can_vacation && '휴가', a.can_remote && '원격', a.can_holiday && '휴일']
-                    .filter(Boolean)
-                    .join('·')}
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                <span className="text-[11px] bg-gray-100 dark:bg-zinc-700 text-gray-500 dark:text-zinc-400 px-2 py-0.5 rounded-full">
+                  {profileName(department.head_user_id) || '부서장 공석'} · 부장(자동)
                 </span>
-              ))}
+                {delegates.map((a) => (
+                  <span
+                    key={a.id}
+                    className="text-[11px] bg-purple-50 text-purple-500 px-2 py-0.5 rounded-full"
+                  >
+                    {a.name}{' '}
+                    {[a.can_vacation && '휴가', a.can_remote && '원격', a.can_holiday && '휴일']
+                      .filter(Boolean)
+                      .join('·')}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -2158,15 +2387,65 @@ export default function OrgPage() {
           {/* 사이드바 */}
           <aside className="w-72 border-r border-gray-100 dark:border-zinc-700 flex flex-col shrink-0 min-w-0 overflow-x-hidden">
             <div className="flex-1 overflow-y-auto overflow-x-hidden py-2">
-              <p className="px-4 pt-2 pb-2 text-sm font-bold text-gray-600 dark:text-zinc-300 tracking-wide">
-                조직 구조
-              </p>
-              {divisions.length === 0 && (
-                <p className="px-4 py-6 text-center text-xs text-gray-300 dark:text-zinc-600">
-                  등록된 부문이 없어요.
+              <div className="flex items-center justify-between px-4 pt-2 pb-2">
+                <p className="text-sm font-bold text-gray-600 dark:text-zinc-300 tracking-wide">
+                  조직 구조
                 </p>
-              )}
-              {visibleDivisions.map((division) => {
+                {hasTopAccess && divisions.length > 1 && !reorder && (
+                  <button
+                    onClick={startReorderDivisions}
+                    className="text-[11px] text-blue-500 hover:underline font-medium"
+                  >
+                    순서 변경
+                  </button>
+                )}
+                {reorder?.kind === 'divisions' && (
+                  <span className="flex items-center gap-3">
+                    <button
+                      onClick={cancelReorder}
+                      className="text-[11px] text-gray-400 dark:text-zinc-500 hover:underline"
+                    >
+                      취소
+                    </button>
+                    <button
+                      onClick={finishReorder}
+                      className="text-[11px] bg-blue-500 text-white px-2.5 py-1 rounded-lg font-medium"
+                    >
+                      완료
+                    </button>
+                  </span>
+                )}
+              </div>
+              {reorder?.kind === 'divisions' ? (
+                <div className="px-2 space-y-1.5">
+                  <p className="px-2 pb-1 text-xs text-blue-500 font-medium">
+                    순서를 드래그해서 바꿔보세요.
+                  </p>
+                  <DragList
+                    items={divisions}
+                    getKey={(d) => d.id}
+                    disabled={false}
+                    onReorder={(next) => setDivisions(next)}
+                    renderItem={(division) => (
+                      <div className="w-full flex items-center justify-between bg-gray-50 dark:bg-zinc-900/40 rounded-lg px-3 py-2.5">
+                        <span className="text-sm font-medium dark:text-white truncate">
+                          {division.name}
+                        </span>
+                        <span className="text-[11px] text-gray-300 dark:text-zinc-600 shrink-0">
+                          {headcountOfDivision(division.id)}
+                        </span>
+                      </div>
+                    )}
+                  />
+                </div>
+              ) : (
+                <>
+                  {divisions.length === 0 && (
+                    <p className="px-4 py-6 text-center text-xs text-gray-300 dark:text-zinc-600">
+                      등록된 부문이 없어요.
+                    </p>
+                  )}
+                  {visibleDivisions.map((division) => {
                 const isOpen = expandedDiv.has(division.id) || !!searchTerm
                 const isSelected = selected?.type === 'division' && selected.id === division.id
                 const deptList = departmentsOfDivision(division.id).filter(
@@ -2256,6 +2535,8 @@ export default function OrgPage() {
                   검색 결과가 없어요.
                 </p>
               )}
+                </>
+              )}
 
               <div className="mt-3 pt-3 mx-1 border-t border-gray-100 dark:border-zinc-700">
                 <button
@@ -2286,7 +2567,7 @@ export default function OrgPage() {
                 </button>
               </div>
             </div>
-            {hasTopAccess && (
+            {hasTopAccess && !reorder && (
               <div className="p-3 border-t border-gray-100 dark:border-zinc-700">
                 <button
                   onClick={() => openModal({ kind: 'createDivision' })}
@@ -2428,12 +2709,26 @@ export default function OrgPage() {
                   className="w-full border rounded-lg px-3.5 py-2.5 text-sm dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
                 >
                   <option value="">공석으로</option>
-                  {allProfiles.map((p) => (
+                  {(modal.kind === 'assignDivisionHead'
+                    ? allProfiles
+                    : modal.kind === 'assignDepartmentHead'
+                      ? candidatesForDivision(
+                          departments.find((d) => d.id === modal.departmentId)?.division_id || ''
+                        )
+                      : candidatesForDepartment(modal.departmentId)
+                  ).map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
                     </option>
                   ))}
                 </select>
+              )}
+              {(modal.kind === 'assignDepartmentHead' || modal.kind === 'assignTeamHead') && (
+                <p className="text-xs text-gray-400 dark:text-zinc-500 -mt-2">
+                  {modal.kind === 'assignDepartmentHead'
+                    ? '이 부문 소속 인원과 미지정 인원만 선택할 수 있어요.'
+                    : '이 부서 소속 인원과 미지정 인원만 선택할 수 있어요.'}
+                </p>
               )}
 
               {modal.kind === 'addApprover' && (

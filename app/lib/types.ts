@@ -1,6 +1,6 @@
 // Supabase 테이블의 row 타입.
 // 스키마 근거: supabase/migrations/001_init.sql, 002~008, 009_fix_work_log_matters_rls,
-// 010_org_structure ~ 015_org_display_order
+// 010_org_structure ~ 015_org_display_order, 019_division_team_approvers
 // (컬럼을 추가/변경하는 마이그레이션을 쓸 때 이 파일도 함께 갱신할 것)
 //
 // refactoring 브랜치(main 기준)의 lib/types.ts를 renewal의 조직 구조
@@ -235,6 +235,28 @@ export interface DepartmentMembership {
 export interface DepartmentApprover {
   id: UUID
   department_id: UUID
+  user_id: UUID
+  can_vacation: boolean
+  can_remote: boolean
+  can_holiday: boolean
+  created_at: Timestamp
+}
+
+/** 부문장이 위임한 결재권자 (019_division_team_approvers). 부문장 본인은 여기 없어도 항상 결재권자다 */
+export interface DivisionApprover {
+  id: UUID
+  division_id: UUID
+  user_id: UUID
+  can_vacation: boolean
+  can_remote: boolean
+  can_holiday: boolean
+  created_at: Timestamp
+}
+
+/** 팀장이 위임한 결재권자 (019_division_team_approvers). 팀장 본인은 여기 없어도 항상 결재권자다 */
+export interface TeamApprover {
+  id: UUID
+  team_id: UUID
   user_id: UUID
   can_vacation: boolean
   can_remote: boolean

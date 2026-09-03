@@ -32,6 +32,7 @@ export default function Sidebar() {
     if (item.permission === 'master') return isMaster
     if (item.permission === 'teamLeaderOrAbove') return isTeamLeaderOrAbove
     if (item.permission === 'orgManager') return isOrgManager
+    if (item.permission === 'dashboardViewer') return isTeamLeaderOrAbove || isOrgManager
     return true
   }
 

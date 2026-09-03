@@ -13,8 +13,9 @@ import {
   isPublicHoliday,
   fetchSubstituteHolidays,
 } from '../../lib/holidays'
+import { fetchTeamMembers, fetchDepartmentScope, type OrgMember } from '../../lib/orgOrder'
 
-type ScopeMember = { user_id: string; name: string; position: string | null }
+type ScopeMember = OrgMember
 type FilterScope = 'department' | 'team'
 
 export default function TeamDetailPage() {
@@ -22,7 +23,7 @@ export default function TeamDetailPage() {
   const { id } = useParams()
   const [user, setUser] = useState<any>(null)
   const [team, setTeam] = useState<any>(null)
-  const [members, setMembers] = useState<any[]>([])
+  const [members, setMembers] = useState<OrgMember[]>([])
   const [deptMembers, setDeptMembers] = useState<ScopeMember[]>([])
   const [filterScope, setFilterScope] = useState<FilterScope>('department')
   const [isAdmin, setIsAdmin] = useState(false)
@@ -66,8 +67,6 @@ export default function TeamDetailPage() {
     if (!team?.department_id) setFilterScope('team')
   }, [team?.department_id])
 
-  const profileDisplayName = (p: any) => p?.name || p?.email?.split('@')[0] || '이름없음'
-
   const fetchTeamData = async (userId: string) => {
     const { data: profileData } = await supabase
       .from('profiles')
@@ -92,25 +91,14 @@ export default function TeamDetailPage() {
       .single()
     if (teamData) setTeam(teamData)
 
-    const { data: memberData } = await supabase
-      .from('team_members')
-      .select('*, profiles(id, email, name, position, is_master)')
-      .eq('team_id', id)
-      .order('display_order', { ascending: true })
-      .order('created_at', { ascending: true })
-
-    let unionUserIds: string[] = []
-    let isMember = false
-
-    if (memberData) {
-      // 마스터(시스템 관리자) 계정은 조직 구성원 풀에서 제외 — 별도 권한 트랙
-      const visibleMemberData = memberData.filter((m: any) => !m.profiles?.is_master)
-      setMembers(visibleMemberData)
-      const myRole = memberData.find((m) => m.user_id === userId)
-      if (myRole?.role === 'admin') setIsAdmin(true)
-      isMember = !!myRole
-      unionUserIds = visibleMemberData.map((m) => m.user_id)
-    }
+    // 정렬/조회 규칙은 lib/orgOrder에 모아둔 공용 로직을 그대로 쓴다 — 조직관리, 대시보드와
+    // 항상 같은 순서(팀장이 팀 안에서 항상 최상단, 나머지는 display_order 순서)를 보장한다.
+    const teamMembersList = await fetchTeamMembers(String(id))
+    setMembers(teamMembersList)
+    const myRole = teamMembersList.find((m) => m.user_id === userId)
+    if (myRole?.isHead) setIsAdmin(true)
+    const isMember = !!myRole
+    let unionUserIds: string[] = teamMembersList.map((m) => m.user_id)
 
     // 열람 권한: 팀 소속 인원 본인, 이 팀이 속한 부서의 부서장, 그 부서가 속한 부문의 부문장,
     // 총괄 관리자, 시스템 관리자(마스터)만 볼 수 있다. 그 외에는 접근을 차단한다.
@@ -120,44 +108,12 @@ export default function TeamDetailPage() {
     setAuthorized(masterFlag || !!generalAdminRow || isMember || canViewAsOrgHead)
 
     // 부서 전체 스코프: 같은 부서의 다른 팀 + 부서 직접 소속 인원까지 모아둔다.
+    // 표시 순서는 조직관리와 동일한 공용 규칙(부서장 최상단 → 부서 직속 → 팀 순서대로,
+    // 각 팀은 팀장이 최상단)을 그대로 따른다.
     if (teamData?.department_id) {
-      const [{ data: deptTeams }, { data: directDept }] = await Promise.all([
-        supabase.from('teams').select('id').eq('department_id', teamData.department_id),
-        supabase
-          .from('department_memberships')
-          .select('user_id, profiles(id, email, name, position, is_master)')
-          .eq('department_id', teamData.department_id),
-      ])
-
-      const teamIds = (deptTeams || []).map((t: any) => t.id)
-      const { data: deptTeamMembers } =
-        teamIds.length > 0
-          ? await supabase
-              .from('team_members')
-              .select('user_id, profiles(id, email, name, position, is_master)')
-              .in('team_id', teamIds)
-          : { data: [] as any[] }
-
-      const combinedMap = new Map<string, ScopeMember>()
-      ;(deptTeamMembers || []).forEach((m: any) => {
-        if (m.profiles?.is_master) return
-        combinedMap.set(m.user_id, {
-          user_id: m.user_id,
-          name: profileDisplayName(m.profiles),
-          position: m.profiles?.position || null,
-        })
-      })
-      ;(directDept || []).forEach((m: any) => {
-        if (m.profiles?.is_master) return
-        combinedMap.set(m.user_id, {
-          user_id: m.user_id,
-          name: profileDisplayName(m.profiles),
-          position: m.profiles?.position || null,
-        })
-      })
-      const combined = Array.from(combinedMap.values())
-      setDeptMembers(combined)
-      unionUserIds = Array.from(new Set([...unionUserIds, ...combined.map((m) => m.user_id)]))
+      const scope = await fetchDepartmentScope(teamData.department_id)
+      setDeptMembers(scope.allMembers)
+      unionUserIds = Array.from(new Set([...unionUserIds, ...scope.allMembers.map((m) => m.user_id)]))
     } else {
       setDeptMembers([])
     }
@@ -204,15 +160,9 @@ export default function TeamDetailPage() {
     setSubstituteHolidays(await fetchSubstituteHolidays())
   }
 
-  // 현재 필터 범위(부서 전체 / 내 팀만)에 해당하는 인원 목록 + 이름 조회
+  // 현재 필터 범위(부서 전체 / 내 팀만)에 해당하는 인원 목록
   const scopeMembers: ScopeMember[] =
-    filterScope === 'team' || deptMembers.length === 0
-      ? members.map((m) => ({
-          user_id: m.user_id,
-          name: profileDisplayName(m.profiles),
-          position: m.profiles?.position || null,
-        }))
-      : deptMembers
+    filterScope === 'team' || deptMembers.length === 0 ? members : deptMembers
   const scopeUserIds = new Set(scopeMembers.map((m) => m.user_id))
 
   const sortByMemberOrder = <T extends { user_id: string }>(list: T[]): T[] => {
@@ -276,7 +226,7 @@ export default function TeamDetailPage() {
     return getWeeksOfMonth(dayjs(month))
   }
 
-  const leaders = members.filter((m) => m.role === 'admin')
+  const leaders = members.filter((m) => m.isHead)
   const departmentName = team?.departments?.name as string | undefined
 
   if (authorized === null) {
@@ -320,7 +270,7 @@ export default function TeamDetailPage() {
           <h1 className="text-2xl font-bold dark:text-white truncate">{team?.name}</h1>
           <p className="text-sm text-gray-400 dark:text-zinc-500 mt-0.5">
             {leaders.length > 0
-              ? `팀장 ${leaders.map((l) => l.profiles?.name || l.profiles?.email?.split('@')[0]).join(', ')}`
+              ? `팀장 ${leaders.map((l) => l.name).join(', ')}`
               : '팀장 미지정'}
             {' · '}소속 인원 {members.length}명
           </p>
@@ -528,15 +478,13 @@ export default function TeamDetailPage() {
                   key={member.user_id}
                   className="flex items-center gap-2 py-2.5 border-b dark:border-zinc-700 last:border-0"
                 >
-                  <span className="font-medium dark:text-white">
-                    {member.profiles?.name || member.profiles?.email?.split('@')[0]}
-                  </span>
-                  {member.profiles?.position && (
+                  <span className="font-medium dark:text-white">{member.name}</span>
+                  {member.position && (
                     <span className="text-xs text-gray-400 dark:text-zinc-500">
-                      {member.profiles.position}
+                      {member.position}
                     </span>
                   )}
-                  {member.role === 'admin' && (
+                  {member.isHead && (
                     <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300">
                       팀장
                     </span>

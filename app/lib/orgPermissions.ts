@@ -14,6 +14,7 @@ export interface DivisionRow {
   id: string
   name: string
   head_user_id: string | null
+  display_order: number
 }
 
 export interface DepartmentRow {

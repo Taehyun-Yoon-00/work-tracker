@@ -1,6 +1,7 @@
 import ApprovalCard from './ApprovalCard'
 import DateRangeFilter from './DateRangeFilter'
 import { Palmtree, Laptop, Building2 } from 'lucide-react'
+import OrgScopeSelect, { OrgScopeOption } from '../ui/OrgScopeSelect'
 
 interface ApprovalListProps {
   requests: any[]
@@ -13,6 +14,10 @@ interface ApprovalListProps {
   onFilterTypeChange: (value: string) => void
   onDateRangeChange: (start: string, end: string) => void
   onCardClick: (req: any) => void
+  /** 부서 필터 — 옵션이 없으면(부서장 이하) 필터 없이 항상 자기 부서 범위로 고정되므로 렌더링하지 않는다. */
+  scopeOptions?: OrgScopeOption[]
+  selectedScope?: OrgScopeOption | null
+  onScopeChange?: (opt: OrgScopeOption) => void
 }
 
 export default function ApprovalList({
@@ -26,6 +31,9 @@ export default function ApprovalList({
   onFilterTypeChange,
   onDateRangeChange,
   onCardClick,
+  scopeOptions = [],
+  selectedScope = null,
+  onScopeChange,
 }: ApprovalListProps) {
   const filteredRequests = requests.filter((r) => {
     const statusMatch =
@@ -44,12 +52,17 @@ export default function ApprovalList({
 
   return (
     <>
-      {/* 기간 선택 */}
-      <DateRangeFilter
-        startDate={dateRangeStart}
-        endDate={dateRangeEnd}
-        onApply={onDateRangeChange}
-      />
+      {/* 부서 필터 + 기간 선택 — 같은 행에 나란히, 통일된 스타일로 */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
+        {scopeOptions.length > 0 && onScopeChange && (
+          <OrgScopeSelect options={scopeOptions} value={selectedScope} onChange={onScopeChange} />
+        )}
+        <DateRangeFilter
+          startDate={dateRangeStart}
+          endDate={dateRangeEnd}
+          onApply={onDateRangeChange}
+        />
+      </div>
 
       {/* 상태 필터 */}
       <div className="flex bg-gray-100 dark:bg-zinc-700 rounded-lg p-0.5 mb-2">

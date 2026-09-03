@@ -45,6 +45,7 @@ export default function Home() {
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [monthlyVacations, setMonthlyVacations] = useState<any[]>([])
+  const [monthlyRemoteWorks, setMonthlyRemoteWorks] = useState<any[]>([])
   const [isNextDay, setIsNextDay] = useState(false)
   const [substituteHolidays, setSubstituteHolidays] = useState<string[]>([])
   const [viewedWeek, setViewedWeek] = useState<Date>(new Date())
@@ -65,6 +66,7 @@ export default function Home() {
     if (user) {
       fetchMonthlyLogs()
       fetchMonthlyVacations()
+      fetchMonthlyRemoteWorks()
       fetchMonthCommutePlans()
       fetchVacation(selectedDate)
       fetchDayLog(selectedDate)
@@ -119,6 +121,19 @@ export default function Home() {
       .gte('date', startOfMonth)
       .lte('date', endOfMonth)
     if (data) setMonthlyVacations(data)
+  }
+
+  const fetchMonthlyRemoteWorks = async () => {
+    const startOfMonth = dayjs(selectedDate).startOf('month').format('YYYY-MM-DD')
+    const endOfMonth = dayjs(selectedDate).endOf('month').format('YYYY-MM-DD')
+    const { data } = await supabase
+      .from('remote_works')
+      .select('date')
+      .eq('user_id', user.id)
+      .gte('date', startOfMonth)
+      .lte('date', endOfMonth)
+
+    if (data) setMonthlyRemoteWorks(data)
   }
 
   const loadSubstituteHolidays = async () => {
@@ -257,6 +272,7 @@ export default function Home() {
       )
       setIsRemote(true)
     }
+    fetchMonthlyRemoteWorks()
     setRemoteLoading(false)
   }
 
@@ -280,9 +296,32 @@ export default function Home() {
         { onConflict: 'user_id,date' }
       )
       setVacation(type)
+
+      // 연차/특휴일에는 근무 기록을 남길 수 없도록 기존 기록도 함께 지운다.
+      if (type === 'annual' || type === 'special') {
+        await supabase
+          .from('work_logs')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('date', dayjs(selectedDate).format('YYYY-MM-DD'))
+        setStartTime('')
+        setEndTime('')
+        setBreakMinutes('60')
+        setMemo('')
+        setIsNextDay(false)
+        setMatters([emptyMatterEntry()])
+        setIsLocked(false)
+        setMessage('')
+        fetchWeeklyLogs()
+        fetchMonthlyLogs()
+      }
     }
     setVacationLoading(false)
   }
+
+  const isAnnualVacation = vacation === 'annual' || vacation === 'special'
+  const workInputDisabled = isLocked || isAnnualVacation
+
   const calcCurrentTotalHours = () => {
     if (!startTime || !endTime) return 0
     const start = dayjs(`2000-01-01 ${startTime}`)
@@ -292,6 +331,10 @@ export default function Home() {
   }
 
   const handleSave = async () => {
+    if (isAnnualVacation) {
+      setMessage('연차인 날은 근무 입력을 저장할 수 없어요.')
+      return
+    }
     if (!startTime || !endTime) {
       setMessage('출근/퇴근 시간을 입력해주세요.')
       return
@@ -454,11 +497,20 @@ export default function Home() {
   const getTileContent = ({ date }: { date: Date }) => {
     const dateStr = dayjs(date).format('YYYY-MM-DD')
     const isToday = dateStr === dayjs().format('YYYY-MM-DD')
-    if (isToday) return null
+    const isRemoteOnDate = monthlyRemoteWorks.some((remoteWork) => remoteWork.date === dateStr)
+    const remoteDot = isRemoteOnDate ? (
+      <span
+        className="absolute top-0.5 left-0.5 w-1.5 h-1.5 rounded-full bg-indigo-500 pointer-events-none"
+        style={{ zIndex: 1 }}
+      />
+    ) : null
+
+    if (isToday) return remoteDot
 
     const vacationOnDate = monthlyVacations.find((v) => v.date === dateStr)
-    if (!vacationOnDate) return null
-    if (vacationOnDate.type !== 'morning' && vacationOnDate.type !== 'afternoon') return null
+    if (!vacationOnDate || (vacationOnDate.type !== 'morning' && vacationOnDate.type !== 'afternoon')) {
+      return remoteDot
+    }
 
     const hasLog = monthlyLogs.some((log) => log.date === dateStr)
     const isDark =
@@ -471,13 +523,16 @@ export default function Home() {
     const bottomRight = vacationOnDate.type === 'morning' ? workColor : vacationColor
 
     return (
-      <div
-        className="absolute inset-0 rounded-lg pointer-events-none"
-        style={{
-          background: `linear-gradient(to bottom right, ${topLeft} 49.5%, ${bottomRight} 50.5%)`,
-          zIndex: 0,
-        }}
-      />
+      <>
+        <div
+          className="absolute inset-0 rounded-lg pointer-events-none"
+          style={{
+            background: `linear-gradient(to bottom right, ${topLeft} 49.5%, ${bottomRight} 50.5%)`,
+            zIndex: 0,
+          }}
+        />
+        {remoteDot}
+      </>
     )
   }
   const calcHours = (log: any) => calcWorkHours(log).toFixed(2)
@@ -568,7 +623,7 @@ export default function Home() {
             <h2 className="font-semibold dark:text-white">
               {dayjs(selectedDate).format('YYYY년 MM월 DD일')} 근무 입력
             </h2>
-            {isLocked && (
+            {isLocked && !isAnnualVacation && (
               <div className="flex gap-2">
                 <button
                   onClick={() => setIsLocked(false)}
@@ -586,6 +641,11 @@ export default function Home() {
               </div>
             )}
           </div>
+          {isAnnualVacation && (
+            <p className="text-xs text-orange-500 mb-3">
+              연차인 날은 근무 입력을 할 수 없어요. 저장된 근무기록이 있었다면 자동으로 삭제됐어요.
+            </p>
+          )}
           <div className="flex gap-2 mb-2">
             <div className="flex gap-20 mb-2">
               <div className="flex-1">
@@ -598,8 +658,8 @@ export default function Home() {
                         `${e.target.value}:${startTime ? startTime.split(':')[1] : '00'}`
                       )
                     }
-                    disabled={isLocked}
-                    className={`flex-1 border rounded-lg px-2 py-2 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}
+                    disabled={workInputDisabled}
+                    className={`flex-1 border rounded-lg px-2 py-2 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${workInputDisabled ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}
                   >
                     <option value="">시</option>
                     {Array.from({ length: 24 }, (_, i) => (
@@ -616,8 +676,8 @@ export default function Home() {
                         `${startTime ? startTime.split(':')[0] : '00'}:${e.target.value}`
                       )
                     }
-                    disabled={isLocked}
-                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}
+                    disabled={workInputDisabled}
+                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${workInputDisabled ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}
                   >
                     <option value="">분</option>
                     <option value="00">00</option>
@@ -636,8 +696,8 @@ export default function Home() {
                     onChange={(e) =>
                       setEndTime(`${e.target.value}:${endTime ? endTime.split(':')[1] : '00'}`)
                     }
-                    disabled={isLocked}
-                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}
+                    disabled={workInputDisabled}
+                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${workInputDisabled ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}
                   >
                     <option value="">시</option>
                     {Array.from({ length: 24 }, (_, i) => (
@@ -652,8 +712,8 @@ export default function Home() {
                     onChange={(e) =>
                       setEndTime(`${endTime ? endTime.split(':')[0] : '00'}:${e.target.value}`)
                     }
-                    disabled={isLocked}
-                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}
+                    disabled={workInputDisabled}
+                    className={`flex-1 border rounded-lg px-2 py-2  dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${workInputDisabled ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''}`}
                   >
                     <option value="">분</option>
                     <option value="00">00</option>
@@ -661,7 +721,7 @@ export default function Home() {
                     <option value="30">30</option>
                     <option value="45">45</option>
                   </select>
-                  {!isLocked && (
+                  {!workInputDisabled && (
                     <button
                       onClick={() => setIsNextDay(!isNextDay)}
                       className={`text-[12px] px-1.5 py-1 rounded-lg border transition shrink-0 ${
@@ -684,7 +744,7 @@ export default function Home() {
             entries={matters}
             onChange={setMatters}
             totalHours={calcCurrentTotalHours()}
-            disabled={isLocked}
+            disabled={workInputDisabled}
           />
           <div className="mb-2">
             <label className="text-sm text-gray-500 dark:text-zinc-400">휴게시간 (분)</label>
@@ -692,9 +752,9 @@ export default function Home() {
               type="number"
               value={breakMinutes}
               onChange={(e) => setBreakMinutes(e.target.value)}
-              disabled={isLocked}
+              disabled={workInputDisabled}
               className={`w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${
-                isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''
+                workInputDisabled ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''
               }`}
             />
           </div>
@@ -704,14 +764,14 @@ export default function Home() {
               type="text"
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
-              disabled={isLocked}
+              disabled={workInputDisabled}
               className={`w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 ${
-                isLocked ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''
+                workInputDisabled ? 'bg-gray-50 dark:bg-zinc-900 text-gray-400' : ''
               }`}
             />
           </div>
           {message && <p className="text-sm text-center text-blue-500 mb-2">{message}</p>}
-          {!isLocked && (
+          {!workInputDisabled && (
             <button
               onClick={handleSave}
               disabled={loading}

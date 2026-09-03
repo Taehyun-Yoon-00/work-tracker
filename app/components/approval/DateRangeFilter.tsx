@@ -32,7 +32,7 @@ export default function DateRangeFilter({ startDate, endDate, onApply }: DateRan
   }
 
   return (
-    <div className="mb-4">
+    <div>
       <button
         onClick={openPicker}
         className="w-full sm:w-auto flex items-center justify-between gap-2 border rounded-lg px-3 py-2 text-sm dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200 bg-white"

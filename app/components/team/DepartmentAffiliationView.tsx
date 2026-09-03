@@ -8,7 +8,7 @@ import dayjs from 'dayjs'
 // isoWeek 플러그인은 lib/dates가 한 번만 등록한다. side-effect import로 이 파일에서도 적용된다.
 import '../../lib/dates'
 import { isPublicHoliday, fetchSubstituteHolidays } from '../../lib/holidays'
-import { displayName } from '../../lib/labels'
+import { fetchDepartmentScope } from '../../lib/orgOrder'
 
 type Member = {
   user_id: string
@@ -44,8 +44,6 @@ export default function DepartmentAffiliationView({ departmentId }: { department
     fetchSubstituteHolidays().then(setSubstituteHolidays)
   }, [departmentId])
 
-  const nameOf = (p: any) => displayName(p, '이름없음')
-
   const fetchDepartmentInfo = async (deptId: string) => {
     setLoading(true)
     const { data: dept } = await supabase
@@ -66,96 +64,42 @@ export default function DepartmentAffiliationView({ departmentId }: { department
       setHeadName(null)
     }
 
-    const [{ data: deptTeams }, { data: directDept }] = await Promise.all([
-      supabase
-        .from('teams')
-        .select('id, name')
-        .eq('department_id', deptId)
-        .order('display_order', { ascending: true }),
-      supabase
-        .from('department_memberships')
-        .select('user_id, profiles(id, email, name, position, is_master)')
-        .eq('department_id', deptId)
-        .order('display_order', { ascending: true }),
-    ])
+    // 정렬/조회 규칙은 lib/orgOrder에 모아둔 공용 로직을 그대로 쓴다 — 조직관리, 대시보드와
+    // 항상 같은 순서(부서장 최상단 → 부서 직속 → 팀 순서대로, 각 팀은 팀장이 최상단)를 보장한다.
+    const scope = await fetchDepartmentScope(deptId)
+    setHasTeams(scope.teamGroups.length > 0)
 
-    const teamIds = (deptTeams || []).map((t: any) => t.id)
-    setHasTeams(teamIds.length > 0)
-    const { data: teamMembersRaw } =
-      teamIds.length > 0
-        ? await supabase
-            .from('team_members')
-            .select('team_id, user_id, role, profiles(id, email, name, position, is_master)')
-            .in('team_id', teamIds)
-            .order('display_order', { ascending: true })
-        : { data: [] as any[] }
-
-    // 부서 직속 인원 (부서장은 department_memberships에 없을 수도 있으므로 별도로 항상 포함시킨다)
-    const directList: Member[] = (directDept || [])
-      .filter((m: any) => !m.profiles?.is_master && m.user_id !== dept?.head_user_id)
-      .map((m: any) => ({
-        user_id: m.user_id,
-        name: nameOf(m.profiles),
-        position: m.profiles?.position || null,
-        isDirect: true,
-      }))
-
-    if (dept?.head_user_id) {
-      const existingHead: any = (directDept || []).find((m: any) => m.user_id === dept.head_user_id)
-      if (existingHead) {
-        directList.unshift({
-          user_id: existingHead.user_id,
-          name: nameOf(existingHead.profiles),
-          position: existingHead.profiles?.position || null,
-          isDirect: true,
-          isHead: true,
-        })
-      } else {
-        // department_memberships에는 없고 "자리"만 있는 부서장도 목록에 노출
-        const { data: headProfile } = await supabase
-          .from('profiles')
-          .select('id, name, email, position, is_master')
-          .eq('id', dept.head_user_id)
-          .single()
-        if (headProfile && !headProfile.is_master) {
-          directList.unshift({
-            user_id: headProfile.id,
-            name: nameOf(headProfile),
-            position: headProfile.position || null,
-            isDirect: true,
-            isHead: true,
-          })
-        }
-      }
-    }
+    const directList: Member[] = scope.directMembers.map((m) => ({
+      user_id: m.user_id,
+      name: m.name,
+      position: m.position,
+      isDirect: true,
+      isHead: m.isHead,
+    }))
     setDirectMembers(directList)
 
-    // 팀별로 그룹핑 (팀장은 role === 'admin')
-    const groups: TeamGroup[] = (deptTeams || []).map((t: any) => {
-      const members: Member[] = (teamMembersRaw || [])
-        .filter((m: any) => m.team_id === t.id && !m.profiles?.is_master)
-        .map((m: any) => ({
-          user_id: m.user_id,
-          name: nameOf(m.profiles),
-          position: m.profiles?.position || null,
-          isDirect: false,
-          isTeamLead: m.role === 'admin',
-        }))
-        // 팀장을 목록 맨 위로
-        .sort((a: Member, b: Member) => Number(b.isTeamLead) - Number(a.isTeamLead))
-      return { id: t.id, name: t.name, members }
-    })
+    const groups: TeamGroup[] = scope.teamGroups.map((g) => ({
+      id: g.id,
+      name: g.name,
+      members: g.members.map((m) => ({
+        user_id: m.user_id,
+        name: m.name,
+        position: m.position,
+        isDirect: false,
+        isTeamLead: m.isHead,
+      })),
+    }))
     setTeamGroups(groups)
 
-    // 표시 순서: 부서 직속 인원(부서장 포함) 뒤에 각 팀 인원을 이어붙인다 — 조직 관리에서 설정한 순서와 동일하게 유지.
-    const map = new Map<string, Member>()
-    directList.forEach((m) => map.set(m.user_id, m))
-    groups.forEach((g) =>
-      g.members.forEach((m) => {
-        if (!map.has(m.user_id)) map.set(m.user_id, m)
-      })
-    )
-    const combined = Array.from(map.values())
+    const combined: Member[] = scope.allMembers.map((m) => {
+      const fromDirect = directList.find((d) => d.user_id === m.user_id)
+      if (fromDirect) return fromDirect
+      for (const g of groups) {
+        const found = g.members.find((tm) => tm.user_id === m.user_id)
+        if (found) return found
+      }
+      return { user_id: m.user_id, name: m.name, position: m.position, isDirect: false }
+    })
     setAllMembers(combined)
 
     const userIds = combined.map((m) => m.user_id)
