@@ -325,6 +325,19 @@ export async function POST(req: NextRequest) {
   sheetXml = setCellNumber(sheetXml, 'AI2', excelSerial(dayjs().format('YYYY-MM-DD')))
   sheetXml = setCellString(sheetXml, 'AI4', personName)
 
+  // F4/J4는 정산 시작일·종료일을 보여 주는 수식 셀이다. 보호된 보기에서는 F2/I2를
+  // 바꿔도 연쇄 수식이 계산되지 않으므로, 표시용 날짜 캐시도 함께 갱신한다.
+  sheetXml = setFormulaCachedValue(
+    sheetXml,
+    'F4',
+    excelSerial(dayjs(periodStart).format('YYYY-MM-DD'))
+  )
+  sheetXml = setFormulaCachedValue(
+    sheetXml,
+    'J4',
+    excelSerial(dayjs(periodEnd).format('YYYY-MM-DD'))
+  )
+
   // 6행(날짜)·7행(요일) 수식의 캐시값을 우리가 직접 계산해 넣는다. 그래야 다운로드한 파일이
   // "보호된 보기"로 열려 자동 재계산이 되지 않은 상태에서도 처음부터 올바르게 보인다.
   dateColumn.forEach((col, date) => {
