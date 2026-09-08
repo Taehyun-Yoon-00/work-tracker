@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import JSZip from 'jszip'
 import dayjs from 'dayjs'
+import Holidays from 'date-holidays'
 import { getSessionUser } from '@/app/lib/apiAuth'
 import { supabaseAdmin } from '@/app/lib/supabaseAdmin'
 import { getSettlementPeriod } from '@/app/lib/dates'
 import { displayName } from '@/app/lib/labels'
+
+// date-holidays 인스턴스 생성 비용이 있어 모듈 단위로 한 번만 만든다.
+// (app/lib/holidays.ts와 같은 규칙이지만, 그 파일은 브라우저 supabase 클라이언트를 물고 있어
+//  서버 라우트에서 그대로 가져다 쓰면 RLS 미인증 상태로 대체공휴일 조회가 비어버릴 수 있다.
+//  그래서 이 라우트는 공휴일 판정 로직만 자체적으로 갖는다.)
+const hd = new Holidays('KR')
 
 export const runtime = 'nodejs'
 
@@ -25,6 +32,7 @@ const MATTER_END_ROW = 43 // 양식의 B44가 F13:F43 합계를 쓰므로 13행�
 const DATE_START_COL = 6 // F열(1=A, 6=F)
 const DATE_ROW = 6 // 날짜(예: 8/16) 수식이 있는 행
 const WEEKDAY_ROW = 7 // 요일(WEEKDAY) 수식이 있는 행
+const HOLIDAY_MARK_ROW = 47 // "休日記入欄" — 휴일→休, 휴일근무(휴출)→出
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100
@@ -147,6 +155,15 @@ function excelWeekday(dateStr: string): number {
   return dayjs(dateStr).day() + 1 // 일요일=1 ... 토요일=7 (WEEKDAY 기본값)
 }
 
+/** 근태 집계에서 "휴일"로 볼지 여부 — 주말 + 법정 공휴일 + 사내 대체공휴일.
+ * app/lib/holidays.ts의 isHoliday()와 같은 규칙이다. */
+function isHolidayDate(dateStr: string, substituteHolidays: Set<string>): boolean {
+  const day = dayjs(dateStr).day()
+  if (day === 0 || day === 6) return true
+  if (substituteHolidays.has(dateStr)) return true
+  return !!hd.isHoliday(dayjs(dateStr).toDate())
+}
+
 export async function POST(req: NextRequest) {
   const user = await getSessionUser()
   if (!user) return NextResponse.json({ error: '로그인이 필요해요.' }, { status: 401 })
@@ -212,6 +229,36 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '근무 기록 조회 실패: ' + matterError.message }, { status: 500 })
   }
 
+  // 4-1) 기간 내 연차/특휴대휴 기록 — 47행 休 표시에 쓴다. 결재 승인 여부는 보지 않고
+  //     근무기록 페이지가 그대로 쓰는 vacations 테이블(연차 등록 시 바로 저장됨)을 기준으로 한다.
+  const { data: vacationRows, error: vacationError } = await supabaseAdmin
+    .from('vacations')
+    .select('date, type')
+    .eq('user_id', user.id)
+    .gte('date', periodStart)
+    .lte('date', periodEnd)
+  if (vacationError) {
+    return NextResponse.json({ error: '휴가 기록 조회 실패: ' + vacationError.message }, { status: 500 })
+  }
+  const vacationTypeByDate = new Map<string, string>()
+  ;(vacationRows || []).forEach((v: any) => {
+    if (v.date) vacationTypeByDate.set(v.date, v.type)
+  })
+
+  // 4-2) 사내 대체공휴일 — 47행 휴일 판정(주말+법정공휴일+대체공휴일)에 쓴다.
+  const { data: substituteHolidayRows, error: substituteHolidayError } = await supabaseAdmin
+    .from('substitute_holidays')
+    .select('date')
+    .gte('date', periodStart)
+    .lte('date', periodEnd)
+  if (substituteHolidayError) {
+    return NextResponse.json(
+      { error: '대체공휴일 조회 실패: ' + substituteHolidayError.message },
+      { status: 500 }
+    )
+  }
+  const substituteHolidaySet = new Set<string>((substituteHolidayRows || []).map((h: any) => h.date))
+
   // 5) 날짜 → 열 매핑. F열이 정산 기간 첫날(전월 16일)이고, 이후 하루씩 오른쪽으로 이동한다.
   const dateColumn = new Map<string, number>()
   let cursor = dayjs(periodStart)
@@ -234,11 +281,14 @@ export async function POST(req: NextRequest) {
   const matterTotals = new Map<string, Map<string, number>>() // matterKey -> date -> hours
   const matterMeta = new Map<string, MatterMeta>()
   const matterOrder: string[] = []
+  const hoursByDate = new Map<string, number>() // date -> 그 날 기록된 근무시간 합계 (47행 出 판정용)
 
   ;(matterRows || []).forEach((row: any) => {
     const date: string = row.work_logs?.date
     const hours = Number(row.hours) || 0
     if (!date || hours <= 0) return
+
+    hoursByDate.set(date, round2((hoursByDate.get(date) || 0) + hours))
 
     if (row.category === '청구안건') {
       const meta: MatterMeta = {
@@ -407,6 +457,18 @@ export async function POST(req: NextRequest) {
     matterTotalAmount === 0
       ? setFormulaCachedString(sheetXml, 'AL44', '')
       : setFormulaCachedValue(sheetXml, 'AL44', matterTotalAmount)
+
+  // 47행(休日記入欄): 연차/특휴대휴면 休, 휴일인데 근무 기록이 있으면 出.
+  // 결재 승인 여부는 보지 않고 근무기록 페이지의 원본 기록(vacations/work_log_matters)만 본다.
+  dateColumn.forEach((col, date) => {
+    const vacationType = vacationTypeByDate.get(date)
+    const ref = colLetter(col) + HOLIDAY_MARK_ROW
+    if (vacationType === 'annual' || vacationType === 'special') {
+      sheetXml = setCellString(sheetXml, ref, '休')
+    } else if (isHolidayDate(date, substituteHolidaySet) && (hoursByDate.get(date) || 0) > 0) {
+      sheetXml = setCellString(sheetXml, ref, '出')
+    }
+  })
 
   workbookXml = enableWorkbookRecalculation(workbookXml)
 
