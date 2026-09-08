@@ -1266,14 +1266,6 @@ export default function OrgPage() {
               ) : (
                 <span />
               )}
-              {canManageThisDivision && !reorder && (
-                <button
-                  onClick={() => openModal({ kind: 'createDepartment', divisionId: division.id })}
-                  className="text-xs bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2.5 py-1.5 rounded-lg font-medium"
-                >
-                  + 부서 생성
-                </button>
-              )}
               {isReorderingDepts && (
                 <span className="flex items-center gap-3">
                   <button
@@ -1339,7 +1331,7 @@ export default function OrgPage() {
                 }
               />
             </div>
-            {mobile && canManageThisDivision && !reorder && (
+            {canManageThisDivision && !reorder && (
               <button
                 onClick={() => openModal({ kind: 'createDepartment', divisionId: division.id })}
                 className="w-full mt-3 border border-dashed border-gray-200 dark:border-zinc-700 text-gray-500 dark:text-zinc-400 py-2.5 rounded-xl text-sm font-medium"
@@ -1690,16 +1682,6 @@ export default function OrgPage() {
 
         {activeTab === 'structure' && (
           <div>
-            {canManageThisDept && !reorder && (
-              <div className="flex justify-end mb-3">
-                <button
-                  onClick={() => openModal({ kind: 'createTeam', departmentId: department.id })}
-                  className="text-xs bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2.5 py-1.5 rounded-lg font-medium"
-                >
-                  + 팀 생성
-                </button>
-              </div>
-            )}
             {isReorderingTeams && (
               <div className="flex justify-between items-center mb-3">
                 <p className="text-xs text-blue-500 font-medium">
@@ -1849,7 +1831,7 @@ export default function OrgPage() {
               />
             </div>
 
-            {mobile && canManageThisDept && !reorder && (
+            {canManageThisDept && !reorder && (
               <button
                 onClick={() => openModal({ kind: 'createTeam', departmentId: department.id })}
                 className="w-full mt-4 border border-dashed border-gray-200 dark:border-zinc-700 text-gray-500 dark:text-zinc-400 py-2.5 rounded-xl text-sm font-medium"
@@ -2119,6 +2101,42 @@ export default function OrgPage() {
                 </span>
               ))}
             </div>
+
+            {deptTeams.length > 0 && (
+              <div className="mt-5">
+                <p className="text-xs text-gray-400 dark:text-zinc-500 mb-2">
+                  팀별 결재권자는 각 팀 화면에서 관리할 수 있어요.
+                </p>
+                <div className="space-y-3">
+                  {deptTeams.map((team) => (
+                    <div key={team.id}>
+                      <button
+                        onClick={() => selectTeam(team.id)}
+                        className="text-xs font-semibold text-gray-500 dark:text-zinc-400 mb-1.5 hover:underline"
+                      >
+                        {team.name} ›
+                      </button>
+                      <div className="flex flex-wrap gap-1.5">
+                        <span className="text-[11px] bg-gray-100 dark:bg-zinc-700 text-gray-500 dark:text-zinc-400 px-2 py-0.5 rounded-full">
+                          {teamLeadOf(team.id)?.name || '팀장 공석'} · 팀장(자동)
+                        </span>
+                        {approversOfTeam(team.id).map((a) => (
+                          <span
+                            key={a.id}
+                            className="text-[11px] bg-purple-50 text-purple-500 px-2 py-0.5 rounded-full"
+                          >
+                            {a.name}{' '}
+                            {[a.can_vacation && '휴가', a.can_remote && '원격', a.can_holiday && '휴일']
+                              .filter(Boolean)
+                              .join('·')}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -2140,7 +2158,6 @@ export default function OrgPage() {
     )
     const members = membersOfTeam(team.id)
     const lead = teamLeadOf(team.id)
-    const delegates = approversOfDept(department.id)
 
     return (
       <div>
@@ -2312,30 +2329,6 @@ export default function OrgPage() {
               </div>
             </div>
 
-            <div>
-              <button
-                onClick={() => selectDepartment(department.id)}
-                className="text-xs text-gray-400 dark:text-zinc-500 hover:underline"
-              >
-                {department.name}의 결재권자 관리로 이동 ›
-              </button>
-              <div className="flex flex-wrap gap-1.5 mt-1.5">
-                <span className="text-[11px] bg-gray-100 dark:bg-zinc-700 text-gray-500 dark:text-zinc-400 px-2 py-0.5 rounded-full">
-                  {profileName(department.head_user_id) || '부서장 공석'} · 부장(자동)
-                </span>
-                {delegates.map((a) => (
-                  <span
-                    key={a.id}
-                    className="text-[11px] bg-purple-50 text-purple-500 px-2 py-0.5 rounded-full"
-                  >
-                    {a.name}{' '}
-                    {[a.can_vacation && '휴가', a.can_remote && '원격', a.can_holiday && '휴일']
-                      .filter(Boolean)
-                      .join('·')}
-                  </span>
-                ))}
-              </div>
-            </div>
           </div>
         )}
       </div>

@@ -6,15 +6,20 @@ import dayjs from 'dayjs'
 // isoWeek 플러그인은 lib/dates가 한 번만 등록한다. side-effect import로 이 파일에서도 적용된다.
 import '../lib/dates'
 import { supabase } from '../lib/supabase'
-import { calcWorkHours } from '../lib/workTime'
 import { getWeeksOfMonth, getSettlementPeriod } from '../lib/dates'
-import { isHoliday as isHolidayShared, fetchSubstituteHolidays } from '../lib/holidays'
+import { fetchSubstituteHolidays } from '../lib/holidays'
 import {
-  fetchTeamMembers,
-  fetchDepartmentScope,
-  fetchDivisionMembers,
-  fetchCompanyMembers,
-} from '../lib/orgOrder'
+  getDashboardUnits,
+  buildStatRows,
+  groupLogsByUser,
+  DETAIL_UNIT_NOUN,
+  WEEKLY_UNIT_NOUN,
+  UNIT_NAME_HEADER,
+  type ScopeLevel,
+  type DashboardUnitLevel,
+  type DashboardUnit,
+  type DashboardMemberRow,
+} from '../lib/dashboardStats'
 import OrgScopeSelect, { OrgScopeOption } from '../components/ui/OrgScopeSelect'
 
 // 대시보드 조회 범위 (req 6).
@@ -29,7 +34,10 @@ import OrgScopeSelect, { OrgScopeOption } from '../components/ui/OrgScopeSelect'
 //   부문장          → 부문 전체 + 그 산하 부서들
 //   총괄 관리자     → 회사 전체 + 산하 부문들
 //   마스터(시스템)  → 회사 전체 + 전체 부문 · 부서 · 팀 트리
-type ScopeLevel = 'team' | 'department' | 'division' | 'company'
+//
+// ScopeLevel 자체(및 그 아래 상세 표시 단위 계산)는 lib/dashboardStats로 옮겼다 —
+// "선택한 조직 전체 통계 + 한 단계 아래 조직 단위 비교"라는 원칙을 이 페이지와 무관하게
+// 재사용할 수 있게 하기 위함이다(요구사항 6, 7).
 
 // 월간 통계 집계 기준.
 // - calendar: 달력상 1일 ~ 말일
@@ -37,30 +45,10 @@ type ScopeLevel = 'team' | 'department' | 'division' | 'company'
 // 주간 통계는 이 값과 무관하게 항상 월~일 단위로 고정된다.
 type MonthPeriodMode = 'calendar' | 'settlement'
 
-interface MemberRow {
-  userId: string
-  name: string
-}
-
 interface WeekRange {
   label: string
   start: string
   end: string
-}
-
-// 평일/휴일로 나눈 근무시간
-interface HourSplit {
-  weekday: number
-  holiday: number
-  total: number
-}
-
-function calcHours(log: any): number {
-  return calcWorkHours(log)
-}
-
-function round2(n: number): number {
-  return Math.round(n * 100) / 100
 }
 
 /** 주간 라벨: "1주"가 아닌 실제 날짜 범위("7/28~8/3")로 표시. 연도가 다르면 시작일에 연도를 붙인다. */
@@ -86,18 +74,6 @@ function getMonthWeekRanges(monthDate: dayjs.Dayjs): WeekRange[] {
   })
 }
 
-/** 로그 목록을 평일/휴일로 나눠 합산한다. */
-function splitHoursByHoliday(logs: any[], substituteHolidays: string[]): HourSplit {
-  let weekday = 0
-  let holiday = 0
-  logs.forEach((log) => {
-    const hours = calcHours(log)
-    if (isHolidayShared(new Date(log.date), substituteHolidays)) holiday += hours
-    else weekday += hours
-  })
-  return { weekday: round2(weekday), holiday: round2(holiday), total: round2(weekday + holiday) }
-}
-
 export default function DashboardPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
@@ -113,7 +89,11 @@ export default function DashboardPage() {
   const [targetMonth, setTargetMonth] = useState(today.month() + 1)
   const [periodMode, setPeriodMode] = useState<MonthPeriodMode>('calendar')
 
-  const [members, setMembers] = useState<MemberRow[]>([])
+  // 상세 표시 단위(개인/팀/부서/부문)와 그 목록, 그리고 선택한 조직 전체 구성원.
+  // scope가 바뀌면 fetchStats에서 세 값을 함께 갱신한다(lib/dashboardStats.getDashboardUnits).
+  const [unitLevel, setUnitLevel] = useState<DashboardUnitLevel>('member')
+  const [units, setUnits] = useState<DashboardUnit[]>([])
+  const [allMembers, setAllMembers] = useState<DashboardMemberRow[]>([])
   const [logs, setLogs] = useState<any[]>([])
   const [substituteHolidays, setSubstituteHolidays] = useState<string[]>([])
   const [loadingStats, setLoadingStats] = useState(false)
@@ -326,38 +306,18 @@ export default function DashboardPage() {
     }
   }, [weeks, periodStart, periodEnd])
 
-  // ---- 범위별 구성원 조회 ----
-  // 정렬/조회 규칙은 lib/orgOrder에 모아둔 공용 로직을 그대로 쓴다 — 조직관리, 내소속 화면과
-  // 항상 같은 순서(팀장/부서장/부문장이 각 조직 단위에서 최상단, 나머지는 display_order 순서)를 보장한다.
-  const fetchTeamScopeMembers = async (teamId: string): Promise<MemberRow[]> =>
-    (await fetchTeamMembers(teamId)).map((m) => ({ userId: m.user_id, name: m.name }))
-
-  const fetchDepartmentScopeMembers = async (departmentId: string): Promise<MemberRow[]> =>
-    (await fetchDepartmentScope(departmentId)).allMembers.map((m) => ({
-      userId: m.user_id,
-      name: m.name,
-    }))
-
-  const fetchDivisionScopeMembers = async (divisionId: string): Promise<MemberRow[]> =>
-    (await fetchDivisionMembers(divisionId)).map((m) => ({ userId: m.user_id, name: m.name }))
-
-  const fetchCompanyScopeMembers = async (): Promise<MemberRow[]> =>
-    (await fetchCompanyMembers()).map((m) => ({ userId: m.user_id, name: m.name }))
-
+  // ---- scope에 따른 상세 표시 단위 + 전체 구성원 조회 ----
+  // 조직 조회 자체(정렬 규칙, 직속 인원 처리 등)는 lib/dashboardStats.getDashboardUnits로
+  // 옮겼다. 이 페이지는 그 결과(units, allMembers)를 가지고 화면을 그리는 데만 집중한다.
   const fetchStats = async (level: ScopeLevel, entityId: string, start: string, end: string) => {
     setLoadingStats(true)
 
-    let memberRows: MemberRow[] = []
-    if (level === 'team') memberRows = entityId ? await fetchTeamScopeMembers(entityId) : []
-    else if (level === 'department')
-      memberRows = entityId ? await fetchDepartmentScopeMembers(entityId) : []
-    else if (level === 'division')
-      memberRows = entityId ? await fetchDivisionScopeMembers(entityId) : []
-    else memberRows = await fetchCompanyScopeMembers()
+    const result = await getDashboardUnits(level, entityId)
+    setUnitLevel(result.unitLevel)
+    setUnits(result.units)
+    setAllMembers(result.allMembers)
 
-    setMembers(memberRows)
-
-    if (memberRows.length === 0) {
+    if (result.allMembers.length === 0) {
       setLogs([])
       setLoadingStats(false)
       return
@@ -369,7 +329,7 @@ export default function DashboardPage() {
       .select('user_id, date, start_time, end_time, break_minutes, is_next_day')
       .in(
         'user_id',
-        memberRows.map((m) => m.userId)
+        result.allMembers.map((m) => m.userId)
       )
       .gte('date', start)
       .lte('date', end)
@@ -393,42 +353,34 @@ export default function DashboardPage() {
     () => logs.filter((log) => log.date >= periodStart && log.date <= periodEnd),
     [logs, periodStart, periodEnd]
   )
+  const monthlyLogsByUser = useMemo(() => groupLogsByUser(monthlyLogs), [monthlyLogs])
+  const logsByUser = useMemo(() => groupLogsByUser(logs), [logs])
 
-  // members는 조직관리 페이지와 동일한 순서(display_order 기준)로 이미 정렬돼 있으므로
-  // 여기서 근무시간 기준으로 다시 정렬하지 않는다 — 조직관리 페이지에서 정한 순서를 그대로 따른다.
-  const perMemberHours = useMemo(() => {
-    const map = new Map<string, any[]>()
-    members.forEach((m) => map.set(m.userId, []))
-    monthlyLogs.forEach((log) => {
-      const arr = map.get(log.user_id)
-      if (arr) arr.push(log)
-    })
-    return members.map((m) => {
-      const split = splitHoursByHoliday(map.get(m.userId) || [], substituteHolidays)
-      return { ...m, weekday: split.weekday, holiday: split.holiday, hours: split.total }
-    })
-  }, [members, monthlyLogs, substituteHolidays])
+  // 조직 전체 통계(요구사항 7의 "선택한 조직 전체") — allMembers 전체를 unit 하나로 묶어
+  // buildStatRows에 넘기면 상세 단위와 완전히 같은 계산 로직으로 총합을 얻을 수 있다.
+  const totalUnit = useMemo<DashboardUnit[]>(
+    () => [{ id: '__total__', name: '전체', members: allMembers }],
+    [allMembers]
+  )
+  const totalStats = useMemo(
+    () => buildStatRows(totalUnit, monthlyLogsByUser, [], substituteHolidays)[0],
+    [totalUnit, monthlyLogsByUser, substituteHolidays]
+  )
 
-  const totalHours = round2(perMemberHours.reduce((acc, m) => acc + m.hours, 0))
-  const totalWeekdayHours = round2(perMemberHours.reduce((acc, m) => acc + m.weekday, 0))
-  const totalHolidayHours = round2(perMemberHours.reduce((acc, m) => acc + m.holiday, 0))
-  const avgHours =
-    perMemberHours.length > 0 ? round2(totalHours / perMemberHours.length) : 0
-  const maxHours = Math.max(1, ...perMemberHours.map((m) => m.hours))
+  // 상세 통계: 선택한 scope 한 단계 아래 조직 단위(개인/팀/부서/부문)별 월간 합계.
+  // units는 조직관리 순서(display_order 기준)를 그대로 따르므로 여기서 다시 정렬하지 않는다.
+  const detailStatRows = useMemo(
+    () => buildStatRows(units, monthlyLogsByUser, [], substituteHolidays),
+    [units, monthlyLogsByUser, substituteHolidays]
+  )
+  const maxHours = Math.max(1, ...detailStatRows.map((r) => r.totalHours))
 
-  // 주간 통계: 이번 달에 걸친 각 주(월~일) 전체 범위 기준. 월 경계를 넘나드는 주도
-  // 그 주에 속한 모든 날짜의 로그를 합산하므로, 어느 달에서 보든 같은 합계로 나온다.
-  const weeklyMatrix = useMemo(() => {
-    return perMemberHours.map((m) => {
-      const weekStats = weeks.map((w) => {
-        const logsInWeek = logs.filter(
-          (log) => log.user_id === m.userId && log.date >= w.start && log.date <= w.end
-        )
-        return splitHoursByHoliday(logsInWeek, substituteHolidays)
-      })
-      return { userId: m.userId, name: m.name, weekStats }
-    })
-  }, [perMemberHours, logs, weeks, substituteHolidays])
+  // 주간 통계: 이번 달에 걸친 각 주(월~일) 전체 범위 기준, 상세 통계와 같은 단위(unit)로 집계한다.
+  // 월 경계를 넘나드는 주도 그 주에 속한 모든 날짜의 로그를 합산하므로, 어느 달에서 보든 같은 합계로 나온다.
+  const weeklyStatRows = useMemo(
+    () => buildStatRows(units, logsByUser, weeks, substituteHolidays),
+    [units, logsByUser, weeks, substituteHolidays]
+  )
 
   const moveMonth = (diff: number) => {
     const next = dayjs(`${targetYear}-${String(targetMonth).padStart(2, '0')}-01`).add(
@@ -547,25 +499,29 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* 통계 카드 — 근무시간은 평일/휴일로 나눠 표시 */}
+        {/* 통계 카드 — 선택한 조직 "전체" 기준 총합 (요구사항 2~5, 7: 상세 단위와는 분리된 값) */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
           <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-3 text-center">
-            <p className="text-xs text-gray-400 dark:text-zinc-500 mb-1">인원</p>
-            <p className="text-lg font-bold dark:text-white">{perMemberHours.length}명</p>
+            <p className="text-xs text-gray-400 dark:text-zinc-500 mb-1">총 인원</p>
+            <p className="text-lg font-bold dark:text-white">{(totalStats?.memberCount ?? 0)}명</p>
+          </div>
+          <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-3 text-center">
+            <p className="text-xs text-gray-400 dark:text-zinc-500 mb-1">총 근무</p>
+            <p className="text-lg font-bold dark:text-white">
+              {(totalStats?.totalHours ?? 0).toLocaleString()}h
+            </p>
           </div>
           <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-3 text-center">
             <p className="text-xs text-gray-400 dark:text-zinc-500 mb-1">평일 근무</p>
-            <p className="text-lg font-bold text-blue-500">{totalWeekdayHours.toLocaleString()}h</p>
+            <p className="text-lg font-bold text-blue-500">
+              {(totalStats?.weekdayHours ?? 0).toLocaleString()}h
+            </p>
           </div>
           <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-3 text-center">
             <p className="text-xs text-gray-400 dark:text-zinc-500 mb-1">휴일 근무</p>
             <p className="text-lg font-bold text-orange-500">
-              {totalHolidayHours.toLocaleString()}h
+              {(totalStats?.holidayHours ?? 0).toLocaleString()}h
             </p>
-          </div>
-          <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-3 text-center">
-            <p className="text-xs text-gray-400 dark:text-zinc-500 mb-1">평균 근무</p>
-            <p className="text-lg font-bold dark:text-white">{avgHours}h</p>
           </div>
         </div>
 
@@ -575,10 +531,12 @@ export default function DashboardPage() {
           </div>
         ) : (
           <>
-            {/* 인원별 근무시간 */}
+            {/* 상세 통계 — scope에 따라 개인/팀/부서/부문 중 한 단계 아래 단위를 보여준다(요구사항 6, 11) */}
             <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold dark:text-white">인원별 근무시간</h3>
+                <h3 className="font-semibold dark:text-white">
+                  {DETAIL_UNIT_NOUN[unitLevel]}별 근무시간
+                </h3>
                 <span className="flex items-center gap-3 text-[11px] text-gray-400 dark:text-zinc-500">
                   <span className="flex items-center gap-1">
                     <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
@@ -590,21 +548,29 @@ export default function DashboardPage() {
                   </span>
                 </span>
               </div>
-              {perMemberHours.length === 0 ? (
+              {detailStatRows.length === 0 ? (
                 <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-4">
-                  인원이 없어요.
+                  표시할 데이터가 없어요.
                 </p>
               ) : (
                 <div className="space-y-2.5">
-                  {perMemberHours.map((m) => {
+                  {detailStatRows.map((row) => {
                     const barPct =
-                      m.hours > 0 ? Math.max(4, (m.hours / maxHours) * 100) : 0
-                    const weekdayPct = m.hours > 0 ? (m.weekday / m.hours) * barPct : 0
-                    const holidayPct = m.hours > 0 ? (m.holiday / m.hours) * barPct : 0
+                      row.totalHours > 0 ? Math.max(4, (row.totalHours / maxHours) * 100) : 0
+                    const weekdayPct =
+                      row.totalHours > 0 ? (row.weekdayHours / row.totalHours) * barPct : 0
+                    const holidayPct =
+                      row.totalHours > 0 ? (row.holidayHours / row.totalHours) * barPct : 0
+                    // 개인 단위(team scope)가 아니면 팀/부서/부문 하나가 여러 사람을 묶은 값이므로
+                    // 인원수와 1인 평균을 함께 보여준다(요구사항 3~5 예시 형식).
+                    const isGroupUnit = unitLevel !== 'member'
                     return (
-                      <div key={m.userId} className="flex items-center gap-2">
-                        <span className="w-16 shrink-0 text-sm dark:text-zinc-200 truncate">
-                          {m.name}
+                      <div key={row.id} className="flex items-center gap-2">
+                        <span
+                          className="w-16 shrink-0 text-sm dark:text-zinc-200 truncate"
+                          title={row.name}
+                        >
+                          {row.name}
                         </span>
                         <div className="flex-1 h-4 bg-gray-100 dark:bg-zinc-700 rounded-full overflow-hidden flex">
                           <div className="h-full bg-blue-500" style={{ width: `${weekdayPct}%` }} />
@@ -616,12 +582,17 @@ export default function DashboardPage() {
                         {/* 합계와 평일/휴일 내역을 같은 오른쪽 열에 세로로 쌓아서 한눈에 읽히게 한다.
                            고정 폭(w-20)이라 자릿수가 달라져도 막대 폭은 흔들리지 않는다. */}
                         <div className="w-20 shrink-0 text-right">
-                          <p className="text-sm font-medium dark:text-zinc-200">{m.hours}h</p>
+                          <p className="text-sm font-medium dark:text-zinc-200">{row.totalHours}h</p>
                           <p className="text-[10px] text-gray-400 dark:text-zinc-500 leading-tight">
-                            <span className="text-blue-500">{m.weekday}h</span>
+                            <span className="text-blue-500">{row.weekdayHours}h</span>
                             <span> · </span>
-                            <span className="text-orange-500">{m.holiday}h</span>
+                            <span className="text-orange-500">{row.holidayHours}h</span>
                           </p>
+                          {isGroupUnit && (
+                            <p className="text-[10px] text-gray-400 dark:text-zinc-500 leading-tight">
+                              {row.memberCount}명 · 평균 {row.averageHours}h
+                            </p>
+                          )}
                         </div>
                       </div>
                     )
@@ -639,7 +610,9 @@ export default function DashboardPage() {
                양쪽 달의 근무 기록을 합산해서 보여준다. */}
             <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 overflow-x-auto">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold dark:text-white">주차별 근무시간</h3>
+                <h3 className="font-semibold dark:text-white">
+                  {WEEKLY_UNIT_NOUN[unitLevel]}별 주차별 근무시간
+                </h3>
                 <span className="flex items-center gap-3 text-[11px] text-gray-400 dark:text-zinc-500">
                   <span className="flex items-center gap-1">
                     <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
@@ -651,15 +624,15 @@ export default function DashboardPage() {
                   </span>
                 </span>
               </div>
-              {weeklyMatrix.length === 0 ? (
+              {weeklyStatRows.length === 0 ? (
                 <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-4">
-                  인원이 없어요.
+                  표시할 데이터가 없어요.
                 </p>
               ) : (
                 <table className="w-full text-sm min-w-[420px]">
                   <thead>
                     <tr className="border-b dark:border-zinc-700 text-gray-400 dark:text-zinc-500">
-                      <th className="py-2 text-left font-medium">이름</th>
+                      <th className="py-2 text-left font-medium">{UNIT_NAME_HEADER[unitLevel]}</th>
                       {weeks.map((w) => (
                         <th key={w.start} className="py-2 text-right font-medium whitespace-nowrap">
                           {w.label}
@@ -668,9 +641,14 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {weeklyMatrix.map((row) => (
-                      <tr key={row.userId} className="border-b last:border-0 dark:border-zinc-700">
-                        <td className="py-2 dark:text-zinc-200 whitespace-nowrap">{row.name}</td>
+                    {weeklyStatRows.map((row) => (
+                      <tr key={row.id} className="border-b last:border-0 dark:border-zinc-700">
+                        <td
+                          className="py-2 dark:text-zinc-200 whitespace-nowrap max-w-[7rem] truncate"
+                          title={row.name}
+                        >
+                          {row.name}
+                        </td>
                         {row.weekStats.map((stat, i) => (
                           <td
                             key={i}

@@ -42,3 +42,14 @@ export async function isMaster(userId: string) {
 
   return data?.is_master === true
 }
+
+/** 해당 사용자가 총괄 관리자인지 확인한다 (마스터와는 별도 트랙, general_admins 테이블 참고). */
+export async function isGeneralAdmin(userId: string) {
+  const { data } = await supabaseAdmin
+    .from('general_admins')
+    .select('user_id')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  return !!data
+}
