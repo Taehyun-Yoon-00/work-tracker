@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useRouter } from 'next/navigation'
 import dayjs from 'dayjs'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
+import SectionHeader from '../components/ui/SectionHeader'
 
 export default function MyPage() {
   const router = useRouter()
@@ -143,7 +144,7 @@ export default function MyPage() {
       <div className="max-w-2xl mx-auto">
         {/* 헤더 */}
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold dark:text-white">마이페이지</h1>
+          <h1 className="text-xl font-semibold dark:text-white">마이페이지</h1>
           {isMaster && (
             <button
               onClick={() => router.push('/admin')}
@@ -154,84 +155,113 @@ export default function MyPage() {
           )}
         </div>
 
-        {/* 프로필 설정 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
-          <h2 className="font-semibold mb-4 dark:text-white">프로필 설정</h2>
+        {/* 계정 — 기본 정보와 비밀번호를 하나의 Settings 패널 안에서 구분선으로 나눈다.
+           (개별 항목마다 흰 카드를 새로 만들지 않고, 같은 성격의 설정을 한 패널에 묶는다) */}
+        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 mb-4 divide-y divide-gray-100 dark:divide-zinc-700">
+          <div className="pb-4">
+            <SectionHeader className="mb-3">계정</SectionHeader>
 
-          <div className="mb-4">
-            <label className="text-sm text-gray-500 dark:text-zinc-400">이메일</label>
-            <p className="text-sm font-medium mt-1 dark:text-zinc-200">{user?.email}</p>
-          </div>
-
-          <div className="mb-4">
-            <label className="text-sm text-gray-500 dark:text-zinc-400">이름</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="이름을 입력해주세요"
-              className="w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
-            />
-          </div>
-
-          <div className="mb-4">
-            <label className="text-sm text-gray-500 dark:text-zinc-400">직급</label>
-            <input
-              type="text"
-              value={position}
-              onChange={(e) => setPosition(e.target.value)}
-              placeholder="직급을 입력해주세요"
-              className="w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
-            />
-          </div>
-
-          <div className="mb-4">
-            <label className="text-sm text-gray-500 dark:text-zinc-400">총 휴가 일수</label>
-            <div className="flex items-center gap-2 mt-1">
-              <input
-                type="number"
-                value={totalVacation}
-                onChange={(e) => setTotalVacation(parseFloat(e.target.value))}
-                step="0.5"
-                min="0"
-                className="w-full border rounded-lg px-3 py-2 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
-              />
-              <span className="text-sm text-gray-500 dark:text-zinc-400 shrink-0">일</span>
+            <div className="mb-4">
+              <label className="text-sm text-gray-500 dark:text-zinc-400">이메일</label>
+              <p className="text-sm font-medium mt-1 dark:text-zinc-200">{user?.email}</p>
             </div>
-            <p className="text-xs text-gray-400 dark:text-zinc-500 mt-1">반차는 0.5일로 계산돼요</p>
+
+            <div className="mb-4">
+              <label className="text-sm text-gray-500 dark:text-zinc-400">이름</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="이름을 입력해주세요"
+                className="w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className="text-sm text-gray-500 dark:text-zinc-400">직급</label>
+              <input
+                type="text"
+                value={position}
+                onChange={(e) => setPosition(e.target.value)}
+                placeholder="직급을 입력해주세요"
+                className="w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className="text-sm text-gray-500 dark:text-zinc-400">총 휴가 일수</label>
+              <div className="flex items-center gap-2 mt-1">
+                <input
+                  type="number"
+                  value={totalVacation}
+                  onChange={(e) => setTotalVacation(parseFloat(e.target.value))}
+                  step="0.5"
+                  min="0"
+                  className="w-full border rounded-lg px-3 py-2 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
+                />
+                <span className="text-sm text-gray-500 dark:text-zinc-400 shrink-0">일</span>
+              </div>
+              <p className="text-xs text-gray-400 dark:text-zinc-500 mt-1">
+                반차는 0.5일로 계산돼요
+              </p>
+            </div>
+
+            {message && <p className="text-sm text-center text-blue-500 mb-3">{message}</p>}
+
+            <button
+              onClick={handleSave}
+              disabled={loading}
+              className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
+            >
+              {loading ? '저장 중...' : '저장'}
+            </button>
           </div>
 
-          {message && <p className="text-sm text-center text-blue-500 mb-3">{message}</p>}
-
-          <button
-            onClick={handleSave}
-            disabled={loading}
-            className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
-          >
-            {loading ? '저장 중...' : '저장'}
-          </button>
+          <div className="pt-4">
+            <SectionHeader className="mb-3">비밀번호</SectionHeader>
+            <div className="mb-3">
+              <label className="text-sm text-gray-500 dark:text-zinc-400">새 비밀번호</label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="6자리 이상"
+                className="w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
+              />
+            </div>
+            {passwordMessage && (
+              <p className="text-sm text-center text-blue-500 mb-3">{passwordMessage}</p>
+            )}
+            <button
+              onClick={handlePasswordChange}
+              disabled={passwordLoading}
+              className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
+            >
+              {passwordLoading ? '변경 중...' : '비밀번호 변경'}
+            </button>
+          </div>
         </div>
 
-        {/* 휴가 현황 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
-          <h2 className="font-semibold mb-4 dark:text-white">올해 휴가 현황</h2>
-          <div className="flex gap-3 mb-4">
-            <div className="flex-1 bg-blue-50 rounded-lg p-3 text-center">
+        {/* 휴가 현황 — 설정이 아니라 데이터 요약이므로 별도 패널로 둔다 */}
+        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 mb-4">
+          <SectionHeader className="mb-3">올해 휴가 현황</SectionHeader>
+          <div className="grid grid-cols-3 divide-x divide-gray-100 dark:divide-zinc-700 mb-4">
+            <div className="text-center">
               <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">총 휴가</p>
-              <p className="text-xl font-bold text-blue-500">{totalVacation}일</p>
+              <p className="text-lg font-semibold dark:text-white">{totalVacation}일</p>
             </div>
-            <div className="flex-1 bg-orange-50 rounded-lg p-3 text-center">
+            <div className="text-center">
               <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">사용</p>
-              <p className="text-xl font-bold text-orange-500">{usedVacation}일</p>
+              <p className="text-lg font-semibold text-orange-500">{usedVacation}일</p>
             </div>
-            <div className="flex-1 bg-green-50 rounded-lg p-3 text-center">
+            <div className="text-center">
               <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">잔여</p>
-              <p className="text-xl font-bold text-green-500">{remaining}일</p>
+              <p className="text-lg font-semibold text-blue-500">{remaining}일</p>
             </div>
           </div>
-          <div className="w-full bg-gray-100 dark:bg-zinc-700 rounded-full h-3">
+          <div className="w-full bg-gray-100 dark:bg-zinc-700 rounded-full h-2">
             <div
-              className="bg-green-400 h-3 rounded-full transition-all"
+              className="bg-blue-500 h-2 rounded-full transition-all"
               style={{
                 width:
                   totalVacation > 0 ? `${Math.max(0, (remaining / totalVacation) * 100)}%` : '0%',
@@ -244,45 +274,24 @@ export default function MyPage() {
           </div>
         </div>
 
-        {/* 비밀번호 변경 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
-          <h2 className="font-semibold mb-4 dark:text-white">비밀번호 변경</h2>
-          <div className="mb-3">
-            <label className="text-sm text-gray-500 dark:text-zinc-400">새 비밀번호</label>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="6자리 이상"
-              className="w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
-            />
-          </div>
-          {passwordMessage && (
-            <p className="text-sm text-center text-blue-500 mb-3">{passwordMessage}</p>
-          )}
-          <button
-            onClick={handlePasswordChange}
-            disabled={passwordLoading}
-            className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
+        {/* 계정 관리 (위험 구역) — 파괴적 동작이므로 border 색으로만 구분하고, 배경 전체를
+           붉게 칠하지는 않는다 */}
+        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-red-200 dark:border-red-900/60 p-4">
+          <SectionHeader
+            action={
+              <button
+                onClick={() => setShowDeleteSection(!showDeleteSection)}
+                className="text-sm text-red-500 hover:underline"
+              >
+                {showDeleteSection ? '닫기' : '회원 탈퇴'}
+              </button>
+            }
           >
-            {passwordLoading ? '변경 중...' : '비밀번호 변경'}
-          </button>
-        </div>
-
-        {/* 회원 탈퇴 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4">
-          <div className="flex justify-between items-center">
-            <h2 className="font-semibold dark:text-white">회원 탈퇴</h2>
-            <button
-              onClick={() => setShowDeleteSection(!showDeleteSection)}
-              className="text-sm text-red-400 hover:text-red-600"
-            >
-              {showDeleteSection ? '닫기' : '탈퇴하기'}
-            </button>
-          </div>
+            계정 관리
+          </SectionHeader>
 
           {showDeleteSection && (
-            <div className="mt-4">
+            <div className="mt-4 pt-4 border-t border-red-100 dark:border-red-900/40">
               <p className="text-sm text-gray-500 dark:text-zinc-400 mb-3">
                 탈퇴하면 모든 근무 기록, 휴가, 팀 정보가 삭제되며 복구할 수 없어요.
                 <br />

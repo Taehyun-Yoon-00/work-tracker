@@ -134,11 +134,11 @@ export default function MyOrgEntryPage() {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
         <div className="max-w-2xl mx-auto">
-          <h1 className="text-2xl font-bold mb-1 dark:text-white">내 소속</h1>
+          <h1 className="text-xl font-semibold mb-1 dark:text-white">내 소속</h1>
           <p className="text-sm text-gray-400 dark:text-zinc-500 mb-6">
             총괄하시는 부문의 부서를 선택하면 해당 부서의 캘린더를 볼 수 있어요.
           </p>
-          <div className="bg-white dark:bg-zinc-800 rounded-xl shadow divide-y dark:divide-zinc-700">
+          <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 divide-y dark:divide-zinc-700">
             {divisionDepts.map((d) => (
               <button
                 key={d.id}
@@ -163,8 +163,8 @@ export default function MyOrgEntryPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-2xl font-bold mb-6 dark:text-white">내 소속</h1>
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-8 text-center">
+        <h1 className="text-xl font-semibold mb-6 dark:text-white">내 소속</h1>
+        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-8 text-center">
           <p className="text-sm text-gray-500 dark:text-zinc-400">
             소속된 조직이 없습니다.
             <br />

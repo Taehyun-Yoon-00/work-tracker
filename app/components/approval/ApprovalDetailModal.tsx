@@ -1,10 +1,12 @@
 import dayjs from 'dayjs'
+import Badge from '../ui/Badge'
 
-function typeLabel(type: string) {
-  if (type === 'vacation') return { text: '휴가', style: 'bg-orange-50 text-orange-500' }
-  if (type === 'remote') return { text: '원격근무', style: 'bg-purple-50 text-purple-500' }
-  if (type === 'holiday') return { text: '휴일근무', style: 'bg-red-50 text-red-500' }
-  return { text: type, style: 'bg-gray-100 text-gray-500' }
+// ApprovalCard와 같은 기준: 신청 타입은 서로 구분이 필요해 기존 색을 그대로 유지한다.
+function typeLabel(type: string): { text: string; colorClassName: string } {
+  if (type === 'vacation') return { text: '휴가', colorClassName: 'bg-orange-50 text-orange-500' }
+  if (type === 'remote') return { text: '원격근무', colorClassName: 'bg-indigo-50 text-indigo-500' }
+  if (type === 'holiday') return { text: '휴일근무', colorClassName: 'bg-red-50 text-red-500' }
+  return { text: type, colorClassName: 'bg-gray-100 text-gray-500' }
 }
 
 function vacationTypeLabel(type: string) {
@@ -62,7 +64,7 @@ export default function ApprovalDetailModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 w-full max-w-sm max-h-[90dvh] overflow-y-auto">
+      <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-lg p-6 w-full max-w-sm max-h-[90dvh] overflow-y-auto">
         <h3 className="font-semibold mb-3 dark:text-white">결재 처리</h3>
 
         <div className="mb-4 text-sm text-gray-600 dark:text-zinc-300 space-y-2">
@@ -72,7 +74,7 @@ export default function ApprovalDetailModal({
           </p>
           <p>
             <span className="font-medium">유형:</span>{' '}
-            <span className={`text-xs px-2 py-0.5 rounded-full ${type.style}`}>{type.text}</span>
+            <Badge colorClassName={type.colorClassName}>{type.text}</Badge>
           </p>
           <div>
             <span className="font-medium">날짜:</span>
@@ -111,7 +113,7 @@ export default function ApprovalDetailModal({
             <p className="text-gray-400 text-xs">요청자가 취소한 요청이에요.</p>
           )}
           {selectedRequest.status === 'approved' && cancelRequested && (
-            <p className="text-amber-500 text-xs">
+            <p className="text-orange-500 text-xs">
               {isRequester
                 ? '승인 취소를 요청했어요. 결재권자의 처리를 기다리고 있어요.'
                 : '요청자가 이미 승인된 건에 대해 취소를 요청했어요.'}
@@ -207,13 +209,13 @@ export default function ApprovalDetailModal({
               <>
                 <button
                   onClick={() => onEdit(selectedRequest)}
-                  className="flex-1 bg-sky-400 text-white py-2 rounded-lg text-sm"
+                  className="flex-1 bg-blue-500 text-white py-2 rounded-lg text-sm"
                 >
                   수정
                 </button>
                 <button
                   onClick={() => onCancel(selectedRequest.id)}
-                  className="flex-1 bg-amber-400 text-white py-2 rounded-lg text-sm"
+                  className="flex-1 bg-orange-400 text-white py-2 rounded-lg text-sm"
                 >
                   취소
                 </button>
@@ -224,7 +226,7 @@ export default function ApprovalDetailModal({
             {isRequester && selectedRequest.status === 'approved' && !cancelRequested && (
               <button
                 onClick={() => onRequestCancelApproval(selectedRequest.id)}
-                className="flex-1 bg-amber-400 text-white py-2 rounded-lg text-sm"
+                className="flex-1 bg-orange-400 text-white py-2 rounded-lg text-sm"
               >
                 취소 요청
               </button>

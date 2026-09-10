@@ -188,14 +188,14 @@ export default function DepartmentAffiliationView({ departmentId }: { department
       <div className="max-w-2xl mx-auto">
         {/* 헤더 */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold dark:text-white">{department?.name}</h1>
+          <h1 className="text-xl font-semibold dark:text-white">{department?.name}</h1>
           <p className="text-sm text-gray-400 dark:text-zinc-500 mt-0.5">
             {headName ? `부서장 ${headName}` : '부서장 미지정'} · 소속 {allMembers.length}명
           </p>
         </div>
 
         {/* 달력 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-3 mb-4">
+        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-3 mb-4">
           <div className="flex justify-between items-center mb-3">
             <h2 className="font-semibold dark:text-white">부서 캘린더</h2>
             {hasTeams && (
@@ -285,7 +285,7 @@ export default function DepartmentAffiliationView({ departmentId }: { department
         </div>
 
         {/* 인원 리스트: 캘린더 필터(부서 전체/내 팀만)와 무관하게 항상 부서 전체 인원을, 팀별로 묶어서 표시 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 space-y-4">
+        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 space-y-4">
           <h2 className="font-semibold dark:text-white">소속 인원</h2>
           {allMembers.length === 0 ? (
             <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-4">

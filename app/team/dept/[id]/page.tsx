@@ -84,7 +84,7 @@ export default function DepartmentDetailPage() {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
         <div className="max-w-2xl mx-auto">
-          <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-8 text-center">
+          <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-8 text-center">
             <p className="text-sm text-gray-500 dark:text-zinc-400">
               이 부서의 정보를 볼 수 있는 권한이 없어요.
             </p>

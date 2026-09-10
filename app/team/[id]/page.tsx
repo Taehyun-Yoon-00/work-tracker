@@ -241,7 +241,7 @@ export default function TeamDetailPage() {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
         <div className="max-w-2xl mx-auto">
-          <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-8 text-center">
+          <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-8 text-center">
             <p className="text-sm text-gray-500 dark:text-zinc-400">
               이 팀의 정보를 볼 수 있는 권한이 없어요.
             </p>
@@ -267,7 +267,7 @@ export default function TeamDetailPage() {
               {departmentName}
             </p>
           )}
-          <h1 className="text-2xl font-bold dark:text-white truncate">{team?.name}</h1>
+          <h1 className="text-xl font-semibold dark:text-white truncate">{team?.name}</h1>
           <p className="text-sm text-gray-400 dark:text-zinc-500 mt-0.5">
             {leaders.length > 0
               ? `팀장 ${leaders.map((l) => l.name).join(', ')}`
@@ -277,7 +277,7 @@ export default function TeamDetailPage() {
         </div>
 
         {/* 달력 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-3 mb-4">
+        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-3 mb-4">
           <div className="flex justify-between items-center mb-3">
             <h2 className="font-semibold dark:text-white">팀 캘린더</h2>
             {team?.department_id && (
@@ -465,7 +465,7 @@ export default function TeamDetailPage() {
         </div>
 
         {/* 소속 인원 리스트 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4">
+        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
           <h2 className="font-semibold dark:text-white mb-3">소속 인원</h2>
           {members.length === 0 ? (
             <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-4">

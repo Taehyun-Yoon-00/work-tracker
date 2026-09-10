@@ -195,11 +195,11 @@ export default function ReportPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
       <div className="max-w-2xl mx-auto">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold dark:text-white">리포트</h1>
+          <h1 className="text-xl font-semibold dark:text-white">리포트</h1>
         </div>
 
         {/* 년/월 선택 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
+        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 mb-4">
           <div className="flex items-center justify-center gap-2">
             <button
               onClick={() => moveMonth(-1)}
@@ -260,7 +260,7 @@ export default function ReportPage() {
 
         {/* 서포트리스트 양식 관리 (총괄 관리자/마스터 전용) */}
         {canManageTemplate && (
-          <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
+          <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 mb-4">
             <h2 className="font-semibold mb-1 dark:text-white">서포트리스트 양식 관리</h2>
             <p className="text-xs text-gray-400 dark:text-zinc-500 mb-3">
               서포트리스트 엑셀 양식(.xlsx)이에요. 
@@ -299,7 +299,7 @@ export default function ReportPage() {
         )}
 
         {/* 안건별 합계시간 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4">
+        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
           {loading ? (
             <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-6">
               불러오는 중...

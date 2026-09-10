@@ -21,7 +21,7 @@ export default function LoadError({
   return (
     <div
       role="alert"
-      className={`rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-center dark:border-red-900 dark:bg-red-950/40 ${className}`.trim()}
+      className={`rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-center dark:border-red-900 dark:bg-red-950/40 ${className}`.trim()}
     >
       <p className="text-sm text-red-700 dark:text-red-300">{message}</p>
       {onRetry && (

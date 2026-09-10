@@ -223,7 +223,7 @@ export default function AdminPage() {
       <div className="max-w-2xl mx-auto">
         {/* 헤더 */}
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold dark:text-white">관리</h1>
+          <h1 className="text-xl font-semibold dark:text-white">관리</h1>
           <button
             onClick={() => router.push('/mypage')}
             className="text-sm text-gray-500 dark:text-zinc-400 hover:underline"
@@ -233,13 +233,13 @@ export default function AdminPage() {
         </div>
 
         {message && (
-          <div className="bg-blue-50 dark:bg-blue-950 text-blue-500 text-sm rounded-xl p-3 mb-4 text-center">
+          <div className="bg-blue-50 dark:bg-blue-950 text-blue-500 text-sm rounded-lg p-3 mb-4 text-center">
             {message}
           </div>
         )}
 
         {/* 테스트 계정 생성 (이메일 인증 없이 즉시 로그인 가능한 계정을 만든다) */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
+        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 mb-4">
           <h2 className="font-semibold mb-1 dark:text-white">테스트 계정 생성</h2>
           <p className="text-xs text-gray-400 dark:text-zinc-500 mb-3">
             이메일 인증 없이 바로 로그인 가능한 계정을 만들어요. 테스트 용도로만 사용해주세요.
@@ -270,7 +270,7 @@ export default function AdminPage() {
         </div>
 
         {/* 회원 목록 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4">
+        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
           <h2 className="font-semibold mb-3 dark:text-white">전체 회원 ({profiles.length}명)</h2>
           {profiles.map((profile) => (
             <div
@@ -283,12 +283,12 @@ export default function AdminPage() {
                     {profile.name || '이름 미설정'}
                   </span>
                   {profile.is_master && (
-                    <span className="text-[10px] bg-red-100 dark:bg-red-950 text-red-500 px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] bg-gray-700 dark:bg-zinc-600 text-white px-2 py-0.5 rounded-full">
                       마스터
                     </span>
                   )}
                   {generalAdminIds.has(profile.id) && (
-                    <span className="text-[10px] bg-indigo-100 dark:bg-indigo-950 text-indigo-500 px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] bg-blue-50 dark:bg-blue-950 text-blue-500 px-2 py-0.5 rounded-full">
                       총괄 관리자
                     </span>
                   )}
@@ -311,7 +311,7 @@ export default function AdminPage() {
                   className={`text-xs px-2 py-1 rounded-lg ${
                     generalAdminIds.has(profile.id)
                       ? 'bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300 hover:bg-gray-200'
-                      : 'bg-indigo-50 dark:bg-indigo-950 text-indigo-500 hover:bg-indigo-100'
+                      : 'bg-blue-50 dark:bg-blue-950 text-blue-500 hover:bg-blue-100'
                   }`}
                 >
                   {generalAdminIds.has(profile.id) ? '총괄 관리자 해제' : '총괄 관리자 지정'}
@@ -337,7 +337,7 @@ export default function AdminPage() {
             </div>
           ))}
           {/* 대체공휴일 관리 */}
-          <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mt-4">
+          <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 mt-4">
             <h2 className="font-semibold mb-3 dark:text-white">대체공휴일 관리</h2>
 
             {/* 추가 */}

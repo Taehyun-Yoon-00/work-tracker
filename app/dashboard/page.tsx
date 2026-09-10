@@ -21,6 +21,8 @@ import {
   type DashboardMemberRow,
 } from '../lib/dashboardStats'
 import OrgScopeSelect, { OrgScopeOption } from '../components/ui/OrgScopeSelect'
+import SectionHeader from '../components/ui/SectionHeader'
+import UnitStatBarRow from '../components/ui/UnitStatBarRow'
 
 // 대시보드 조회 범위 (req 6).
 // - team: 팀장(team_members.role='admin') 기본 범위. 팀 하나.
@@ -410,11 +412,11 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
       <div className="max-w-2xl mx-auto">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold dark:text-white">대시보드</h1>
+          <h1 className="text-xl font-semibold dark:text-white">대시보드</h1>
         </div>
 
         {/* 조직 단위 필터 — 통계 기간과 독립된, 가장 상단의 별도 섹션 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
+        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 mb-4">
           <OrgScopeSelect
             options={scopeOptions}
             value={selectedScope}
@@ -423,12 +425,12 @@ export default function DashboardPage() {
         </div>
 
         {/* ===================== 월간 통계 ===================== */}
-        <h2 className="text-base font-bold text-gray-500 dark:text-zinc-400 mb-2 px-1">
+        <SectionHeader size="base" className="mb-2 px-1">
           월간 통계
-        </h2>
+        </SectionHeader>
 
         {/* 통계 기간 (연/월 선택 + 집계 기준 토글, 한 행에 배치) */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
+        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 mb-4">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <button
@@ -499,40 +501,44 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* 통계 카드 — 선택한 조직 "전체" 기준 총합 (요구사항 2~5, 7: 상세 단위와는 분리된 값) */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-          <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-3 text-center">
-            <p className="text-xs text-gray-400 dark:text-zinc-500 mb-1">총 인원</p>
-            <p className="text-lg font-bold dark:text-white">{(totalStats?.memberCount ?? 0)}명</p>
-          </div>
-          <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-3 text-center">
-            <p className="text-xs text-gray-400 dark:text-zinc-500 mb-1">총 근무</p>
-            <p className="text-lg font-bold dark:text-white">
-              {(totalStats?.totalHours ?? 0).toLocaleString()}h
-            </p>
-          </div>
-          <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-3 text-center">
-            <p className="text-xs text-gray-400 dark:text-zinc-500 mb-1">평일 근무</p>
-            <p className="text-lg font-bold text-blue-500">
-              {(totalStats?.weekdayHours ?? 0).toLocaleString()}h
-            </p>
-          </div>
-          <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-3 text-center">
-            <p className="text-xs text-gray-400 dark:text-zinc-500 mb-1">휴일 근무</p>
-            <p className="text-lg font-bold text-orange-500">
-              {(totalStats?.holidayHours ?? 0).toLocaleString()}h
-            </p>
+        {/* 전체 요약 — 선택한 조직 "전체" 기준 총합을 하나의 통계 영역으로 묶어서 보여준다
+           (요구사항 2~5, 7: 상세 단위와는 분리된 값). 항목마다 독립된 카드로 나누지 않고
+           총 근무시간을 중심 지표로, 인원/평일/휴일을 보조 지표 행으로 배치한다. */}
+        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 mb-4">
+          <p className="text-xs text-gray-400 dark:text-zinc-500 mb-1">총 근무시간</p>
+          <p className="text-2xl font-semibold dark:text-white mb-4">
+            {(totalStats?.totalHours ?? 0).toLocaleString()}h
+          </p>
+          <div className="grid grid-cols-3 divide-x divide-gray-100 dark:divide-zinc-700 border-t border-gray-100 dark:border-zinc-700 pt-3">
+            <div className="text-center">
+              <p className="text-xs text-gray-400 dark:text-zinc-500 mb-1">인원</p>
+              <p className="text-sm font-semibold dark:text-white">
+                {(totalStats?.memberCount ?? 0)}명
+              </p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-gray-400 dark:text-zinc-500 mb-1">평일 근무</p>
+              <p className="text-sm font-semibold text-blue-500">
+                {(totalStats?.weekdayHours ?? 0).toLocaleString()}h
+              </p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-gray-400 dark:text-zinc-500 mb-1">휴일 근무</p>
+              <p className="text-sm font-semibold text-orange-500">
+                {(totalStats?.holidayHours ?? 0).toLocaleString()}h
+              </p>
+            </div>
           </div>
         </div>
 
         {loadingStats ? (
-          <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4 text-center text-sm text-gray-400 dark:text-zinc-500">
+          <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 mb-4 text-center text-sm text-gray-400 dark:text-zinc-500">
             불러오는 중...
           </div>
         ) : (
           <>
             {/* 상세 통계 — scope에 따라 개인/팀/부서/부문 중 한 단계 아래 단위를 보여준다(요구사항 6, 11) */}
-            <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
+            <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 mb-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold dark:text-white">
                   {DETAIL_UNIT_NOUN[unitLevel]}별 근무시간
@@ -553,48 +559,29 @@ export default function DashboardPage() {
                   표시할 데이터가 없어요.
                 </p>
               ) : (
-                <div className="space-y-2.5">
+                <div className="space-y-3 sm:space-y-2.5">
                   {detailStatRows.map((row) => {
+                    // 그래프 계산 로직은 그대로 유지 — maxHours 대비 상대적인 막대 폭만 여기서 구하고,
+                    // 실제 렌더링(라벨 폭, Desktop/Mobile 레이아웃)은 UnitStatBarRow가 담당한다.
                     const barPct =
                       row.totalHours > 0 ? Math.max(4, (row.totalHours / maxHours) * 100) : 0
                     const weekdayPct =
                       row.totalHours > 0 ? (row.weekdayHours / row.totalHours) * barPct : 0
                     const holidayPct =
                       row.totalHours > 0 ? (row.holidayHours / row.totalHours) * barPct : 0
-                    // 개인 단위(team scope)가 아니면 팀/부서/부문 하나가 여러 사람을 묶은 값이므로
-                    // 인원수와 1인 평균을 함께 보여준다(요구사항 3~5 예시 형식).
-                    const isGroupUnit = unitLevel !== 'member'
                     return (
-                      <div key={row.id} className="flex items-center gap-2">
-                        <span
-                          className="w-16 shrink-0 text-sm dark:text-zinc-200 truncate"
-                          title={row.name}
-                        >
-                          {row.name}
-                        </span>
-                        <div className="flex-1 h-4 bg-gray-100 dark:bg-zinc-700 rounded-full overflow-hidden flex">
-                          <div className="h-full bg-blue-500" style={{ width: `${weekdayPct}%` }} />
-                          <div
-                            className="h-full bg-orange-400"
-                            style={{ width: `${holidayPct}%` }}
-                          />
-                        </div>
-                        {/* 합계와 평일/휴일 내역을 같은 오른쪽 열에 세로로 쌓아서 한눈에 읽히게 한다.
-                           고정 폭(w-20)이라 자릿수가 달라져도 막대 폭은 흔들리지 않는다. */}
-                        <div className="w-20 shrink-0 text-right">
-                          <p className="text-sm font-medium dark:text-zinc-200">{row.totalHours}h</p>
-                          <p className="text-[10px] text-gray-400 dark:text-zinc-500 leading-tight">
-                            <span className="text-blue-500">{row.weekdayHours}h</span>
-                            <span> · </span>
-                            <span className="text-orange-500">{row.holidayHours}h</span>
-                          </p>
-                          {isGroupUnit && (
-                            <p className="text-[10px] text-gray-400 dark:text-zinc-500 leading-tight">
-                              {row.memberCount}명 · 평균 {row.averageHours}h
-                            </p>
-                          )}
-                        </div>
-                      </div>
+                      <UnitStatBarRow
+                        key={row.id}
+                        unitLevel={unitLevel}
+                        name={row.name}
+                        totalHours={row.totalHours}
+                        weekdayHours={row.weekdayHours}
+                        holidayHours={row.holidayHours}
+                        weekdayPct={weekdayPct}
+                        holidayPct={holidayPct}
+                        memberCount={row.memberCount}
+                        averageHours={row.averageHours}
+                      />
                     )
                   })}
                 </div>
@@ -602,13 +589,13 @@ export default function DashboardPage() {
             </div>
 
             {/* ===================== 주간 통계 ===================== */}
-            <h2 className="text-base font-bold text-gray-500 dark:text-zinc-400 mb-2 px-1">
+            <SectionHeader size="base" className="mb-2 px-1">
               주간 통계
-            </h2>
+            </SectionHeader>
 
             {/* 주차별 근무시간 — 1주(월~일) 단위. 월 경계에 걸친 주는 실제 날짜 범위로 표시하고,
                양쪽 달의 근무 기록을 합산해서 보여준다. */}
-            <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 overflow-x-auto">
+            <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 overflow-x-auto">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold dark:text-white">
                   {WEEKLY_UNIT_NOUN[unitLevel]}별 주차별 근무시간

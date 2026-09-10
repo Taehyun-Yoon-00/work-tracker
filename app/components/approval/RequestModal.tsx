@@ -1,12 +1,14 @@
 import dayjs from 'dayjs'
 import DatePicker from 'react-multi-date-picker'
 import { X, Palmtree, Laptop, Building2 } from 'lucide-react'
+import Badge from '../ui/Badge'
 
-function typeLabel(type: string) {
-  if (type === 'vacation') return { text: '휴가', style: 'bg-orange-50 text-orange-500' }
-  if (type === 'remote') return { text: '원격근무', style: 'bg-purple-50 text-purple-500' }
-  if (type === 'holiday') return { text: '휴일근무', style: 'bg-red-50 text-red-500' }
-  return { text: type, style: 'bg-gray-100 text-gray-500' }
+// ApprovalCard/ApprovalDetailModal과 같은 기준: 신청 타입은 서로 구분이 필요해 기존 색을 유지한다.
+function typeLabel(type: string): { text: string; colorClassName: string } {
+  if (type === 'vacation') return { text: '휴가', colorClassName: 'bg-orange-50 text-orange-500' }
+  if (type === 'remote') return { text: '원격근무', colorClassName: 'bg-indigo-50 text-indigo-500' }
+  if (type === 'holiday') return { text: '휴일근무', colorClassName: 'bg-red-50 text-red-500' }
+  return { text: type, colorClassName: 'bg-gray-100 text-gray-500' }
 }
 
 interface DateGroup {
@@ -92,7 +94,7 @@ export default function RequestModal({
         step === 1 ? 'items-center' : 'items-start'
       }`}
     >
-      <div className="bg-white dark:bg-zinc-800 rounded-2xl w-full max-w-md max-h-[90dvh] flex flex-col">
+      <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-lg w-full max-w-md max-h-[90dvh] flex flex-col">
         <div className="flex justify-between items-center p-4 sm:p-6 pb-3 border-b dark:border-zinc-700">
           <h3 className="font-semibold dark:text-white">
             {isEditing ? '결재 요청 수정' : '결재 요청'}
@@ -112,19 +114,19 @@ export default function RequestModal({
               <div className="flex flex-col gap-2">
                 <button
                   onClick={() => onSelectType('vacation')}
-                  className="w-full py-3 border-2 dark:border-zinc-600 rounded-xl text-sm font-medium dark:text-zinc-300 hover:border-orange-400 hover:text-orange-500 transition text-left px-4 flex items-center gap-2"
+                  className="w-full py-3 border-2 dark:border-zinc-600 rounded-lg text-sm font-medium dark:text-zinc-300 hover:border-orange-400 hover:text-orange-500 transition text-left px-4 flex items-center gap-2"
                 >
                   <Palmtree size={16} strokeWidth={1.75} /> 휴가
                 </button>
                 <button
                   onClick={() => onSelectType('remote')}
-                  className="w-full py-3 border-2 dark:border-zinc-600 rounded-xl text-sm font-medium dark:text-zinc-300 hover:border-purple-400 hover:text-purple-500 transition text-left px-4 flex items-center gap-2"
+                  className="w-full py-3 border-2 dark:border-zinc-600 rounded-lg text-sm font-medium dark:text-zinc-300 hover:border-indigo-400 hover:text-indigo-500 transition text-left px-4 flex items-center gap-2"
                 >
                   <Laptop size={16} strokeWidth={1.75} /> 원격근무
                 </button>
                 <button
                   onClick={() => onSelectType('holiday')}
-                  className="w-full py-3 border-2 dark:border-zinc-600 rounded-xl text-sm font-medium dark:text-zinc-300 hover:border-red-400 hover:text-red-500 transition text-left px-4 flex items-center gap-2"
+                  className="w-full py-3 border-2 dark:border-zinc-600 rounded-lg text-sm font-medium dark:text-zinc-300 hover:border-red-400 hover:text-red-500 transition text-left px-4 flex items-center gap-2"
                 >
                   <Building2 size={16} strokeWidth={1.75} /> 휴일근무
                 </button>
@@ -143,11 +145,9 @@ export default function RequestModal({
 
               {/* 선택된 유형 표시 */}
               <div className="mb-4">
-                <span
-                  className={`text-xs px-3 py-1 rounded-full font-medium ${currentTypeLabel.style}`}
-                >
+                <Badge colorClassName={currentTypeLabel.colorClassName} className="font-medium">
                   {currentTypeLabel.text}
-                </span>
+                </Badge>
               </div>
 
               {/* 내 소속 */}
@@ -204,7 +204,7 @@ export default function RequestModal({
                   </p>
                 )}
                 {dateGroups.map((group, index) => (
-                  <div key={index} className="mb-4 p-3 bg-gray-50 dark:bg-zinc-700 rounded-xl">
+                  <div key={index} className="mb-4 p-3 bg-gray-50 dark:bg-zinc-700 rounded-lg">
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-xs text-gray-500 dark:text-zinc-400">
                         {index + 1}번째 그룹
@@ -354,7 +354,7 @@ export default function RequestModal({
         </div>
 
         {step === 2 && (
-          <div className="p-4 border-t dark:border-zinc-700 bg-white dark:bg-zinc-800 rounded-b-2xl">
+          <div className="p-4 border-t dark:border-zinc-700 bg-white dark:bg-zinc-800 rounded-b-xl">
             <button
               onClick={onSubmit}
               disabled={loading}

@@ -889,7 +889,7 @@ function ApprovalPageContent() {
     <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
       <div className="max-w-2xl mx-auto">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold dark:text-white">결재</h1>
+          <h1 className="text-xl font-semibold dark:text-white">결재</h1>
         </div>
 
         <ApprovalList

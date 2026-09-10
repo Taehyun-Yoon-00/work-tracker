@@ -27,7 +27,7 @@ export const APPROVAL_STATUS_LABEL: Record<ApprovalStatus, string> = {
 // 어두운 화면에서 연한 배지만 그대로 떠 있는다.
 const APPROVAL_TYPE_STYLE: Record<ApprovalType, string> = {
   vacation: 'bg-orange-50 text-orange-500 dark:bg-orange-950/50 dark:text-orange-300',
-  remote: 'bg-purple-50 text-purple-500 dark:bg-purple-950/50 dark:text-purple-300',
+  remote: 'bg-indigo-50 text-indigo-500 dark:bg-indigo-950/50 dark:text-indigo-300',
   holiday: 'bg-red-50 text-red-500 dark:bg-red-950/50 dark:text-red-300',
 }
 

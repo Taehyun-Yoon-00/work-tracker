@@ -1,18 +1,22 @@
 import dayjs from 'dayjs'
+import Badge, { type BadgeTone } from '../ui/Badge'
 
-function statusLabel(status: string) {
-  if (status === 'pending') return { text: '승인 대기중', color: 'text-yellow-500 bg-yellow-50' }
-  if (status === 'approved') return { text: '승인', color: 'text-green-500 bg-green-50' }
-  if (status === 'rejected') return { text: '반려', color: 'text-red-500 bg-red-50' }
-  if (status === 'cancelled') return { text: '취소됨', color: 'text-gray-400 bg-gray-100' }
-  return { text: status, color: '' }
+// 승인 상태는 neutral/info/success/warning/danger 공통 의미 체계를 그대로 쓴다.
+function statusLabel(status: string): { text: string; tone: BadgeTone } {
+  if (status === 'pending') return { text: '승인 대기중', tone: 'warning' }
+  if (status === 'approved') return { text: '승인', tone: 'success' }
+  if (status === 'rejected') return { text: '반려', tone: 'danger' }
+  if (status === 'cancelled') return { text: '취소됨', tone: 'neutral' }
+  return { text: status, tone: 'neutral' }
 }
 
-function typeLabel(type: string) {
-  if (type === 'vacation') return { text: '휴가', style: 'bg-orange-50 text-orange-500' }
-  if (type === 'remote') return { text: '원격근무', style: 'bg-purple-50 text-purple-500' }
-  if (type === 'holiday') return { text: '휴일근무', style: 'bg-red-50 text-red-500' }
-  return { text: type, style: 'bg-gray-100 text-gray-500' }
+// 신청 타입은 실제로 서로 다른 종류를 구분해야 하므로 기존 색을 그대로 유지한다
+// (휴가=orange, 원격=indigo, 휴일=red — 5가지 공통 tone 밖의 예외).
+function typeLabel(type: string): { text: string; colorClassName: string } {
+  if (type === 'vacation') return { text: '휴가', colorClassName: 'bg-orange-50 text-orange-500' }
+  if (type === 'remote') return { text: '원격근무', colorClassName: 'bg-indigo-50 text-indigo-500' }
+  if (type === 'holiday') return { text: '휴일근무', colorClassName: 'bg-red-50 text-red-500' }
+  return { text: type, colorClassName: 'bg-gray-100 text-gray-500' }
 }
 
 interface ApprovalCardProps {
@@ -37,27 +41,15 @@ export default function ApprovalCard({ req, userId, onClick }: ApprovalCardProps
             <span className="text-sm font-medium dark:text-zinc-200">
               {req.requester?.name || req.requester?.email?.split('@')[0]}
             </span>
-            <span className={`text-xs px-2 py-0.5 rounded-full ${type.style}`}>{type.text}</span>
+            <Badge colorClassName={type.colorClassName}>{type.text}</Badge>
             {req.teams?.name ? (
-              <span className="text-xs bg-blue-50 text-blue-500 px-2 py-0.5 rounded-full">
-                {req.teams.name}
-              </span>
+              <Badge tone="neutral">{req.teams.name}</Badge>
             ) : (
-              req.departments?.name && (
-                <span className="text-xs bg-blue-50 text-blue-500 px-2 py-0.5 rounded-full">
-                  {req.departments.name}
-                </span>
-              )
+              req.departments?.name && <Badge tone="neutral">{req.departments.name}</Badge>
             )}
-            {isRequester && (
-              <span className="text-xs bg-orange-50 text-orange-400 px-2 py-0.5 rounded-full">
-                내 요청
-              </span>
-            )}
+            {isRequester && <Badge tone="neutral">내 요청</Badge>}
             {req.status === 'approved' && req.cancel_requested && (
-              <span className="text-xs bg-amber-50 text-amber-500 px-2 py-0.5 rounded-full">
-                취소 요청됨
-              </span>
+              <Badge tone="warning">취소 요청됨</Badge>
             )}
           </div>
           <p className="text-xs text-gray-400 dark:text-zinc-500">
@@ -80,9 +72,9 @@ export default function ApprovalCard({ req, userId, onClick }: ApprovalCardProps
             </p>
           )}
         </div>
-        <span className={`text-xs px-2 py-1 rounded-full shrink-0 ml-2 ${status.color}`}>
+        <Badge tone={status.tone} className="shrink-0 ml-2">
           {status.text}
-        </span>
+        </Badge>
       </div>
     </div>
   )

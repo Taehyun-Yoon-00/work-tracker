@@ -112,8 +112,8 @@ export default function ApprovalList({
             Icon: Laptop,
             style:
               filterType === 'remote'
-                ? 'bg-purple-500 text-white'
-                : 'bg-purple-50 dark:bg-zinc-700 text-purple-500 dark:text-purple-300',
+                ? 'bg-indigo-500 text-white'
+                : 'bg-indigo-50 dark:bg-zinc-700 text-indigo-500 dark:text-indigo-300',
           },
           {
             value: 'holiday',
@@ -137,7 +137,7 @@ export default function ApprovalList({
       </div>
 
       {/* 카드 목록 */}
-      <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4">
+      <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
         {filteredRequests.length === 0 ? (
           <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-4">
             결재 요청이 없어요.

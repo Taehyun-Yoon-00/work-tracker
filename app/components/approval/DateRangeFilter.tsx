@@ -51,7 +51,7 @@ export default function DateRangeFilter({ startDate, endDate, onApply }: DateRan
           onClick={() => setOpen(false)}
         >
           <div
-            className="bg-white dark:bg-zinc-800 rounded-xl p-4 max-w-full overflow-x-auto"
+            className="bg-white dark:bg-zinc-800 rounded-xl shadow-lg p-4 max-w-full overflow-x-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <p className="text-sm font-semibold mb-3 dark:text-white">기간 선택</p>

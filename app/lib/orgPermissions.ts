@@ -24,6 +24,13 @@ export interface DepartmentRow {
   head_user_id: string | null
 }
 
+/** team_members 한 행 — 팀장 여부 판별에 필요한 최소 필드만 */
+export interface TeamMemberLite {
+  team_id: string
+  user_id: string
+  role: string
+}
+
 /**
  * 조직 관리 권한 트랙에서 "전체 조직"에 대한 최상위 권한을 가졌는지.
  * MASTER(시스템 관리자) 또는 총괄 관리자면 true.
@@ -72,4 +79,39 @@ export function canManageDivision(
 ): boolean {
   const division = divisions.find((d) => d.id === divisionId)
   return division ? isDivisionHead(userId, division, hasTopAccess) : false
+}
+
+/**
+ * 이 사람이 특정 팀의 팀장인지.
+ * 조직 관리 권한 트랙의 최상위(hasTopAccess)면 자동으로 포함된다.
+ */
+export function isTeamLead(
+  userId: string,
+  teamId: string,
+  teamMembers: TeamMemberLite[],
+  hasTopAccess: boolean
+): boolean {
+  if (hasTopAccess) return true
+  return teamMembers.some((m) => m.team_id === teamId && m.user_id === userId && m.role === 'admin')
+}
+
+/**
+ * 특정 팀 안에서 팀장급 권한(자기 팀의 권한 관리·구성원 관리)을 행사할 수 있는지.
+ * 부서장 이상(canManageDepartment)이거나, 그 팀의 팀장이면 true.
+ * 팀장 변경/팀 삭제 등 팀 자체에 대한 구조 변경 권한은 여전히 부서장 이상만 가진다 —
+ * 이 함수는 "자기 팀"의 결재권자 위임·구성원 관리에만 쓰인다.
+ */
+export function canManageTeam(
+  userId: string,
+  teamId: string,
+  departmentId: string,
+  teamMembers: TeamMemberLite[],
+  departments: DepartmentRow[],
+  divisions: DivisionRow[],
+  hasTopAccess: boolean
+): boolean {
+  return (
+    canManageDepartment(userId, departmentId, departments, divisions, hasTopAccess) ||
+    isTeamLead(userId, teamId, teamMembers, hasTopAccess)
+  )
 }

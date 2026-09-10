@@ -32,7 +32,7 @@ export default function StatCard({ label, value, tone, valueSize = 'lg' }: StatC
   return (
     <div className={`flex-1 ${bg} rounded-lg p-3 text-center`}>
       <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">{label}</p>
-      <p className={`${VALUE_SIZE_CLASS[valueSize]} font-bold ${text}`}>{value}</p>
+      <p className={`${VALUE_SIZE_CLASS[valueSize]} font-semibold ${text}`}>{value}</p>
     </div>
   )
 }

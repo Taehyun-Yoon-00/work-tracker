@@ -63,7 +63,7 @@ export default function ConfirmDialog({
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl dark:bg-zinc-800"
+        className="w-full max-w-sm rounded-xl bg-white p-5 shadow-lg dark:bg-zinc-800"
       >
         <h2 id="confirm-dialog-title" className="font-semibold dark:text-white">
           {title}

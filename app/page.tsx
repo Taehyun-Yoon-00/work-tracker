@@ -552,11 +552,11 @@ export default function Home() {
       <div className="max-w-2xl mx-auto">
         {/* 헤더 */}
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold dark:text-white">근무시간 기록</h1>
+          <h1 className="text-xl font-semibold dark:text-white">근무시간 기록</h1>
         </div>
 
         {/* 달력 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-3 mb-4">
+        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-3 mb-4">
           <div className="flex items-start gap-2 w-full">
             <div className="min-w-0">
               <Calendar
@@ -618,7 +618,7 @@ export default function Home() {
           </div>
         </div>
         {/* 근무시간 입력 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
+        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 mb-4">
           <div className="flex justify-between items-center mb-3">
             <h2 className="font-semibold dark:text-white">
               {dayjs(selectedDate).format('YYYY년 MM월 DD일')} 근무 입력
@@ -782,7 +782,7 @@ export default function Home() {
           )}
         </div>
         {/* 휴가 입력 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
+        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 mb-4">
           <h2 className="font-semibold mb-3 dark:text-white">
             {dayjs(selectedDate).format('YYYY년 MM월 DD일')} 휴가
           </h2>
@@ -816,7 +816,7 @@ export default function Home() {
         </div>
 
         {/* 원격근무 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-4">
+        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 mb-4">
           <h2 className="font-semibold mb-3 dark:text-white">
             {dayjs(selectedDate).format('YYYY년 MM월 DD일')} 원격근무
           </h2>
@@ -840,7 +840,7 @@ export default function Home() {
         </div>
 
         {/* 주간 합산 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow p-4 mb-8">
+        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 mb-8">
           <div className="flex items-center gap-2 mb-3">
             <h2 className="font-semibold flex-1 dark:text-white">주간 근무시간</h2>
             <button
@@ -861,17 +861,17 @@ export default function Home() {
             </button>
           </div>
           <div className="flex gap-2 mb-3">
-            <div className="flex-1 bg-blue-50 rounded-lg p-3 text-center">
+            <div className="flex-1 bg-gray-50 dark:bg-zinc-900/40 rounded-lg p-3 text-center">
               <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">전체</p>
-              <p className="text-lg font-bold text-blue-500">{totalWeeklyHours.toFixed(2)}시간</p>
+              <p className="text-lg font-semibold dark:text-white">{totalWeeklyHours.toFixed(2)}시간</p>
             </div>
-            <div className="flex-1 bg-green-50 rounded-lg p-3 text-center">
+            <div className="flex-1 bg-blue-50 rounded-lg p-3 text-center">
               <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">평일</p>
-              <p className="text-lg font-bold text-green-500">{weekdayHours.toFixed(2)}시간</p>
+              <p className="text-lg font-semibold text-blue-500">{weekdayHours.toFixed(2)}시간</p>
             </div>
             <div className="flex-1 bg-orange-50 rounded-lg p-3 text-center">
               <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">휴일</p>
-              <p className="text-lg font-bold text-orange-500">{weekendHours.toFixed(2)}시간</p>
+              <p className="text-lg font-semibold text-orange-500">{weekendHours.toFixed(2)}시간</p>
             </div>
           </div>
           {weeklyLogs.length === 0 ? (
