@@ -31,7 +31,7 @@ export default function Sidebar() {
   const hasPermission = (item: SidebarItem) => {
     if (item.permission === 'master') return isMaster
     if (item.permission === 'teamLeaderOrAbove') return isTeamLeaderOrAbove
-    if (item.permission === 'orgManager') return isOrgManager
+    if (item.permission === 'orgManager') return isTeamLeaderOrAbove || isOrgManager
     if (item.permission === 'dashboardViewer') return isTeamLeaderOrAbove || isOrgManager
     return true
   }
