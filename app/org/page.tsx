@@ -1420,7 +1420,7 @@ export default function OrgPage() {
                   부문장
                 </p>
                 <div className="border-t border-gray-100 dark:border-zinc-800" />
-                <div className="relative flex items-center flex-wrap justify-between gap-y-1 gap-x-2 py-2">
+                <div className="relative flex items-center flex-wrap justify-between gap-y-1 gap-x-2 py-1">
                   <span className="text-sm font-medium dark:text-white truncate">
                     {profileName(division.head_user_id)}
                   </span>
@@ -1498,21 +1498,18 @@ export default function OrgPage() {
               )
               return (
                 <div key={department.id}>
-                  <button
-                    onClick={() => selectDepartment(department.id)}
-                    className="w-full flex items-center justify-between gap-2 text-left mb-1.5 hover:underline"
-                  >
+                  <div className="w-full flex items-center justify-between gap-2 mb-1.5">
                     <span className="text-sm font-semibold text-gray-700 dark:text-zinc-200 truncate">
                       {department.name}
                     </span>
                     <span className="text-xs text-gray-400 dark:text-zinc-500 shrink-0">
                       ({headcountOfDept(department.id)}명)
                     </span>
-                  </button>
+                  </div>
                   <div className="border-t border-gray-100 dark:border-zinc-800" />
                   <div className="divide-y divide-gray-50 dark:divide-zinc-900/60">
                     {headEntry && (
-                      <div className="relative flex items-center flex-wrap justify-between gap-y-1 gap-x-2 py-2">
+                      <div className="relative flex items-center flex-wrap justify-between gap-y-1 gap-x-2 py-1">
                         <div className="flex items-center gap-1.5 min-w-0">
                           <span className="text-sm font-medium dark:text-white truncate">
                             {headEntry.name}
@@ -1554,7 +1551,7 @@ export default function OrgPage() {
                       </div>
                     )}
                     {directs.map((m) => (
-                      <div key={m.user_id} className="relative flex items-center flex-wrap justify-between gap-y-1 gap-x-2 py-2">
+                      <div key={m.user_id} className="relative flex items-center flex-wrap justify-between gap-y-1 gap-x-2 py-1">
                         <span className="text-sm text-gray-600 dark:text-zinc-300 truncate">
                           {m.name}
                         </span>
@@ -1587,7 +1584,7 @@ export default function OrgPage() {
                     {teamMembersFlat.map((m) => (
                       <div
                         key={`${m.team_id}-${m.user_id}`}
-                        className="relative flex items-center flex-wrap justify-between gap-y-1 gap-x-2 py-2"
+                        className="relative flex items-center flex-wrap justify-between gap-y-1 gap-x-2 py-1"
                       >
                         <div className="flex items-center gap-1.5 min-w-0">
                           <span className="text-sm text-gray-600 dark:text-zinc-300 truncate">
@@ -1999,7 +1996,7 @@ export default function OrgPage() {
                   const rowKey = isHead ? headKey : `direct-${department.id}-${d.user_id}`
                   const canManageRow = isHead ? canManageThisDivision : canManageThisDept
                   return (
-                    <div className="relative flex items-center flex-wrap justify-between gap-y-1 gap-x-2 py-2">
+                    <div className="relative flex items-center flex-wrap justify-between gap-y-1 gap-x-2 py-1">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span
                           className={`text-sm truncate ${
