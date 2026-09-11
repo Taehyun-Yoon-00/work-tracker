@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Calendar, DateObject } from 'react-multi-date-picker'
 import dayjs from 'dayjs'
 import { CalendarDays } from 'lucide-react'
+import { weekendClassName } from '@/app/lib/dates'
 
 interface DateRangeFilterProps {
   startDate: string // YYYY-MM-DD
@@ -61,6 +62,8 @@ export default function DateRangeFilter({ startDate, endDate, onApply }: DateRan
               range
               numberOfMonths={2}
               shadow={false}
+              weekStartDayIndex={1}
+              mapDays={({ date }) => ({ className: weekendClassName(date.toDate()) })}
               className="!shadow-none"
             />
             <div className="flex gap-2 mt-4">

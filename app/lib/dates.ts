@@ -53,6 +53,17 @@ export function getSettlementPeriod(date: DateLike): DateRange {
 }
 
 /**
+ * 토요일은 파란색, 일요일은 빨간색으로 강조하는 스타일 클래스.
+ * 근무관리 달력(react-calendar)과 결재 달력(react-multi-date-picker)이 같은 규칙을 쓴다.
+ */
+export function weekendClassName(date: Date): string {
+  const day = date.getDay()
+  if (day === 0) return '!text-red-500 font-semibold'
+  if (day === 6) return '!text-blue-500 font-semibold'
+  return ''
+}
+
+/**
  * 해당 달이 걸쳐 있는 주들의 시작일(월요일) 목록.
  * 주차별 출근계획 UI에서 몇 개의 주 버튼을 그릴지 결정하는 데 쓴다.
  */

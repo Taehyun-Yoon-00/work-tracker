@@ -2,6 +2,7 @@ import dayjs from 'dayjs'
 import DatePicker from 'react-multi-date-picker'
 import { X, Palmtree, Laptop, Building2 } from 'lucide-react'
 import Badge from '../ui/Badge'
+import { weekendClassName } from '@/app/lib/dates'
 
 // ApprovalCard/ApprovalDetailModal과 같은 기준: 신청 타입은 서로 구분이 필요해 기존 색을 유지한다.
 function typeLabel(type: string): { text: string; colorClassName: string } {
@@ -229,6 +230,8 @@ export default function RequestModal({
                         )
                       }}
                       format="YYYY-MM-DD"
+                      weekStartDayIndex={1}
+                      mapDays={({ date }) => ({ className: weekendClassName(date.toDate()) })}
                       className="w-full text-sm"
                     />
                     {group.dates.length > 0 && (
