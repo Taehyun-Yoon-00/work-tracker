@@ -485,9 +485,7 @@ export default function TeamDetailPage() {
                     </span>
                   )}
                   {member.isHead && (
-                    <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300">
-                      팀장
-                    </span>
+                    <span className="text-[10px] text-blue-500 font-semibold">팀장</span>
                   )}
                 </div>
               ))}

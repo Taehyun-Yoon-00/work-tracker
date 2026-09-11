@@ -10,6 +10,7 @@ import ApprovalDetailModal from '../components/approval/ApprovalDetailModal'
 import RequestModal from '../components/approval/RequestModal'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import OrgScopeSelect, { OrgScopeOption } from '../components/ui/OrgScopeSelect'
+import { fetchDivisionMembers, fetchDepartmentScope } from '../lib/orgOrder'
 
 const CC_STORAGE_KEY = 'approval_cc_history'
 
@@ -445,7 +446,17 @@ function ApprovalPageContent() {
     }
 
     candidates.delete(user.id)
-    setApprovers(Array.from(candidates.values()))
+
+    // 결재권자 표시 순서를 조직관리에서 정한 구성원 순서(부문 → 부서 → 팀, 각 리더가 최상단)와
+    // 동일하게 맞춘다. 부문이 없는 부서는 부서 범위 순서를 기준으로 삼는다.
+    const orgOrderList = dept?.division_id
+      ? await fetchDivisionMembers(dept.division_id)
+      : (await fetchDepartmentScope(source.departmentId)).allMembers
+    const orderIndex = new Map(orgOrderList.map((m, i) => [m.user_id, i]))
+    const sortedApprovers = Array.from(candidates.values()).sort(
+      (a, b) => (orderIndex.get(a.user_id) ?? Infinity) - (orderIndex.get(b.user_id) ?? Infinity)
+    )
+    setApprovers(sortedApprovers)
   }
 
   // 다중 소속일 때 사용자가 드롭다운에서 소속을 바꾼 경우

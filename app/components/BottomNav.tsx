@@ -34,7 +34,7 @@ export default function BottomNav() {
   ]
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white dark:bg-zinc-800 border-t border-gray-200 dark:border-zinc-700 z-50">
+    <div className="md:hidden fixed bottom-0 left-0 right-0 h-20 bg-white dark:bg-zinc-800 border-t border-gray-200 dark:border-zinc-700 z-50">
       <div className="max-w-2xl mx-auto flex h-full">
         {tabs.map((tab) => {
           const isActive =
