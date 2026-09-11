@@ -156,6 +156,8 @@ export default function OrgPage() {
   const [movingKey, setMovingKey] = useState<string | null>(null)
   const [moveTargetDept, setMoveTargetDept] = useState<string>('')
   const [moveTargetTeam, setMoveTargetTeam] = useState<string>('')
+  // 구성원 행의 ⋮ 메뉴(이동/내보내기 선택지) 펼침 상태 — 한 번에 하나만 펼쳐진다.
+  const [openActionKey, setOpenActionKey] = useState<string | null>(null)
 
   // 미지정 인원 배정 인라인 폼
   const [assigningId, setAssigningId] = useState<string | null>(null)
@@ -775,6 +777,7 @@ export default function OrgPage() {
   }
 
   const openMove = (key: string, currentDepartmentId: string, currentTeamId: string | null) => {
+    setOpenActionKey(null)
     setMovingKey(key)
     setMoveTargetDept(currentDepartmentId)
     setMoveTargetTeam(currentTeamId || '')
@@ -1214,11 +1217,14 @@ export default function OrgPage() {
                     </select>
                     <button
                       onClick={() => handleConfirmAssign(p.id)}
-                      className="text-green-500 font-medium shrink-0"
+                      className="text-[11px] text-green-500 font-medium shrink-0 px-1 py-0.5"
                     >
                       확인
                     </button>
-                    <button onClick={closeAssign} className="text-gray-400 shrink-0">
+                    <button
+                      onClick={closeAssign}
+                      className="text-[11px] text-gray-400 shrink-0 px-1 py-0.5"
+                    >
                       취소
                     </button>
                   </span>
@@ -1413,12 +1419,39 @@ export default function OrgPage() {
                 <p className="text-xs font-semibold text-gray-500 dark:text-zinc-400 mb-1.5">
                   부문장
                 </p>
-                <div className="flex items-center gap-2 flex-wrap text-sm text-gray-600 dark:text-zinc-300">
-                  <span className="font-medium dark:text-white">
+                <div className="border-t border-gray-100 dark:border-zinc-800" />
+                <div className="relative flex items-center flex-wrap justify-between gap-y-1 gap-x-2 py-2">
+                  <span className="text-sm font-medium dark:text-white truncate">
                     {profileName(division.head_user_id)}
                   </span>
-                  {hasTopAccess &&
-                    (movingKey === headKey ? (
+                  <MemberActionMenu
+                    rowKey={headKey}
+                    openKey={openActionKey}
+                    setOpenKey={setOpenActionKey}
+                    movingKey={movingKey}
+                    canMove={hasTopAccess}
+                    canRemove={
+                      hasTopAccess &&
+                      directMembers.some((m) => m.user_id === division.head_user_id)
+                    }
+                    onMoveClick={() =>
+                      openMove(
+                        headKey,
+                        directMembers.find((m) => m.user_id === division.head_user_id)
+                          ?.department_id ||
+                          deptList[0]?.id ||
+                          '',
+                        null
+                      )
+                    }
+                    onRemoveClick={() =>
+                      confirmUnassignFromDept(
+                        directMembers.find((m) => m.user_id === division.head_user_id)
+                          ?.department_id || '',
+                        division.head_user_id as string
+                      )
+                    }
+                    moveForm={
                       <MoveForm
                         departmentsForActor={departmentsForActor(division, deptList[0]?.id || '')}
                         moveTargetDept={moveTargetDept}
@@ -1436,39 +1469,8 @@ export default function OrgPage() {
                         }
                         onCancel={closeMove}
                       />
-                    ) : (
-                      <>
-                        <button
-                          onClick={() =>
-                            openMove(
-                              headKey,
-                              directMembers.find((m) => m.user_id === division.head_user_id)
-                                ?.department_id ||
-                                deptList[0]?.id ||
-                                '',
-                              null
-                            )
-                          }
-                          className="text-xs text-blue-400 hover:underline"
-                        >
-                          이동
-                        </button>
-                        {directMembers.some((m) => m.user_id === division.head_user_id) && (
-                          <button
-                            onClick={() =>
-                              confirmUnassignFromDept(
-                                directMembers.find((m) => m.user_id === division.head_user_id)
-                                  ?.department_id || '',
-                                division.head_user_id as string
-                              )
-                            }
-                            className="text-xs text-red-400 hover:underline"
-                          >
-                            내보내기
-                          </button>
-                        )}
-                      </>
-                    ))}
+                    }
+                  />
                 </div>
               </div>
             )}
@@ -1487,44 +1489,146 @@ export default function OrgPage() {
               const headEntry = department.head_user_id
                 ? directOfDept(department.id).find((m) => m.user_id === department.head_user_id)
                 : null
+              const canManageThisDeptRow = canManageDepartment(
+                user.id,
+                department.id,
+                departments,
+                divisions,
+                hasTopAccess
+              )
               return (
                 <div key={department.id}>
                   <button
                     onClick={() => selectDepartment(department.id)}
-                    className="text-xs font-semibold text-gray-500 dark:text-zinc-400 mb-1.5 hover:underline"
+                    className="w-full flex items-center justify-between gap-2 text-left mb-1.5 hover:underline"
                   >
-                    {department.name} ({headcountOfDept(department.id)}명)
+                    <span className="text-sm font-semibold text-gray-700 dark:text-zinc-200 truncate">
+                      {department.name}
+                    </span>
+                    <span className="text-xs text-gray-400 dark:text-zinc-500 shrink-0">
+                      ({headcountOfDept(department.id)}명)
+                    </span>
                   </button>
-                  <div className="space-y-1">
+                  <div className="border-t border-gray-100 dark:border-zinc-800" />
+                  <div className="divide-y divide-gray-50 dark:divide-zinc-900/60">
                     {headEntry && (
-                      <div className="flex items-center gap-2 flex-wrap text-sm text-gray-600 dark:text-zinc-300">
-                        <span className="font-medium dark:text-white">{headEntry.name}</span>
-                        <span className="text-[10px] text-blue-500">부서장</span>
+                      <div className="relative flex items-center flex-wrap justify-between gap-y-1 gap-x-2 py-2">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-sm font-medium dark:text-white truncate">
+                            {headEntry.name}
+                          </span>
+                          <span className="text-[10px] text-blue-500 shrink-0">부서장</span>
+                        </div>
+                        <MemberActionMenu
+                          rowKey={`div-direct-${department.id}-${headEntry.user_id}`}
+                          openKey={openActionKey}
+                          setOpenKey={setOpenActionKey}
+                          movingKey={movingKey}
+                          canMove={canManageThisDeptRow}
+                          canRemove={canManageThisDeptRow}
+                          onMoveClick={() =>
+                            openMove(
+                              `div-direct-${department.id}-${headEntry.user_id}`,
+                              department.id,
+                              null
+                            )
+                          }
+                          onRemoveClick={() =>
+                            confirmUnassignFromDept(department.id, headEntry.user_id)
+                          }
+                          moveForm={
+                            <MoveForm
+                              departmentsForActor={departmentsForActor(division, department.id)}
+                              moveTargetDept={moveTargetDept}
+                              setMoveTargetDept={setMoveTargetDept}
+                              moveTargetTeam={moveTargetTeam}
+                              setMoveTargetTeam={setMoveTargetTeam}
+                              teamsInDept={teamsInDept}
+                              onConfirm={() =>
+                                handleConfirmMove(headEntry.user_id, null, department.id)
+                              }
+                              onCancel={closeMove}
+                            />
+                          }
+                        />
                       </div>
                     )}
                     {directs.map((m) => (
-                      <div
-                        key={m.user_id}
-                        className="flex items-center gap-2 flex-wrap text-sm text-gray-600 dark:text-zinc-300"
-                      >
-                        <span>{m.name}</span>
+                      <div key={m.user_id} className="relative flex items-center flex-wrap justify-between gap-y-1 gap-x-2 py-2">
+                        <span className="text-sm text-gray-600 dark:text-zinc-300 truncate">
+                          {m.name}
+                        </span>
+                        <MemberActionMenu
+                          rowKey={`div-direct-${department.id}-${m.user_id}`}
+                          openKey={openActionKey}
+                          setOpenKey={setOpenActionKey}
+                          movingKey={movingKey}
+                          canMove={canManageThisDeptRow}
+                          canRemove={canManageThisDeptRow}
+                          onMoveClick={() =>
+                            openMove(`div-direct-${department.id}-${m.user_id}`, department.id, null)
+                          }
+                          onRemoveClick={() => confirmUnassignFromDept(department.id, m.user_id)}
+                          moveForm={
+                            <MoveForm
+                              departmentsForActor={departmentsForActor(division, department.id)}
+                              moveTargetDept={moveTargetDept}
+                              setMoveTargetDept={setMoveTargetDept}
+                              moveTargetTeam={moveTargetTeam}
+                              setMoveTargetTeam={setMoveTargetTeam}
+                              teamsInDept={teamsInDept}
+                              onConfirm={() => handleConfirmMove(m.user_id, null, department.id)}
+                              onCancel={closeMove}
+                            />
+                          }
+                        />
                       </div>
                     ))}
                     {teamMembersFlat.map((m) => (
                       <div
                         key={`${m.team_id}-${m.user_id}`}
-                        className="flex items-center gap-2 flex-wrap text-sm text-gray-600 dark:text-zinc-300"
+                        className="relative flex items-center flex-wrap justify-between gap-y-1 gap-x-2 py-2"
                       >
-                        <span>{m.name}</span>
-                        {m.role === 'admin' && (
-                          <span className="text-[10px] text-blue-500">팀장</span>
-                        )}
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-sm text-gray-600 dark:text-zinc-300 truncate">
+                            {m.name}
+                          </span>
+                          {m.role === 'admin' && (
+                            <span className="text-[10px] text-blue-500 shrink-0">팀장</span>
+                          )}
+                        </div>
+                        <MemberActionMenu
+                          rowKey={`div-team-${m.team_id}-${m.user_id}`}
+                          openKey={openActionKey}
+                          setOpenKey={setOpenActionKey}
+                          movingKey={movingKey}
+                          canMove={canManageThisDeptRow}
+                          canRemove={canManageThisDeptRow}
+                          onMoveClick={() =>
+                            openMove(`div-team-${m.team_id}-${m.user_id}`, department.id, m.team_id)
+                          }
+                          onRemoveClick={() => confirmUnassignFromTeam(m.team_id, m.user_id)}
+                          moveForm={
+                            <MoveForm
+                              departmentsForActor={departmentsForActor(division, department.id)}
+                              moveTargetDept={moveTargetDept}
+                              setMoveTargetDept={setMoveTargetDept}
+                              moveTargetTeam={moveTargetTeam}
+                              setMoveTargetTeam={setMoveTargetTeam}
+                              teamsInDept={teamsInDept}
+                              onConfirm={() =>
+                                handleConfirmMove(m.user_id, m.team_id, department.id)
+                              }
+                              onCancel={closeMove}
+                            />
+                          }
+                        />
                       </div>
                     ))}
                     {!headEntry && directs.length === 0 && teamMembersFlat.length === 0 && (
-                      <span className="text-[11px] text-gray-300 dark:text-zinc-600">
+                      <p className="text-[11px] text-gray-300 dark:text-zinc-600 py-2">
                         소속 인원 없음
-                      </span>
+                      </p>
                     )}
                   </div>
                 </div>
@@ -1752,6 +1856,8 @@ export default function OrgPage() {
                     </p>
                   ) : (
                     <div className="space-y-1.5">
+                      {/* 이동/내보내기는 "구성원" 탭에서만 할 수 있다 — 팀 구조 탭의 부서 직속
+                          펼침 목록은 보기 전용이다. */}
                       {directs.map((d) => {
                         const key = `direct-${department.id}-${d.user_id}`
                         return (
@@ -1763,38 +1869,6 @@ export default function OrgPage() {
                             {d.user_id === department.head_user_id && (
                               <span className="text-[10px] text-blue-500">부서장</span>
                             )}
-                            {canManageThisDept &&
-                              (movingKey === key ? (
-                                <MoveForm
-                                  departmentsForActor={departmentsForActor(division, department.id)}
-                                  moveTargetDept={moveTargetDept}
-                                  setMoveTargetDept={setMoveTargetDept}
-                                  moveTargetTeam={moveTargetTeam}
-                                  setMoveTargetTeam={setMoveTargetTeam}
-                                  teamsInDept={teamsInDept}
-                                  onConfirm={() =>
-                                    handleConfirmMove(d.user_id, null, department.id)
-                                  }
-                                  onCancel={closeMove}
-                                />
-                              ) : (
-                                <>
-                                  <button
-                                    onClick={() => openMove(key, department.id, null)}
-                                    className="text-xs text-blue-400 hover:underline"
-                                  >
-                                    이동
-                                  </button>
-                                  <button
-                                    onClick={() =>
-                                      confirmUnassignFromDept(department.id, d.user_id)
-                                    }
-                                    className="text-xs text-red-400 hover:underline"
-                                  >
-                                    내보내기
-                                  </button>
-                                </>
-                              ))}
                           </div>
                         )
                       })}
@@ -1893,6 +1967,7 @@ export default function OrgPage() {
                 제외하면(구 로직) 부서 직속 인원이 부서장뿐일 때 "없음"으로 잘못 표시되고, 인원수도
                 실제 데이터와 어긋난다. 부서장을 포함한 하나의 "부서 직속" 목록으로 통일하고,
                 부서장은 배지로만 구분한다. (부서장은 항상 최상단에 고정 — lib/orgOrder의 규칙과 동일)
+                이동/내보내기는 이름과 같은 행 오른쪽 끝의 ⋮ 버튼을 눌렀을 때만 펼쳐진다.
               */}
               {(() => {
                 const headInDirects = department.head_user_id
@@ -1920,59 +1995,64 @@ export default function OrgPage() {
                 const renderRow = (
                   d: MemberRow & { department_id: string },
                   isHead: boolean
-                ) => (
-                  <div className="flex items-center gap-2 flex-wrap text-sm text-gray-600 dark:text-zinc-300">
-                    <span className={isHead ? 'font-medium dark:text-white' : undefined}>
-                      {d.name}
-                    </span>
-                    {isHead && <span className="text-[10px] text-blue-500">부서장</span>}
-                    {(isHead ? canManageThisDivision : canManageThisDept) &&
-                      !isReorderingMembers &&
-                      (movingKey === (isHead ? headKey : `direct-${department.id}-${d.user_id}`) ? (
-                        <MoveForm
-                          departmentsForActor={departmentsForActor(division, department.id)}
-                          moveTargetDept={moveTargetDept}
-                          setMoveTargetDept={setMoveTargetDept}
-                          moveTargetTeam={moveTargetTeam}
-                          setMoveTargetTeam={setMoveTargetTeam}
-                          teamsInDept={teamsInDept}
-                          onConfirm={() => handleConfirmMove(d.user_id, null, department.id)}
-                          onCancel={closeMove}
+                ) => {
+                  const rowKey = isHead ? headKey : `direct-${department.id}-${d.user_id}`
+                  const canManageRow = isHead ? canManageThisDivision : canManageThisDept
+                  return (
+                    <div className="relative flex items-center flex-wrap justify-between gap-y-1 gap-x-2 py-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span
+                          className={`text-sm truncate ${
+                            isHead ? 'font-medium dark:text-white' : 'text-gray-600 dark:text-zinc-300'
+                          }`}
+                        >
+                          {d.name}
+                        </span>
+                        {isHead && <span className="text-[10px] text-blue-500 shrink-0">부서장</span>}
+                      </div>
+                      {!isReorderingMembers && (
+                        <MemberActionMenu
+                          rowKey={rowKey}
+                          openKey={openActionKey}
+                          setOpenKey={setOpenActionKey}
+                          movingKey={movingKey}
+                          canMove={canManageRow}
+                          canRemove={canManageRow}
+                          onMoveClick={() => openMove(rowKey, department.id, null)}
+                          onRemoveClick={() => confirmUnassignFromDept(department.id, d.user_id)}
+                          moveForm={
+                            <MoveForm
+                              departmentsForActor={departmentsForActor(division, department.id)}
+                              moveTargetDept={moveTargetDept}
+                              setMoveTargetDept={setMoveTargetDept}
+                              moveTargetTeam={moveTargetTeam}
+                              setMoveTargetTeam={setMoveTargetTeam}
+                              teamsInDept={teamsInDept}
+                              onConfirm={() => handleConfirmMove(d.user_id, null, department.id)}
+                              onCancel={closeMove}
+                            />
+                          }
                         />
-                      ) : (
-                        <>
-                          <button
-                            onClick={() =>
-                              openMove(
-                                isHead ? headKey : `direct-${department.id}-${d.user_id}`,
-                                department.id,
-                                null
-                              )
-                            }
-                            className="text-xs text-blue-400 hover:underline"
-                          >
-                            이동
-                          </button>
-                          <button
-                            onClick={() => confirmUnassignFromDept(department.id, d.user_id)}
-                            className="text-xs text-red-400 hover:underline"
-                          >
-                            내보내기
-                          </button>
-                        </>
-                      ))}
-                  </div>
-                )
+                      )}
+                    </div>
+                  )
+                }
 
                 return (
                   <>
-                    <p className="text-xs font-semibold text-gray-500 dark:text-zinc-400 mb-1.5">
-                      부서 직속
-                    </p>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-sm font-semibold text-gray-700 dark:text-zinc-200">
+                        부서 직속
+                      </p>
+                      <span className="text-xs text-gray-400 dark:text-zinc-500">
+                        ({directsAll.length}명)
+                      </span>
+                    </div>
+                    <div className="border-t border-gray-100 dark:border-zinc-800" />
                     {directsAll.length === 0 ? (
-                      <p className="text-xs text-gray-300 dark:text-zinc-600">없음</p>
+                      <p className="text-xs text-gray-300 dark:text-zinc-600 py-2">없음</p>
                     ) : (
-                      <div className="space-y-1">
+                      <div className="divide-y divide-gray-50 dark:divide-zinc-900/60">
                         {headEntry && (
                           <div className={dimClass(!isReorderingMembers)}>
                             {renderRow(headEntry, true)}
@@ -2007,10 +2087,16 @@ export default function OrgPage() {
               if (members.length === 0) return null
               return (
                 <div key={team.id}>
-                  <p className="text-xs font-semibold text-gray-500 dark:text-zinc-400 mb-1.5">
-                    {team.name}
-                  </p>
-                  <div className="space-y-1">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-sm font-semibold text-gray-700 dark:text-zinc-200">
+                      {team.name}
+                    </p>
+                    <span className="text-xs text-gray-400 dark:text-zinc-500">
+                      ({members.length}명)
+                    </span>
+                  </div>
+                  <div className="border-t border-gray-100 dark:border-zinc-800" />
+                  <div className="divide-y divide-gray-50 dark:divide-zinc-900/60">
                     <DragList
                       items={members}
                       getKey={(m) => m.user_id}
@@ -2020,47 +2106,47 @@ export default function OrgPage() {
                           replaceGroup(prev, (m) => m.team_id === team.id, next)
                         )
                       }
-                      renderItem={(m) => (
-                        <div className="flex items-center gap-2 flex-wrap text-sm text-gray-600 dark:text-zinc-300">
-                          <span>{m.name}</span>
-                          {m.role === 'admin' && (
-                            <span className="text-[10px] text-blue-500">팀장</span>
-                          )}
-                          {canManageThisDept &&
-                            !isReorderingMembers &&
-                            (movingKey === `team-${team.id}-${m.user_id}` ? (
-                              <MoveForm
-                                departmentsForActor={departmentsForActor(division, department.id)}
-                                moveTargetDept={moveTargetDept}
-                                setMoveTargetDept={setMoveTargetDept}
-                                moveTargetTeam={moveTargetTeam}
-                                setMoveTargetTeam={setMoveTargetTeam}
-                                teamsInDept={teamsInDept}
-                                onConfirm={() =>
-                                  handleConfirmMove(m.user_id, team.id, department.id)
+                      renderItem={(m) => {
+                        const rowKey = `team-${team.id}-${m.user_id}`
+                        return (
+                          <div className="relative flex items-center flex-wrap justify-between gap-y-1 gap-x-2 py-1">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="text-sm text-gray-600 dark:text-zinc-300 truncate">
+                                {m.name}
+                              </span>
+                              {m.role === 'admin' && (
+                                <span className="text-[10px] text-blue-500 shrink-0">팀장</span>
+                              )}
+                            </div>
+                            {!isReorderingMembers && (
+                              <MemberActionMenu
+                                rowKey={rowKey}
+                                openKey={openActionKey}
+                                setOpenKey={setOpenActionKey}
+                                movingKey={movingKey}
+                                canMove={canManageThisDept}
+                                canRemove={canManageThisDept}
+                                onMoveClick={() => openMove(rowKey, department.id, team.id)}
+                                onRemoveClick={() => confirmUnassignFromTeam(team.id, m.user_id)}
+                                moveForm={
+                                  <MoveForm
+                                    departmentsForActor={departmentsForActor(division, department.id)}
+                                    moveTargetDept={moveTargetDept}
+                                    setMoveTargetDept={setMoveTargetDept}
+                                    moveTargetTeam={moveTargetTeam}
+                                    setMoveTargetTeam={setMoveTargetTeam}
+                                    teamsInDept={teamsInDept}
+                                    onConfirm={() =>
+                                      handleConfirmMove(m.user_id, team.id, department.id)
+                                    }
+                                    onCancel={closeMove}
+                                  />
                                 }
-                                onCancel={closeMove}
                               />
-                            ) : (
-                              <>
-                                <button
-                                  onClick={() =>
-                                    openMove(`team-${team.id}-${m.user_id}`, department.id, team.id)
-                                  }
-                                  className="text-xs text-blue-400 hover:underline"
-                                >
-                                  이동
-                                </button>
-                                <button
-                                  onClick={() => confirmUnassignFromTeam(team.id, m.user_id)}
-                                  className="text-xs text-red-400 hover:underline"
-                                >
-                                  내보내기
-                                </button>
-                              </>
-                            ))}
-                        </div>
-                      )}
+                            )}
+                          </div>
+                        )
+                      }}
                     />
                   </div>
                 </div>
@@ -2218,7 +2304,7 @@ export default function OrgPage() {
         />
 
         {activeTab !== 'permissions' && (
-          <div className="space-y-1">
+          <div className="divide-y divide-gray-50 dark:divide-zinc-900/60">
             {members.length === 0 && (
               <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-6">
                 소속된 구성원이 없어요.
@@ -2226,45 +2312,40 @@ export default function OrgPage() {
             )}
             {members.map((m) => {
               const key = `team-${team.id}-${m.user_id}`
+              // 팀 간 이동은 대상 부서 선택이 필요해 부서장 이상만 가능하고,
+              // 팀장은 자기 권한 아래 있는 팀원을 팀에서 내보내는 것만 할 수 있다.
               return (
-                <div
-                  key={key}
-                  className="flex items-center gap-2 flex-wrap text-sm text-gray-600 dark:text-zinc-300"
-                >
-                  <span>{m.name}</span>
-                  {m.role === 'admin' && <span className="text-[10px] text-blue-500">팀장</span>}
-                  {canManageThisTeam &&
-                    (movingKey === key ? (
-                      <MoveForm
-                        departmentsForActor={departmentsForActor(division, department.id)}
-                        moveTargetDept={moveTargetDept}
-                        setMoveTargetDept={setMoveTargetDept}
-                        moveTargetTeam={moveTargetTeam}
-                        setMoveTargetTeam={setMoveTargetTeam}
-                        teamsInDept={teamsInDept}
-                        onConfirm={() => handleConfirmMove(m.user_id, team.id, department.id)}
-                        onCancel={closeMove}
-                      />
-                    ) : (
-                      <>
-                        {/* 팀 간 이동은 대상 부서 선택이 필요해 부서장 이상만 가능하고,
-                            팀장은 자기 권한 아래 있는 팀원을 팀에서 내보내는 것만 할 수 있다. */}
-                        {canManageThisDept && (
-                          <button
-                            onClick={() => openMove(key, department.id, team.id)}
-                            className="text-xs text-blue-400 hover:underline"
-                          >
-                            이동
-                          </button>
-                        )}
-                        <button
-                          onClick={() => confirmUnassignFromTeam(team.id, m.user_id)}
-                          className="text-xs text-red-400 hover:underline"
-                        >
-                          내보내기
-                        </button>
-                      </>
-                    ))}
+                <div key={key} className="relative flex items-center flex-wrap justify-between gap-y-1 gap-x-2 py-1">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-sm text-gray-600 dark:text-zinc-300 truncate">{m.name}</span>
+                    {m.role === 'admin' && (
+                      <span className="text-[10px] text-blue-500 shrink-0">팀장</span>
+                    )}
+                  </div>
+                  {canManageThisTeam && (
+                    <MemberActionMenu
+                      rowKey={key}
+                      openKey={openActionKey}
+                      setOpenKey={setOpenActionKey}
+                      movingKey={movingKey}
+                      canMove={canManageThisDept}
+                      canRemove={true}
+                      onMoveClick={() => openMove(key, department.id, team.id)}
+                      onRemoveClick={() => confirmUnassignFromTeam(team.id, m.user_id)}
+                      moveForm={
+                        <MoveForm
+                          departmentsForActor={departmentsForActor(division, department.id)}
+                          moveTargetDept={moveTargetDept}
+                          setMoveTargetDept={setMoveTargetDept}
+                          moveTargetTeam={moveTargetTeam}
+                          setMoveTargetTeam={setMoveTargetTeam}
+                          teamsInDept={teamsInDept}
+                          onConfirm={() => handleConfirmMove(m.user_id, team.id, department.id)}
+                          onCancel={closeMove}
+                        />
+                      }
+                    />
+                  )}
                 </div>
               )
             })}
@@ -2806,6 +2887,79 @@ function TabBar({
   )
 }
 
+/**
+ * 구성원 행 오른쪽 끝의 ⋮ 버튼. 누르면 이동/내보내기 선택지가 펼쳐지고,
+ * "이동"을 고르면 movingKey가 이 행으로 바뀌면서 MoveForm으로 전환된다.
+ * canMove/canRemove가 모두 false면 아무것도 렌더링하지 않는다(권한 없는 행은 조용히 생략).
+ */
+function MemberActionMenu({
+  rowKey,
+  openKey,
+  setOpenKey,
+  movingKey,
+  moveForm,
+  onMoveClick,
+  onRemoveClick,
+  canMove,
+  canRemove,
+}: {
+  rowKey: string
+  openKey: string | null
+  setOpenKey: (v: string | null) => void
+  movingKey: string | null
+  moveForm?: ReactNode
+  onMoveClick?: () => void
+  onRemoveClick?: () => void
+  canMove: boolean
+  canRemove: boolean
+}) {
+  if (movingKey === rowKey) {
+    return <div className="w-full flex justify-end mt-1">{moveForm}</div>
+  }
+  if (!canMove && !canRemove) return null
+  const isOpen = openKey === rowKey
+  return (
+    <div className="relative shrink-0">
+      <button
+        onClick={() => setOpenKey(isOpen ? null : rowKey)}
+        className="w-6 h-6 flex items-center justify-center rounded text-gray-400 dark:text-zinc-500 hover:bg-gray-100 dark:hover:bg-zinc-800 hover:text-gray-600 dark:hover:text-zinc-300 leading-none text-base"
+        aria-label="더보기"
+      >
+        ⋮
+      </button>
+      {isOpen && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpenKey(null)} />
+          <div className="absolute right-0 top-full mt-1 z-20 min-w-[92px] bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-lg py-1 flex flex-col">
+            {canMove && (
+              <button
+                onClick={() => {
+                  setOpenKey(null)
+                  onMoveClick?.()
+                }}
+                className="px-3 py-1.5 text-xs text-left text-blue-500 hover:bg-gray-50 dark:hover:bg-zinc-700"
+              >
+                이동
+              </button>
+            )}
+            {canRemove && (
+              <button
+                onClick={() => {
+                  setOpenKey(null)
+                  onRemoveClick?.()
+                }}
+                className="px-3 py-1.5 text-xs text-left text-red-500 hover:bg-gray-50 dark:hover:bg-zinc-700"
+              >
+                내보내기
+              </button>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 function MoveForm({
   departmentsForActor,
   moveTargetDept,
@@ -2854,10 +3008,13 @@ function MoveForm({
           </option>
         ))}
       </select>
-      <button onClick={onConfirm} className="text-green-500 font-medium shrink-0">
+      <button
+        onClick={onConfirm}
+        className="text-[11px] text-green-500 font-medium shrink-0 px-1 py-0.5"
+      >
         확인
       </button>
-      <button onClick={onCancel} className="text-gray-400 shrink-0">
+      <button onClick={onCancel} className="text-[11px] text-gray-400 shrink-0 px-1 py-0.5">
         취소
       </button>
     </span>
