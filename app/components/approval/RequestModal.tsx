@@ -22,6 +22,7 @@ interface MySource {
   label: string
   teamId: string | null
   departmentId: string
+  divisionId?: string
 }
 
 interface RequestModalProps {
@@ -159,18 +160,20 @@ export default function RequestModal({
                     {mySources[0]?.label || '소속된 부서/팀이 없어요'}
                   </p>
                 ) : (
-                  <select
-                    value={selectedSourceKey}
-                    onChange={(e) => onSourceChange(e.target.value)}
-                    className="w-full border rounded-lg px-3 py-2 mt-1 text-sm dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
-                  >
-                    <option value="">내 소속 선택</option>
-                    {mySources.map((s) => (
-                      <option key={s.key} value={s.key}>
-                        {s.label}
-                      </option>
-                    ))}
-                  </select>
+                  <>
+                    <select
+                      value={selectedSourceKey}
+                      onChange={(e) => onSourceChange(e.target.value)}
+                      className="w-full border rounded-lg px-3 py-2 mt-1 text-sm dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
+                    >
+                      <option value="">내 소속 선택</option>
+                      {mySources.map((s) => (
+                        <option key={s.key} value={s.key}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </select>
+                  </>
                 )}
               </div>
 

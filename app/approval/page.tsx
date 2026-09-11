@@ -16,10 +16,11 @@ const CC_STORAGE_KEY = 'approval_cc_history'
 
 // "내 소속" = 내가 속한 팀, 또는 팀 없이 부서에 직접 소속된 경우 그 부서
 interface MySource {
-  key: string // `team:<teamId>` 또는 `dept:<departmentId>`
+  key: string // `team:<teamId>` 또는 `dept:<departmentId>` 또는 `division:<divisionId>`
   label: string
   teamId: string | null
   departmentId: string
+  divisionId?: string // "부문 전용 소속"(겸임 부서 없이 부문장 역할만)일 때만 채워진다
 }
 
 // 결재 목록 부서 필터 옵션 (req 4).
@@ -235,15 +236,30 @@ function ApprovalPageContent() {
     return { scopeOptions: opts, selectedScope: opts[0], baseDepartmentIds: myDeptIds }
   }
 
-  // 현재 필터 선택 기준으로 조회할 department_id 목록을 계산한다.
-  // null이면 "부서 제한 없음"(회사 전체를 그대로 조회)을 의미한다.
-  const computeDeptIdsForQuery = (
+  // 현재 필터 선택 기준으로 조회할 department_id / division_id 목록을 계산한다.
+  // deptIds가 null이면 "제한 없음"(회사 전체를 그대로 조회)을 의미한다.
+  // divisionIds는 "부문 전용 소속" 요청(겸임 부서 없이 부문장 역할만 있을 때 올린 요청,
+  // department_id가 없다)을 부문 단위로 구분해서 보여주기 위한 목록이다. 부문 스코프를
+  // 선택했을 때만 채워지고, 부서 단위 스코프에서는 비워서(=제외) 그 부서보다 상위인
+  // 부문장 자신의 요청까지 섞여 보이지 않게 한다.
+  // includeApproverBypass: 내가 결재권자인 건 스코프와 무관하게 항상 보여줄지 여부.
+  // - 필터 UI 자체가 없는 일반 사용자(opts.length===0, 예: 특정 부서만 위임받은 결재권자)는
+  //   좁혀볼 방법이 없으니 항상 켠다(기존 동작 유지).
+  // - 필터 UI가 있는 조직장/총괄 관리자가 특정 부문·부서를 선택했을 때는 끈다 — 안 그러면
+  //   총괄 관리자는 모든 부문장 요청의 결재자라서, 어떤 부문을 골라도 다른 부문 요청까지
+  //   섞여 보여 필터가 무의미해진다. "전체"를 고르면(deptIds===null) 이 값과 무관하게 전부 보인다.
+  const computeScopeIdsForQuery = (
     opts: ScopeOption[] = scopeOptions,
     selected: ScopeOption | null = selectedScope,
     baseIds: string[] = baseDepartmentIds
-  ): string[] | null => {
-    if (opts.length === 0) return baseIds
-    return selected ? selected.departmentIds : baseIds
+  ): { deptIds: string[] | null; divisionIds: string[]; includeApproverBypass: boolean } => {
+    if (opts.length === 0) return { deptIds: baseIds, divisionIds: [], includeApproverBypass: true }
+    if (!selected) return { deptIds: baseIds, divisionIds: [], includeApproverBypass: true }
+    return {
+      deptIds: selected.departmentIds,
+      divisionIds: selected.level === 'division' ? [selected.entityId] : [],
+      includeApproverBypass: false,
+    }
   }
 
   // 실제 결재 목록 조회. deptIds === null이면 부서 제한 없이(회사 전체) 조회한다.
@@ -251,20 +267,25 @@ function ApprovalPageContent() {
     userId: string,
     rangeStart: string,
     rangeEnd: string,
-    deptIds: string[] | null
+    deptIds: string[] | null,
+    divisionIds: string[] = [],
+    includeApproverBypass: boolean = true
   ) => {
     let query = supabase
       .from('approval_requests')
       .select(
-        `*, requester:profiles!approval_requests_requester_id_fkey(name,email), approver:profiles!approval_requests_approver_id_fkey(name,email), teams(name), departments(name)`
+        `*, requester:profiles!approval_requests_requester_id_fkey(name,email), approver:profiles!approval_requests_approver_id_fkey(name,email), teams(name), departments(name), divisions(name)`
       )
       .gte('created_at', dayjs(rangeStart).startOf('day').toISOString())
       .lte('created_at', dayjs(rangeEnd).endOf('day').toISOString())
       .order('created_at', { ascending: false })
 
     if (deptIds !== null) {
-      const orConditions = [`requester_id.eq.${userId}`, `approver_id.eq.${userId}`]
+      // 내가 올린 요청은 스코프와 무관하게 항상 보인다.
+      const orConditions = [`requester_id.eq.${userId}`]
+      if (includeApproverBypass) orConditions.push(`approver_id.eq.${userId}`)
       if (deptIds.length > 0) orConditions.push(`department_id.in.(${deptIds.join(',')})`)
+      if (divisionIds.length > 0) orConditions.push(`division_id.in.(${divisionIds.join(',')})`)
       query = query.or(orConditions.join(','))
     }
     // deptIds === null (회사 전체, 부문 필터 미선택)인 경우 별도 조건 없이 기간 내 전체 조회
@@ -283,34 +304,41 @@ function ApprovalPageContent() {
       baseDepartmentIds: string[]
     }
   ) => {
-    const deptIds = scopeOverride
-      ? computeDeptIdsForQuery(
+    const { deptIds, divisionIds, includeApproverBypass } = scopeOverride
+      ? computeScopeIdsForQuery(
           scopeOverride.scopeOptions,
           scopeOverride.selectedScope,
           scopeOverride.baseDepartmentIds
         )
-      : computeDeptIdsForQuery()
-    await fetchRequestsWithDeptIds(userId, rangeStart, rangeEnd, deptIds)
+      : computeScopeIdsForQuery()
+    await fetchRequestsWithDeptIds(userId, rangeStart, rangeEnd, deptIds, divisionIds, includeApproverBypass)
   }
 
   const handleScopeChange = (opt: OrgScopeOption) => {
     const next = opt as ScopeOption
     setSelectedScope(next)
     if (!user) return
-    const deptIds = computeDeptIdsForQuery(scopeOptions, next, baseDepartmentIds)
-    fetchRequestsWithDeptIds(user.id, dateRangeStart, dateRangeEnd, deptIds)
+    const { deptIds, divisionIds, includeApproverBypass } = computeScopeIdsForQuery(
+      scopeOptions,
+      next,
+      baseDepartmentIds
+    )
+    fetchRequestsWithDeptIds(user.id, dateRangeStart, dateRangeEnd, deptIds, divisionIds, includeApproverBypass)
   }
 
   const handleDateRangeChange = (start: string, end: string) => {
     setDateRangeStart(start)
     setDateRangeEnd(end)
     if (user) {
-      const deptIds = computeDeptIdsForQuery()
-      fetchRequestsWithDeptIds(user.id, start, end, deptIds)
+      const { deptIds, divisionIds, includeApproverBypass } = computeScopeIdsForQuery()
+      fetchRequestsWithDeptIds(user.id, start, end, deptIds, divisionIds, includeApproverBypass)
     }
   }
 
-  // 내 소속(팀 또는 부서 직접 소속) 목록
+  // 내 소속(팀 또는 부서 직접 소속) 목록.
+  // 겸직 중이면(예: 팀장이면서 그 팀이 속한 부서의 부서장, 또는 부서장이면서 그 부서가
+  // 속한 부문의 부문장) 결재는 항상 더 상위 직책의 이름으로 올라가야 하므로, 팀/부서
+  // 소속을 그대로 노출하지 않고 내가 겸직 중인 상위 조직이 있으면 그 조직으로 치환한다.
   const fetchMySources = async (userId: string): Promise<MySource[]> => {
     const [{ data: teamData }, { data: deptData }] = await Promise.all([
       supabase
@@ -323,26 +351,130 @@ function ApprovalPageContent() {
         .eq('user_id', userId),
     ])
 
-    const sources: MySource[] = [
-      ...(teamData || [])
-        .filter((t: any) => t.teams)
-        .map((t: any) => ({
-          key: `team:${t.team_id}`,
-          label: t.teams.name,
-          teamId: t.team_id as string,
-          departmentId: t.teams.department_id as string,
-        })),
-      ...(deptData || [])
-        .filter((d: any) => d.departments)
-        .map((d: any) => ({
-          key: `dept:${d.department_id}`,
-          label: d.departments.name,
+    // 관련된 부서들의 head_user_id/division 정보를 한 번에 조회해서 겸직(상위 조직장) 여부를 판단한다.
+    const deptIds = Array.from(
+      new Set([
+        ...(teamData || []).filter((t: any) => t.teams).map((t: any) => t.teams.department_id),
+        ...(deptData || []).filter((d: any) => d.departments).map((d: any) => d.department_id),
+      ])
+    )
+    const { data: deptInfoRows } =
+      deptIds.length > 0
+        ? await supabase
+            .from('departments')
+            .select('id, name, head_user_id, division_id, divisions(id, name, head_user_id)')
+            .in('id', deptIds)
+        : { data: [] as any[] }
+    const deptInfoMap = new Map((deptInfoRows || []).map((d: any) => [d.id, d]))
+
+    // 부서 id 기준으로 "이 부서 소속으로 요청하면 실제로는 어느 조직 이름으로 올라가야
+    // 하는지"를 판단한다: 부문장을 겸직 중이면 부문, 부서장을 겸직 중이면 부서, 둘 다
+    // 아니면 그대로 부서.
+    const resolveByDepartment = (deptId: string, fallbackName: string): MySource => {
+      const info = deptInfoMap.get(deptId)
+      const division = info?.divisions
+      if (division?.head_user_id === userId) {
+        return {
+          key: `division:${division.id}`,
+          label: division.name,
           teamId: null,
-          departmentId: d.department_id as string,
-        })),
-    ]
+          departmentId: '',
+          divisionId: division.id as string,
+        }
+      }
+      return {
+        key: `dept:${deptId}`,
+        label: info?.name || fallbackName,
+        teamId: null,
+        departmentId: deptId,
+      }
+    }
+
+    // key로 중복 제거하며 최종 소속 목록을 만든다(겸직 치환으로 여러 팀/부서가 같은
+    // 상위 조직 하나로 합쳐질 수 있으므로).
+    const sourceMap = new Map<string, MySource>()
+
+    ;(teamData || [])
+      .filter((t: any) => t.teams)
+      .forEach((t: any) => {
+        const deptId = t.teams.department_id as string
+        const info = deptInfoMap.get(deptId)
+        const division = info?.divisions
+        let resolved: MySource
+        if (division?.head_user_id === userId) {
+          resolved = {
+            key: `division:${division.id}`,
+            label: division.name,
+            teamId: null,
+            departmentId: '',
+            divisionId: division.id as string,
+          }
+        } else if (info?.head_user_id === userId) {
+          resolved = {
+            key: `dept:${deptId}`,
+            label: info.name,
+            teamId: null,
+            departmentId: deptId,
+          }
+        } else {
+          resolved = {
+            key: `team:${t.team_id}`,
+            label: t.teams.name,
+            teamId: t.team_id as string,
+            departmentId: deptId,
+          }
+        }
+        sourceMap.set(resolved.key, resolved)
+      })
+
+    ;(deptData || [])
+      .filter((d: any) => d.departments)
+      .forEach((d: any) => {
+        const resolved = resolveByDepartment(d.department_id, d.departments.name)
+        sourceMap.set(resolved.key, resolved)
+      })
+
+    const sources: MySource[] = Array.from(sourceMap.values())
+
+    // 팀/부서 소속이 하나도 없고 부문장 역할만 있는 경우("소속 없음"으로 보이던 케이스),
+    // 부문 자체를 소속으로 노출한다. departmentId는 빈 문자열로 두고
+    // fetchApproversForSource에서 이를 "부문 전용 소속"의 표식으로 쓴다.
+    if (sources.length === 0) {
+      const { data: headDivisions } = await supabase
+        .from('divisions')
+        .select('id, name')
+        .eq('head_user_id', userId)
+      ;(headDivisions || []).forEach((d: any) => {
+        sources.push({
+          key: `division:${d.id}`,
+          label: d.name,
+          teamId: null,
+          departmentId: '',
+          divisionId: d.id as string,
+        })
+      })
+    }
+
     setMySources(sources)
     return sources
+  }
+
+  // 총괄 관리자 프로필 목록. general_admins.user_id와 created_by가 둘 다 profiles(id)를
+  // 참조해서 `profiles(...)` 중첩 조인은 PostgREST 입장에서 어느 FK를 쓸지 모호해
+  // 실패한다(조용히 빈 배열이 됨). user_id만 먼저 받고 profiles를 별도로 조회한다.
+  const fetchGeneralAdminCandidates = async (): Promise<Map<string, any>> => {
+    const result = new Map<string, any>()
+    const { data: generalAdmins } = await supabase.from('general_admins').select('user_id')
+    const adminIds = (generalAdmins || []).map((g: any) => g.user_id)
+    if (adminIds.length === 0) return result
+    const { data: adminProfiles } = await supabase
+      .from('profiles')
+      .select('id, name, email')
+      .in('id', adminIds)
+    ;(adminProfiles || []).forEach((p: any) => {
+      result.set(p.id, { user_id: p.id, profiles: p })
+    })
+    return result
   }
 
   // 결재권자 후보 산정 (req 1, req 3)
@@ -359,6 +491,18 @@ function ApprovalPageContent() {
     const typeColumn =
       type === 'vacation' ? 'can_vacation' : type === 'remote' ? 'can_remote' : 'can_holiday'
 
+    // 부문 자체가 소속인 경우(팀/부서 없이 부문장 역할만) — 부서 조회 없이 바로
+    // 총괄 관리자만 후보로 채운다.
+    if (!source.departmentId) {
+      const adminCandidates = await fetchGeneralAdminCandidates()
+      adminCandidates.delete(user.id)
+      const sortedAdmins = Array.from(adminCandidates.values()).sort((a, b) =>
+        (a.profiles?.name || '').localeCompare(b.profiles?.name || '')
+      )
+      setApprovers(sortedAdmins)
+      return
+    }
+
     const { data: dept } = await supabase
       .from('departments')
       .select('id, head_user_id, division_id, divisions(id, head_user_id)')
@@ -367,7 +511,17 @@ function ApprovalPageContent() {
 
     const isDeptHeadRequester = !!dept?.head_user_id && dept.head_user_id === user.id
     const divisionHeadId = (dept as any)?.divisions?.head_user_id ?? null
-    const isDivisionHeadRequester = !!divisionHeadId && divisionHeadId === user.id
+
+    // 부문장인지는 "이 요청이 걸린 부서가 속한 부문"만 보지 않고 전사 어느 부문이든
+    // 내가 부문장이면 true로 잡는다. 부문장이 자기 부문과 무관한 부서의 부서장을
+    // 겸임하거나, 부서-부문 매핑이 이 부서 기준으로는 안 맞는 경우에도 항상 총괄
+    // 관리자에게만 결재가 올라가야 하기 때문이다.
+    const { data: myDivisionHeadRows } = await supabase
+      .from('divisions')
+      .select('id')
+      .eq('head_user_id', user.id)
+      .limit(1)
+    const isDivisionHeadRequester = !!myDivisionHeadRows && myDivisionHeadRows.length > 0
 
     let isTeamLeaderRequester = false
     if (source.teamId) {
@@ -380,82 +534,96 @@ function ApprovalPageContent() {
       isTeamLeaderRequester = myMembership?.role === 'admin'
     }
 
-    // 팀 단계: 신청자가 이 팀의 팀장이거나 부서장이면(자신보다 하위/동일 단계) 숨긴다.
-    if (source.teamId && !isTeamLeaderRequester && !isDeptHeadRequester) {
-      const { data: leads } = await supabase
-        .from('team_members')
-        .select('user_id, profiles(id, name, email)')
-        .eq('team_id', source.teamId)
-        .eq('role', 'admin')
-      ;(leads || []).forEach((l: any) => {
-        if (l.profiles) candidates.set(l.user_id, l)
-      })
+    // 부문장 본인이 신청자면 결재는 총괄 관리자에게만 올라간다. 본인보다 하위 조직(팀/부서)의
+    // 조직장·위임 결재권자는 후보에서 전부 제외한다.
+    if (isDivisionHeadRequester) {
+      const adminCandidates = await fetchGeneralAdminCandidates()
+      adminCandidates.forEach((v, k) => candidates.set(k, v))
+    } else {
+      // 팀 단계: 신청자가 이 팀의 팀장이거나 부서장이면(자신보다 하위/동일 단계) 숨긴다.
+      if (source.teamId && !isTeamLeaderRequester && !isDeptHeadRequester) {
+        const { data: leads } = await supabase
+          .from('team_members')
+          .select('user_id, profiles(id, name, email)')
+          .eq('team_id', source.teamId)
+          .eq('role', 'admin')
+        ;(leads || []).forEach((l: any) => {
+          if (l.profiles) candidates.set(l.user_id, l)
+        })
 
-      const { data: teamDelegates } = await supabase
-        .from('team_approvers')
-        .select(`user_id, ${typeColumn}, profiles(id, name, email)`)
-        .eq('team_id', source.teamId)
-      ;(teamDelegates || []).forEach((d: any) => {
-        if (d[typeColumn] && d.profiles)
-          candidates.set(d.user_id, { user_id: d.user_id, profiles: d.profiles })
-      })
-    }
-
-    // 부서 단계: 신청자 본인이 그 부서의 부서장이면 자기 자신이 결재권자가 될 수 없으므로 숨긴다.
-    if (!isDeptHeadRequester) {
-      if (dept?.head_user_id) {
-        const { data: headProfile } = await supabase
-          .from('profiles')
-          .select('id, name, email')
-          .eq('id', dept.head_user_id)
-          .single()
-        if (headProfile)
-          candidates.set(headProfile.id, { user_id: headProfile.id, profiles: headProfile })
+        const { data: teamDelegates } = await supabase
+          .from('team_approvers')
+          .select(`user_id, ${typeColumn}, profiles(id, name, email)`)
+          .eq('team_id', source.teamId)
+        ;(teamDelegates || []).forEach((d: any) => {
+          if (d[typeColumn] && d.profiles)
+            candidates.set(d.user_id, { user_id: d.user_id, profiles: d.profiles })
+        })
       }
 
-      const { data: delegates } = await supabase
-        .from('department_approvers')
-        .select(`user_id, ${typeColumn}, profiles(id, name, email)`)
-        .eq('department_id', source.departmentId)
-      ;(delegates || []).forEach((d: any) => {
-        if (d[typeColumn] && d.profiles)
-          candidates.set(d.user_id, { user_id: d.user_id, profiles: d.profiles })
-      })
-    }
+      // 부서 단계: 신청자 본인이 그 부서의 부서장이면 자기 자신이 결재권자가 될 수 없으므로 숨긴다.
+      if (!isDeptHeadRequester) {
+        if (dept?.head_user_id) {
+          const { data: headProfile } = await supabase
+            .from('profiles')
+            .select('id, name, email')
+            .eq('id', dept.head_user_id)
+            .single()
+          if (headProfile)
+            candidates.set(headProfile.id, { user_id: headProfile.id, profiles: headProfile })
+        }
 
-    // 부문 단계: 부문장은 산하 모든 부서의 결재권을 가진다. 신청자 본인이 부문장이면 숨긴다.
-    if (dept?.division_id && !isDivisionHeadRequester) {
-      if (divisionHeadId) {
-        const { data: headProfile } = await supabase
-          .from('profiles')
-          .select('id, name, email')
-          .eq('id', divisionHeadId)
-          .single()
-        if (headProfile)
-          candidates.set(headProfile.id, { user_id: headProfile.id, profiles: headProfile })
+        const { data: delegates } = await supabase
+          .from('department_approvers')
+          .select(`user_id, ${typeColumn}, profiles(id, name, email)`)
+          .eq('department_id', source.departmentId)
+        ;(delegates || []).forEach((d: any) => {
+          if (d[typeColumn] && d.profiles)
+            candidates.set(d.user_id, { user_id: d.user_id, profiles: d.profiles })
+        })
       }
 
-      const { data: divisionDelegates } = await supabase
-        .from('division_approvers')
-        .select(`user_id, ${typeColumn}, profiles(id, name, email)`)
-        .eq('division_id', dept.division_id)
-      ;(divisionDelegates || []).forEach((d: any) => {
-        if (d[typeColumn] && d.profiles)
-          candidates.set(d.user_id, { user_id: d.user_id, profiles: d.profiles })
-      })
+      // 부문 단계: 부문장은 산하 모든 부서의 결재권을 가진다. (이 분기는 신청자가 부문장이
+      // 아닐 때만 실행되므로 자기 자신이 후보로 잡힐 일은 없다.)
+      if (dept?.division_id) {
+        if (divisionHeadId) {
+          const { data: headProfile } = await supabase
+            .from('profiles')
+            .select('id, name, email')
+            .eq('id', divisionHeadId)
+            .single()
+          if (headProfile)
+            candidates.set(headProfile.id, { user_id: headProfile.id, profiles: headProfile })
+        }
+
+        const { data: divisionDelegates } = await supabase
+          .from('division_approvers')
+          .select(`user_id, ${typeColumn}, profiles(id, name, email)`)
+          .eq('division_id', dept.division_id)
+        ;(divisionDelegates || []).forEach((d: any) => {
+          if (d[typeColumn] && d.profiles)
+            candidates.set(d.user_id, { user_id: d.user_id, profiles: d.profiles })
+        })
+      }
     }
 
     candidates.delete(user.id)
 
     // 결재권자 표시 순서를 조직관리에서 정한 구성원 순서(부문 → 부서 → 팀, 각 리더가 최상단)와
-    // 동일하게 맞춘다. 부문이 없는 부서는 부서 범위 순서를 기준으로 삼는다.
-    const orgOrderList = dept?.division_id
-      ? await fetchDivisionMembers(dept.division_id)
-      : (await fetchDepartmentScope(source.departmentId)).allMembers
+    // 동일하게 맞춘다. 부문이 없는 부서는 부서 범위 순서를 기준으로 삼는다. 총괄 관리자는 조직도
+    // 순서 개념이 없으므로 이름순으로 정렬한다.
+    const orgOrderList = isDivisionHeadRequester
+      ? []
+      : dept?.division_id
+        ? await fetchDivisionMembers(dept.division_id)
+        : (await fetchDepartmentScope(source.departmentId)).allMembers
     const orderIndex = new Map(orgOrderList.map((m, i) => [m.user_id, i]))
-    const sortedApprovers = Array.from(candidates.values()).sort(
-      (a, b) => (orderIndex.get(a.user_id) ?? Infinity) - (orderIndex.get(b.user_id) ?? Infinity)
-    )
+    const sortedApprovers = Array.from(candidates.values()).sort((a, b) => {
+      const ai = orderIndex.get(a.user_id) ?? Infinity
+      const bi = orderIndex.get(b.user_id) ?? Infinity
+      if (ai !== bi) return ai - bi
+      return (a.profiles?.name || '').localeCompare(b.profiles?.name || '')
+    })
     setApprovers(sortedApprovers)
   }
 
@@ -511,6 +679,10 @@ function ApprovalPageContent() {
       setMessage('모든 항목을 입력해주세요.')
       return
     }
+    // 부문 전용 소속(팀/부서 없이 부문장 역할만)은 departmentId를 빈 문자열로 표시하는데,
+    // DB의 department_id 컬럼은 uuid 타입이라 빈 문자열을 그대로 넣으면 에러가 난다.
+    const departmentIdForInsert = selectedSource.departmentId || null
+    const divisionIdForInsert = selectedSource.divisionId || null
     if (dateGroups.length === 0) {
       setMessage('날짜를 추가해주세요.')
       return
@@ -538,7 +710,8 @@ function ApprovalPageContent() {
         .update({
           approver_id: selectedApprover,
           team_id: selectedSource.teamId,
-          department_id: selectedSource.departmentId,
+          department_id: departmentIdForInsert,
+          division_id: divisionIdForInsert,
           date: flattenedEntries[0].date,
           dates: flattenedEntries.map((e) => e.date),
           date_entries: flattenedEntries,
@@ -565,7 +738,8 @@ function ApprovalPageContent() {
         requester_id: user.id,
         approver_id: selectedApprover,
         team_id: selectedSource.teamId,
-        department_id: selectedSource.departmentId,
+        department_id: departmentIdForInsert,
+        division_id: divisionIdForInsert,
         type: requestType,
         date: flattenedEntries[0].date,
         dates: flattenedEntries.map((e) => e.date),
@@ -694,9 +868,12 @@ function ApprovalPageContent() {
     setCcInput('')
 
     const sources = mySources.length > 0 ? mySources : await fetchMySources(user.id)
-    const matched = sources.find((s) =>
-      req.team_id ? s.teamId === req.team_id : s.departmentId === req.department_id
-    )
+    const matched = sources.find((s) => {
+      if (req.team_id) return s.teamId === req.team_id
+      if (req.department_id) return (s.departmentId || null) === req.department_id
+      if (req.division_id) return s.divisionId === req.division_id
+      return false
+    })
     if (matched) {
       await fetchApproversForSource(matched, req.type)
     } else {
