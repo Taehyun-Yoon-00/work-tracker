@@ -506,6 +506,11 @@ export default function TeamDetailPage() {
                       {deptScope!.directMembers.map((m) => (
                         <div key={m.user_id} className="flex items-center gap-1.5 py-1">
                           <span className="text-sm text-gray-600 dark:text-zinc-300">{m.name}</span>
+                          {m.position && (
+                            <span className="text-xs text-gray-400 dark:text-zinc-500">
+                              {m.position}
+                            </span>
+                          )}
                           {m.isHead && (
                             <span className="text-[10px] text-blue-500 shrink-0">부서장</span>
                           )}
@@ -532,6 +537,11 @@ export default function TeamDetailPage() {
                             <span className="text-sm text-gray-600 dark:text-zinc-300">
                               {m.name}
                             </span>
+                            {m.position && (
+                              <span className="text-xs text-gray-400 dark:text-zinc-500">
+                                {m.position}
+                              </span>
+                            )}
                             {m.isHead && (
                               <span className="text-[10px] text-blue-500 shrink-0">팀장</span>
                             )}
@@ -552,6 +562,9 @@ export default function TeamDetailPage() {
               {members.map((m) => (
                 <div key={m.user_id} className="flex items-center gap-1.5 py-1">
                   <span className="text-sm text-gray-600 dark:text-zinc-300">{m.name}</span>
+                  {m.position && (
+                    <span className="text-xs text-gray-400 dark:text-zinc-500">{m.position}</span>
+                  )}
                   {m.isHead && <span className="text-[10px] text-blue-500 shrink-0">팀장</span>}
                 </div>
               ))}
