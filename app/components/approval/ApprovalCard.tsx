@@ -3,7 +3,7 @@ import Badge, { type BadgeTone } from '../ui/Badge'
 
 // 승인 상태는 neutral/info/success/warning/danger 공통 의미 체계를 그대로 쓴다.
 function statusLabel(status: string): { text: string; tone: BadgeTone } {
-  if (status === 'pending') return { text: '승인 대기중', tone: 'warning' }
+  if (status === 'pending') return { text: '승인 대기중', tone: 'pending' }
   if (status === 'approved') return { text: '승인', tone: 'success' }
   if (status === 'rejected') return { text: '반려', tone: 'danger' }
   if (status === 'cancelled') return { text: '취소됨', tone: 'neutral' }
