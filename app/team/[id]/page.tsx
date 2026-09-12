@@ -548,7 +548,7 @@ export default function TeamDetailPage() {
               소속 인원이 없어요.
             </p>
           ) : (
-            <div>
+            <div className="divide-y divide-gray-50 dark:divide-zinc-900/60">
               {members.map((m) => (
                 <div key={m.user_id} className="flex items-center gap-1.5 py-1">
                   <span className="text-sm text-gray-600 dark:text-zinc-300">{m.name}</span>
