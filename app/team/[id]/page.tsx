@@ -13,7 +13,12 @@ import {
   isPublicHoliday,
   fetchSubstituteHolidays,
 } from '../../lib/holidays'
-import { fetchTeamMembers, fetchDepartmentScope, type OrgMember } from '../../lib/orgOrder'
+import {
+  fetchTeamMembers,
+  fetchDepartmentScope,
+  type OrgMember,
+  type DepartmentScope,
+} from '../../lib/orgOrder'
 
 type ScopeMember = OrgMember
 type FilterScope = 'department' | 'team'
@@ -25,6 +30,9 @@ export default function TeamDetailPage() {
   const [team, setTeam] = useState<any>(null)
   const [members, setMembers] = useState<OrgMember[]>([])
   const [deptMembers, setDeptMembers] = useState<ScopeMember[]>([])
+  // 캘린더에서 "부서 전체"를 선택했을 때 소속 인원 목록도 부서 전체(부서 직속 + 팀별)로
+  // 보여주기 위한 원본 데이터. 부서 직속 소속 화면(DepartmentAffiliationView)과 동일한 구조.
+  const [deptScope, setDeptScope] = useState<DepartmentScope | null>(null)
   const [filterScope, setFilterScope] = useState<FilterScope>('department')
   const [isAdmin, setIsAdmin] = useState(false)
   const [vacations, setVacations] = useState<any[]>([])
@@ -113,9 +121,11 @@ export default function TeamDetailPage() {
     if (teamData?.department_id) {
       const scope = await fetchDepartmentScope(teamData.department_id)
       setDeptMembers(scope.allMembers)
+      setDeptScope(scope)
       unionUserIds = Array.from(new Set([...unionUserIds, ...scope.allMembers.map((m) => m.user_id)]))
     } else {
       setDeptMembers([])
+      setDeptScope(null)
     }
 
     if (unionUserIds.length > 0) {
@@ -256,6 +266,23 @@ export default function TeamDetailPage() {
       </div>
     )
   }
+
+  // 부서 직속 소속 화면(DepartmentAffiliationView)과 동일한 모양의 소속 인원 행.
+  const renderMemberRow = (m: OrgMember, headLabel?: string) => (
+    <div
+      key={m.user_id}
+      className="flex items-center gap-2 py-2.5 border-b dark:border-zinc-700 last:border-0"
+    >
+      <span className="font-medium dark:text-white">{m.name}</span>
+      {m.position && <span className="text-xs text-gray-400 dark:text-zinc-500">{m.position}</span>}
+      {m.isHead && headLabel && (
+        <span className="text-[10px] text-blue-500 font-semibold">{headLabel}</span>
+      )}
+    </div>
+  )
+
+  // 캘린더에서 "부서 전체"를 선택한 경우에만 소속 인원도 부서 전체로 보여준다.
+  const showDepartmentMemberList = filterScope === 'department' && !!deptScope
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 pb-28">
@@ -464,32 +491,49 @@ export default function TeamDetailPage() {
           </div>
         </div>
 
-        {/* 소속 인원 리스트 */}
-        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
-          <h2 className="font-semibold dark:text-white mb-3">소속 인원</h2>
-          {members.length === 0 ? (
+        {/* 소속 인원 리스트: 캘린더에서 "부서 전체"를 선택하면 부서 직속 + 팀별로,
+            "내 팀만"이면 우리 팀만 보여준다. */}
+        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 space-y-4">
+          <h2 className="font-semibold dark:text-white">소속 인원</h2>
+          {showDepartmentMemberList ? (
+            deptScope!.allMembers.length === 0 ? (
+              <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-4">
+                소속 인원이 없어요.
+              </p>
+            ) : (
+              <>
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 dark:text-zinc-400 mb-1.5">
+                    부서 직속
+                  </p>
+                  {deptScope!.directMembers.length === 0 ? (
+                    <p className="text-xs text-gray-300 dark:text-zinc-600">없음</p>
+                  ) : (
+                    <div className="space-y-1">
+                      {deptScope!.directMembers.map((m) => renderMemberRow(m, '부서장'))}
+                    </div>
+                  )}
+                </div>
+                {deptScope!.teamGroups.map((g) =>
+                  g.members.length === 0 ? null : (
+                    <div key={g.id}>
+                      <p className="text-xs font-semibold text-gray-500 dark:text-zinc-400 mb-1.5">
+                        {g.name}
+                      </p>
+                      <div className="space-y-1">
+                        {g.members.map((m) => renderMemberRow(m, '팀장'))}
+                      </div>
+                    </div>
+                  )
+                )}
+              </>
+            )
+          ) : members.length === 0 ? (
             <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-4">
               소속 인원이 없어요.
             </p>
           ) : (
-            <div className="space-y-1">
-              {members.map((member) => (
-                <div
-                  key={member.user_id}
-                  className="flex items-center gap-2 py-2.5 border-b dark:border-zinc-700 last:border-0"
-                >
-                  <span className="font-medium dark:text-white">{member.name}</span>
-                  {member.position && (
-                    <span className="text-xs text-gray-400 dark:text-zinc-500">
-                      {member.position}
-                    </span>
-                  )}
-                  {member.isHead && (
-                    <span className="text-[10px] text-blue-500 font-semibold">팀장</span>
-                  )}
-                </div>
-              ))}
-            </div>
+            <div className="space-y-1">{members.map((m) => renderMemberRow(m, '팀장'))}</div>
           )}
         </div>
       </div>
