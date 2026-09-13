@@ -171,18 +171,6 @@ export default function DepartmentAffiliationView({ departmentId }: { department
     )
   }
 
-  const renderMemberRow = (m: Member) => (
-    <div
-      key={m.user_id}
-      className="flex items-center gap-2 py-2.5 border-b dark:border-zinc-700 last:border-0"
-    >
-      <span className="font-medium dark:text-white">{m.name}</span>
-      {m.position && <span className="text-xs text-gray-400 dark:text-zinc-500">{m.position}</span>}
-      {m.isHead && <span className="text-[10px] text-blue-500 font-semibold">부서장</span>}
-      {m.isTeamLead && <span className="text-[10px] text-blue-500 font-semibold">팀장</span>}
-    </div>
-  )
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 pb-28">
       <div className="max-w-2xl mx-auto">
@@ -284,7 +272,8 @@ export default function DepartmentAffiliationView({ departmentId }: { department
           )}
         </div>
 
-        {/* 인원 리스트: 캘린더 필터(부서 전체/내 팀만)와 무관하게 항상 부서 전체 인원을, 팀별로 묶어서 표시 */}
+        {/* 인원 리스트: 캘린더 필터(부서 전체/내 팀만)와 무관하게 항상 부서 전체 인원을, 팀별로 묶어서 표시.
+            /team/[id](팀이 "부서 전체"를 볼 때)와 동일한 그룹명+인원수+구분선 양식을 사용한다. */}
         <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 space-y-4">
           <h2 className="font-semibold dark:text-white">소속 인원</h2>
           {allMembers.length === 0 ? (
@@ -292,28 +281,70 @@ export default function DepartmentAffiliationView({ departmentId }: { department
               소속 인원이 없어요.
             </p>
           ) : (
-            <>
+            <div className="space-y-4">
               <div>
-                <p className="text-xs font-semibold text-gray-500 dark:text-zinc-400 mb-1.5">
-                  부서 직속
-                </p>
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-sm font-semibold text-gray-700 dark:text-zinc-200">
+                    부서 직속
+                  </p>
+                  <span className="text-xs text-gray-400 dark:text-zinc-500">
+                    ({directMembers.length}명)
+                  </span>
+                </div>
+                <div className="border-t border-gray-100 dark:border-zinc-800" />
                 {directMembers.length === 0 ? (
-                  <p className="text-xs text-gray-300 dark:text-zinc-600">없음</p>
+                  <p className="text-xs text-gray-300 dark:text-zinc-600 py-2">없음</p>
                 ) : (
-                  <div className="space-y-1">{directMembers.map(renderMemberRow)}</div>
+                  <div className="divide-y divide-gray-50 dark:divide-zinc-900/60">
+                    {directMembers.map((m) => (
+                      <div key={m.user_id} className="flex items-center gap-1.5 py-1">
+                        <span className="text-sm text-gray-600 dark:text-zinc-300">{m.name}</span>
+                        {m.position && (
+                          <span className="text-xs text-gray-400 dark:text-zinc-500">
+                            {m.position}
+                          </span>
+                        )}
+                        {m.isHead && (
+                          <span className="text-[10px] text-blue-500 shrink-0">부서장</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
               {teamGroups.map((g) =>
                 g.members.length === 0 ? null : (
                   <div key={g.id}>
-                    <p className="text-xs font-semibold text-gray-500 dark:text-zinc-400 mb-1.5">
-                      {g.name}
-                    </p>
-                    <div className="space-y-1">{g.members.map(renderMemberRow)}</div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-sm font-semibold text-gray-700 dark:text-zinc-200">
+                        {g.name}
+                      </p>
+                      <span className="text-xs text-gray-400 dark:text-zinc-500">
+                        ({g.members.length}명)
+                      </span>
+                    </div>
+                    <div className="border-t border-gray-100 dark:border-zinc-800" />
+                    <div className="divide-y divide-gray-50 dark:divide-zinc-900/60">
+                      {g.members.map((m) => (
+                        <div key={m.user_id} className="flex items-center gap-1.5 py-1">
+                          <span className="text-sm text-gray-600 dark:text-zinc-300">
+                            {m.name}
+                          </span>
+                          {m.position && (
+                            <span className="text-xs text-gray-400 dark:text-zinc-500">
+                              {m.position}
+                            </span>
+                          )}
+                          {m.isTeamLead && (
+                            <span className="text-[10px] text-blue-500 shrink-0">팀장</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )
               )}
-            </>
+            </div>
           )}
         </div>
       </div>
