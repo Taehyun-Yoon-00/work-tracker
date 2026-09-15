@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useRouter } from 'next/navigation'
 import { MailCheck } from 'lucide-react'
+import Button from '../components/ui/Button'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -62,7 +63,7 @@ export default function LoginPage() {
           <p className="text-gray-500 dark:text-zinc-400 text-sm mb-6">
             받은 편지함에서 인증 링크를 클릭하면 가입이 완료돼요.
           </p>
-          <p className="text-xs text-gray-400 dark:text-zinc-500 mb-4">
+          <p className="text-xs text-gray-500 dark:text-zinc-400 mb-4">
             메일이 오지 않으면 스팸 폴더를 확인해주세요.
           </p>
           <button
@@ -105,13 +106,9 @@ export default function LoginPage() {
 
         {message && <p className="text-sm text-center text-red-500 mb-4">{message}</p>}
 
-        <button
-          onClick={handleAuth}
-          disabled={loading}
-          className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
-        >
+        <Button onClick={handleAuth} disabled={loading} fullWidth>
           {loading ? '처리 중...' : isSignUp ? '가입하기' : '로그인'}
-        </button>
+        </Button>
 
         <p
           onClick={() => {

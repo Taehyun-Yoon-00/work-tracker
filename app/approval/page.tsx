@@ -63,6 +63,9 @@ function ApprovalPageContent() {
     onConfirm: () => void
   } | null>(null)
   const [requests, setRequests] = useState<any[]>([])
+  // 목록 최초 조회가 끝났는지 여부. 이게 없으면 fetch가 끝나기 전 requests=[] 상태를
+  // "결재 요청이 없어요"로 그대로 렌더링해버려서, 로딩 중인지 실제로 빈 상태인지 구분이 안 된다.
+  const [requestsLoading, setRequestsLoading] = useState(true)
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterType, setFilterType] = useState<string>('all')
   const [dateRangeStart, setDateRangeStart] = useState<string>(
@@ -271,6 +274,7 @@ function ApprovalPageContent() {
     divisionIds: string[] = [],
     includeApproverBypass: boolean = true
   ) => {
+    setRequestsLoading(true)
     let query = supabase
       .from('approval_requests')
       .select(
@@ -292,6 +296,7 @@ function ApprovalPageContent() {
 
     const { data } = await query
     if (data) setRequests(data)
+    setRequestsLoading(false)
   }
 
   const fetchRequests = async (
@@ -1082,6 +1087,7 @@ function ApprovalPageContent() {
 
         <ApprovalList
           requests={requests}
+          loading={requestsLoading}
           userId={user?.id ?? ''}
           filterStatus={filterStatus}
           filterType={filterType}

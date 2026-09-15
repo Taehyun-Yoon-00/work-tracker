@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useRouter } from 'next/navigation'
 import DepartmentAffiliationView from '../components/team/DepartmentAffiliationView'
+import SkeletonRows from '../components/ui/SkeletonRows'
 
 type DivisionDept = { id: string; name: string; divisionName: string }
 
@@ -121,7 +122,15 @@ export default function MyOrgEntryPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
-        <div className="max-w-2xl mx-auto" />
+        <div className="max-w-2xl mx-auto">
+          <div
+            className="h-6 w-20 rounded bg-gray-200 dark:bg-zinc-700 animate-pulse motion-reduce:animate-none mb-6"
+            aria-hidden="true"
+          />
+          <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
+            <SkeletonRows rows={3} label="내 소속" />
+          </div>
+        </div>
       </div>
     )
   }
@@ -135,7 +144,7 @@ export default function MyOrgEntryPage() {
       <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
         <div className="max-w-2xl mx-auto">
           <h1 className="text-xl font-semibold mb-1 dark:text-white">내 소속</h1>
-          <p className="text-sm text-gray-400 dark:text-zinc-500 mb-6">
+          <p className="text-sm text-gray-500 dark:text-zinc-400 mb-6">
             총괄하시는 부문의 부서를 선택하면 해당 부서의 캘린더를 볼 수 있어요.
           </p>
           <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 divide-y dark:divide-zinc-700">
@@ -147,7 +156,7 @@ export default function MyOrgEntryPage() {
               >
                 <div className="min-w-0">
                   <p className="font-medium text-sm dark:text-white truncate">{d.name}</p>
-                  <p className="text-xs text-gray-400 dark:text-zinc-500 mt-0.5 truncate">
+                  <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5 truncate">
                     {d.divisionName}
                   </p>
                 </div>
@@ -166,7 +175,7 @@ export default function MyOrgEntryPage() {
         <h1 className="text-xl font-semibold mb-6 dark:text-white">내 소속</h1>
         <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-8 text-center">
           <p className="text-sm text-gray-500 dark:text-zinc-400">
-            소속된 조직이 없습니다.
+            소속된 조직이 없어요.
             <br />
             관리자에게 조직 배정을 요청해 주세요.
           </p>

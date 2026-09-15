@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import dayjs from 'dayjs'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import SectionHeader from '../components/ui/SectionHeader'
+import Button from '../components/ui/Button'
 
 export default function MyPage() {
   const router = useRouter()
@@ -201,20 +202,16 @@ export default function MyPage() {
                 />
                 <span className="text-sm text-gray-500 dark:text-zinc-400 shrink-0">일</span>
               </div>
-              <p className="text-xs text-gray-400 dark:text-zinc-500 mt-1">
+              <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1">
                 반차는 0.5일로 계산돼요
               </p>
             </div>
 
             {message && <p className="text-sm text-center text-blue-500 mb-3">{message}</p>}
 
-            <button
-              onClick={handleSave}
-              disabled={loading}
-              className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
-            >
+            <Button onClick={handleSave} disabled={loading} fullWidth>
               {loading ? '저장 중...' : '저장'}
-            </button>
+            </Button>
           </div>
 
           <div className="pt-4">
@@ -232,13 +229,9 @@ export default function MyPage() {
             {passwordMessage && (
               <p className="text-sm text-center text-blue-500 mb-3">{passwordMessage}</p>
             )}
-            <button
-              onClick={handlePasswordChange}
-              disabled={passwordLoading}
-              className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
-            >
+            <Button onClick={handlePasswordChange} disabled={passwordLoading} fullWidth>
               {passwordLoading ? '변경 중...' : '비밀번호 변경'}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -268,7 +261,7 @@ export default function MyPage() {
               }}
             />
           </div>
-          <div className="flex justify-between text-xs text-gray-400 dark:text-zinc-500 mt-1">
+          <div className="flex justify-between text-xs text-gray-500 dark:text-zinc-400 mt-1">
             <span>0일</span>
             <span>{totalVacation}일</span>
           </div>
@@ -305,13 +298,15 @@ export default function MyPage() {
                 className="w-full border border-red-200 rounded-lg px-3 py-2 mb-3 dark:bg-zinc-700 dark:border-red-900 dark:text-zinc-200"
               />
               {deleteMessage && <p className="text-sm text-red-500 mb-3">{deleteMessage}</p>}
-              <button
+              <Button
+                variant="danger"
+                fullWidth
                 onClick={() => setConfirmingDelete(true)}
-                disabled={deleteLoading || deleteConfirm !== user?.email}
-                className="w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 disabled:opacity-40"
+                disabled={deleteConfirm !== user?.email}
+                loading={deleteLoading}
               >
-                {deleteLoading ? '처리 중...' : '회원 탈퇴'}
-              </button>
+                회원 탈퇴
+              </Button>
             </div>
           )}
         </div>

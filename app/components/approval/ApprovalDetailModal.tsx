@@ -1,5 +1,6 @@
 import dayjs from 'dayjs'
 import Badge from '../ui/Badge'
+import Button from '../ui/Button'
 
 // ApprovalCard와 같은 기준: 신청 타입은 서로 구분이 필요해 기존 색을 그대로 유지한다.
 function typeLabel(type: string): { text: string; colorClassName: string } {
@@ -110,7 +111,7 @@ export default function ApprovalDetailModal({
             </p>
           )}
           {selectedRequest.status === 'cancelled' && (
-            <p className="text-gray-400 text-xs">요청자가 취소한 요청이에요.</p>
+            <p className="text-gray-500 dark:text-zinc-400 text-xs">요청자가 취소한 요청이에요.</p>
           )}
           {selectedRequest.status === 'approved' && cancelRequested && (
             <p className="text-orange-500 text-xs">
@@ -139,12 +140,9 @@ export default function ApprovalDetailModal({
                     placeholder="이메일 입력 후 Enter"
                     className="flex-1 border rounded-lg px-2 py-1.5 text-xs dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
                   />
-                  <button
-                    onClick={() => onAddCcEmail(ccInput)}
-                    className="text-xs bg-gray-100 dark:bg-zinc-700 px-2 py-1.5 rounded-lg dark:text-zinc-300"
-                  >
+                  <Button size="sm" variant="secondary" onClick={() => onAddCcEmail(ccInput)}>
                     추가
-                  </button>
+                  </Button>
                 </div>
                 {showCcSuggestions && (
                   <div className="absolute top-full left-0 right-0 bg-white dark:bg-zinc-700 border dark:border-zinc-600 rounded-lg shadow-lg z-10 mt-1">
@@ -163,10 +161,7 @@ export default function ApprovalDetailModal({
               {ccList.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
                   {ccList.map((email) => (
-                    <span
-                      key={email}
-                      className="flex items-center gap-1 bg-blue-50 text-blue-600 text-xs px-2 py-1 rounded-full"
-                    >
+                    <Badge key={email} tone="info" className="flex items-center gap-1 py-1">
                       {email}
                       <button
                         onClick={() => onRemoveCc(email)}
@@ -174,19 +169,16 @@ export default function ApprovalDetailModal({
                       >
                         ×
                       </button>
-                    </span>
+                    </Badge>
                   ))}
                 </div>
               )}
               {existingCcList.length > 0 && (
                 <div className="mt-2">
-                  <p className="text-xs text-gray-400 mb-1">이전 CC</p>
+                  <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">이전 CC</p>
                   <div className="flex flex-wrap gap-1">
                     {existingCcList.map((email: string) => (
-                      <span
-                        key={email}
-                        className="flex items-center gap-1 bg-gray-100 dark:bg-zinc-700 text-gray-500 dark:text-zinc-400 text-xs px-2 py-1 rounded-full"
-                      >
+                      <Badge key={email} tone="neutral" className="flex items-center gap-1 py-1">
                         {email}
                         <button
                           onClick={() => onRemoveExistingCc(email)}
@@ -194,7 +186,7 @@ export default function ApprovalDetailModal({
                         >
                           ×
                         </button>
-                      </span>
+                      </Badge>
                     ))}
                   </div>
                 </div>
@@ -207,84 +199,87 @@ export default function ApprovalDetailModal({
           <div className="flex gap-2">
             {canEditOrCancel && (
               <>
-                <button
-                  onClick={() => onEdit(selectedRequest)}
-                  className="flex-1 bg-blue-500 text-white py-2 rounded-lg text-sm"
-                >
+                <Button className="flex-1" onClick={() => onEdit(selectedRequest)}>
                   수정
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="warning"
+                  className="flex-1"
                   onClick={() => onCancel(selectedRequest.id)}
-                  className="flex-1 bg-orange-400 text-white py-2 rounded-lg text-sm"
                 >
                   취소
-                </button>
+                </Button>
               </>
             )}
 
             {/* 요청자: 이미 승인된 건에 대한 취소 요청 */}
             {isRequester && selectedRequest.status === 'approved' && !cancelRequested && (
-              <button
+              <Button
+                variant="warning"
+                className="flex-1"
                 onClick={() => onRequestCancelApproval(selectedRequest.id)}
-                className="flex-1 bg-orange-400 text-white py-2 rounded-lg text-sm"
               >
                 취소 요청
-              </button>
+              </Button>
             )}
 
             {isApprover && (
               <>
                 {selectedRequest.status === 'pending' && (
                   <>
-                    <button
+                    <Button
+                      variant="success"
+                      className="flex-1"
                       onClick={() => onApprove(selectedRequest.id, 'approved')}
-                      className="flex-1 bg-green-500 text-white py-2 rounded-lg text-sm"
                     >
                       승인
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="danger"
+                      className="flex-1"
                       onClick={() => onApprove(selectedRequest.id, 'rejected')}
-                      className="flex-1 bg-red-500 text-white py-2 rounded-lg text-sm"
                     >
                       반려
-                    </button>
+                    </Button>
                   </>
                 )}
                 {selectedRequest.status === 'approved' && (
-                  <button
+                  <Button
+                    variant="pending"
+                    className="flex-1"
                     onClick={() => onResolveCancelRequest(selectedRequest.id, true)}
                     disabled={!cancelRequested}
-                    className="flex-1 bg-yellow-500 text-white py-2 rounded-lg text-sm disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     승인 취소
-                  </button>
+                  </Button>
                 )}
                 {selectedRequest.status === 'rejected' && (
-                  <button
+                  <Button
+                    variant="pending"
+                    className="flex-1"
                     onClick={() => onApprove(selectedRequest.id, 'pending')}
-                    className="flex-1 bg-yellow-500 text-white py-2 rounded-lg text-sm"
                   >
                     반려 취소
-                  </button>
+                  </Button>
                 )}
               </>
             )}
-            <button
-              onClick={onClose}
-              className="flex-1 bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300 py-2 rounded-lg text-sm"
-            >
+            <Button variant="secondary" className="flex-1" onClick={onClose}>
               닫기
-            </button>
+            </Button>
           </div>
 
           {/* 결재권자: 취소 요청이 들어온 경우 거절 옵션 제공 */}
           {isApprover && selectedRequest.status === 'approved' && cancelRequested && (
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
+              fullWidth
+              className="py-1"
               onClick={() => onResolveCancelRequest(selectedRequest.id, false)}
-              className="w-full text-gray-400 dark:text-zinc-500 text-xs py-1 hover:text-gray-600 dark:hover:text-zinc-300"
             >
               취소 요청 거절하기
-            </button>
+            </Button>
           )}
         </div>
       </div>

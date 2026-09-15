@@ -61,10 +61,16 @@ export default function NotificationCenter({
           )}
         </div>
 
-        {loading && <p className="px-4 py-8 text-center text-xs text-gray-400">불러오는 중…</p>}
+        {loading && (
+          <p className="px-4 py-8 text-center text-xs text-gray-500 dark:text-zinc-400">
+            불러오는 중…
+          </p>
+        )}
 
         {!loading && notifications.length === 0 && (
-          <p className="px-4 py-8 text-center text-xs text-gray-400">알림이 없어요.</p>
+          <p className="px-4 py-8 text-center text-xs text-gray-500 dark:text-zinc-400">
+            알림이 없어요.
+          </p>
         )}
 
         {!loading &&
@@ -101,7 +107,7 @@ export default function NotificationCenter({
                       {n.message}
                     </span>
                   )}
-                  <span className="block text-[11px] text-gray-400 dark:text-zinc-500 mt-1">
+                  <span className="block text-[11px] text-gray-500 dark:text-zinc-400 mt-1">
                     {dayjs(n.created_at).fromNow()}
                   </span>
                 </span>

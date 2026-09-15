@@ -21,6 +21,8 @@ import WorkMattersEditor, {
 } from './components/worklog/WorkMattersEditor'
 import { recordMatterUsage } from './lib/matterHistory'
 import ConfirmDialog from './components/ui/ConfirmDialog'
+import Button from './components/ui/Button'
+import StatCard from './components/ui/StatCard'
 import { Pencil, Trash2, Check } from 'lucide-react'
 
 export default function Home() {
@@ -627,7 +629,7 @@ export default function Home() {
               <div className="flex gap-2">
                 <button
                   onClick={() => setIsLocked(false)}
-                  className="flex items-center gap-1 text-xs bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300 px-3 py-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
+                  className="flex items-center gap-1 text-xs bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300 px-3 py-1 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-600"
                 >
                   <Pencil size={12} strokeWidth={2} /> 수정
                 </button>
@@ -734,7 +736,7 @@ export default function Home() {
                     </button>
                   )}
                   {isLocked && isNextDay && (
-                    <span className="text-[10px] text-blue-500 shrink-0">익일</span>
+                    <span className="text-[11px] text-blue-500 shrink-0">익일</span>
                   )}
                 </div>
               </div>
@@ -772,13 +774,9 @@ export default function Home() {
           </div>
           {message && <p className="text-sm text-center text-blue-500 mb-2">{message}</p>}
           {!workInputDisabled && (
-            <button
-              onClick={handleSave}
-              disabled={loading}
-              className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
-            >
+            <Button onClick={handleSave} disabled={loading} fullWidth>
               {loading ? '저장 중...' : '저장'}
-            </button>
+            </Button>
           )}
         </div>
         {/* 휴가 입력 */}
@@ -809,7 +807,7 @@ export default function Home() {
             ))}
           </div>
           {vacation && (
-            <p className="text-xs text-center text-gray-400 dark:text-zinc-500 mt-2">
+            <p className="text-xs text-center text-gray-500 dark:text-zinc-400 mt-2">
               다시 누르면 취소돼요
             </p>
           )}
@@ -833,7 +831,7 @@ export default function Home() {
             원격근무
           </button>
           {isRemote && (
-            <p className="text-xs text-center text-gray-400 dark:text-zinc-500 mt-2">
+            <p className="text-xs text-center text-gray-500 dark:text-zinc-400 mt-2">
               다시 누르면 취소돼요
             </p>
           )}
@@ -845,7 +843,7 @@ export default function Home() {
             <h2 className="font-semibold flex-1 dark:text-white">주간 근무시간</h2>
             <button
               onClick={() => setViewedWeek(dayjs(viewedWeek).subtract(1, 'week').toDate())}
-              className="px-3 py-1 bg-gray-100 dark:bg-zinc-700 dark:text-zinc-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm"
+              className="px-3 py-1 bg-gray-100 dark:bg-zinc-700 dark:text-zinc-300 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-600 text-sm"
             >
               ◀
             </button>
@@ -855,27 +853,18 @@ export default function Home() {
             </span>
             <button
               onClick={() => setViewedWeek(dayjs(viewedWeek).add(1, 'week').toDate())}
-              className="px-3 py-1 bg-gray-100 dark:bg-zinc-700 dark:text-zinc-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm"
+              className="px-3 py-1 bg-gray-100 dark:bg-zinc-700 dark:text-zinc-300 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-600 text-sm"
             >
               ▶
             </button>
           </div>
           <div className="flex gap-2 mb-3">
-            <div className="flex-1 bg-gray-50 dark:bg-zinc-900/40 rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">전체</p>
-              <p className="text-lg font-semibold dark:text-white">{totalWeeklyHours.toFixed(2)}시간</p>
-            </div>
-            <div className="flex-1 bg-blue-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">평일</p>
-              <p className="text-lg font-semibold text-blue-500">{weekdayHours.toFixed(2)}시간</p>
-            </div>
-            <div className="flex-1 bg-orange-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">휴일</p>
-              <p className="text-lg font-semibold text-orange-500">{weekendHours.toFixed(2)}시간</p>
-            </div>
+            <StatCard label="전체" value={`${totalWeeklyHours.toFixed(2)}시간`} tone="gray" />
+            <StatCard label="평일" value={`${weekdayHours.toFixed(2)}시간`} tone="blue" />
+            <StatCard label="휴일" value={`${weekendHours.toFixed(2)}시간`} tone="orange" />
           </div>
           {weeklyLogs.length === 0 ? (
-            <p className="text-sm text-gray-400 dark:text-zinc-500">이 주 기록이 없어요.</p>
+            <p className="text-sm text-gray-500 dark:text-zinc-400">이 주 기록이 없어요.</p>
           ) : (
             weeklyLogs.map((log) => (
               <div
@@ -897,7 +886,7 @@ export default function Home() {
           tone="danger"
           busy={deleteLoading}
           title="이 날의 근무기록을 삭제할까요?"
-          description={`${dayjs(selectedDate).format('YYYY년 MM월 DD일')}의 근무 시간과 안건별 공수가 함께 삭제됩니다.`}
+          description={`${dayjs(selectedDate).format('YYYY년 MM월 DD일')}의 근무 시간과 안건별 공수가 함께 삭제돼요.`}
           confirmLabel="삭제"
           onCancel={() => setConfirmingDelete(false)}
           onConfirm={() => {

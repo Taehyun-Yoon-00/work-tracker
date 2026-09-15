@@ -3,22 +3,19 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
-import Calendar from 'react-calendar'
-import 'react-calendar/dist/Calendar.css'
 import dayjs from 'dayjs'
 // isoWeek 플러그인은 lib/dates가 한 번만 등록한다. side-effect import로 이 파일에서도 적용된다.
-import { getWeeksOfMonth } from '../../lib/dates'
-import {
-  isHoliday as isHolidayShared,
-  isPublicHoliday,
-  fetchSubstituteHolidays,
-} from '../../lib/holidays'
+import '../../lib/dates'
+import { fetchSubstituteHolidays } from '../../lib/holidays'
 import {
   fetchTeamMembers,
   fetchDepartmentScope,
   type OrgMember,
   type DepartmentScope,
 } from '../../lib/orgOrder'
+import { vacationLabel, vacationColorClass, REMOTE_COLOR_CLASS, REMOTE_LABEL } from '../../lib/scheduleDisplay'
+import SegmentedControl from '../../components/ui/SegmentedControl'
+import TeamMonthCalendar, { type CalendarEntry } from '../../components/team/TeamMonthCalendar'
 
 type ScopeMember = OrgMember
 type FilterScope = 'department' | 'team'
@@ -36,12 +33,9 @@ export default function TeamDetailPage() {
   const [filterScope, setFilterScope] = useState<FilterScope>('department')
   const [isAdmin, setIsAdmin] = useState(false)
   const [vacations, setVacations] = useState<any[]>([])
-  const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | null>(null)
-  const [weekCommutePlans, setWeekCommutePlans] = useState<{ [key: string]: any[] }>({})
-  const [selectedCommuteWeek, setSelectedCommuteWeek] = useState<string | null>(null)
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date())
   const [remoteWorks, setRemoteWorks] = useState<any[]>([])
-  const [selectedRemoteDate, setSelectedRemoteDate] = useState<Date | null>(null)
   const [isMaster, setIsMaster] = useState(false)
   const [substituteHolidays, setSubstituteHolidays] = useState<string[]>([])
   // null = 확인 중, true = 열람 가능, false = 접근 불가(소속 인원 또는 상위 조직장이 아님)
@@ -141,29 +135,10 @@ export default function TeamDetailPage() {
       ])
       if (vacationData) setVacations(vacationData)
       if (remoteData) setRemoteWorks(remoteData)
-      fetchCommutePlans(unionUserIds)
     } else {
       setVacations([])
       setRemoteWorks([])
-      setWeekCommutePlans({})
     }
-  }
-
-  const fetchCommutePlans = async (userIds: string[]) => {
-    const { data: commutePlanData } = await supabase
-      .from('commute_plans')
-      .select('*, profiles(name, email)')
-      .in('user_id', userIds)
-
-    const plans: { [key: string]: any[] } = {}
-    if (commutePlanData) {
-      commutePlanData.forEach((p) => {
-        const key = String(p.week_number)
-        if (!plans[key]) plans[key] = []
-        plans[key].push(p)
-      })
-    }
-    setWeekCommutePlans(plans)
   }
 
   const loadSubstituteHolidays = async () => {
@@ -188,8 +163,6 @@ export default function TeamDetailPage() {
     return member?.name || '알 수 없음'
   }
 
-  const isHoliday = (date: Date) => isHolidayShared(date, substituteHolidays)
-
   const getVacationsOnDate = (date: Date) => {
     const dateStr = dayjs(date).format('YYYY-MM-DD')
     return sortByMemberOrder(
@@ -204,36 +177,19 @@ export default function TeamDetailPage() {
     )
   }
 
-  const getTileContent = ({ date }: { date: Date }) => {
-    const dayVacations = getVacationsOnDate(date)
-    const dayRemotes = getRemoteOnDate(date)
-    if (dayVacations.length === 0 && dayRemotes.length === 0) return null
-    return (
-      <div className="flex justify-center gap-0.5 mt-0.5">
-        {dayVacations.length > 0 && (
-          <span className="text-[9px] bg-orange-100 text-orange-600 rounded-full w-4 h-4 flex items-center justify-center font-bold">
-            {dayVacations.length}
-          </span>
-        )}
-        {dayRemotes.length > 0 && (
-          <span className="text-[9px] bg-indigo-100 text-indigo-600 rounded-full w-4 h-4 flex items-center justify-center font-bold">
-            {dayRemotes.length}
-          </span>
-        )}
-      </div>
-    )
-  }
-  const getTileClassName = ({ date }: { date: Date }) => {
-    const day = date.getDay()
-    const dateStr = dayjs(date).format('YYYY-MM-DD')
-    const isSubstitute = substituteHolidays.includes(dateStr)
-    if (day === 6) return '!text-blue-500 font-semibold'
-    if (day === 0 || isPublicHoliday(date) || isSubstitute) return '!text-red-500 font-semibold'
-    return ''
-  }
-
-  const getWeeks = (month: Date) => {
-    return getWeeksOfMonth(dayjs(month))
+  // 캘린더 각 날짜 칸에 쌓을 막대 목록: "이름 · 휴가종류/원격"을 종류별 색으로 구분해서 보여준다.
+  const getEntriesForDate = (date: Date): CalendarEntry[] => {
+    const vacEntries: CalendarEntry[] = getVacationsOnDate(date).map((v) => ({
+      id: `v-${v.id}`,
+      label: `${getMemberName(v.user_id)} · ${vacationLabel(v.type)}`,
+      colorClass: vacationColorClass(v.type),
+    }))
+    const remEntries: CalendarEntry[] = getRemoteOnDate(date).map((r) => ({
+      id: `r-${r.id}`,
+      label: `${getMemberName(r.user_id)} · ${REMOTE_LABEL}`,
+      colorClass: REMOTE_COLOR_CLASS,
+    }))
+    return [...vacEntries, ...remEntries]
   }
 
   const leaders = members.filter((m) => m.isHead)
@@ -276,12 +232,12 @@ export default function TeamDetailPage() {
         {/* 헤더 */}
         <div className="mb-6">
           {departmentName && (
-            <p className="text-xs text-gray-400 dark:text-zinc-500 mb-0.5 truncate">
+            <p className="text-xs text-gray-500 dark:text-zinc-400 mb-0.5 truncate">
               {departmentName}
             </p>
           )}
           <h1 className="text-xl font-semibold dark:text-white truncate">{team?.name}</h1>
-          <p className="text-sm text-gray-400 dark:text-zinc-500 mt-0.5">
+          <p className="text-sm text-gray-500 dark:text-zinc-400 mt-0.5">
             {leaders.length > 0
               ? `팀장 ${leaders.map((l) => l.name).join(', ')}`
               : '팀장 미지정'}
@@ -294,184 +250,67 @@ export default function TeamDetailPage() {
           <div className="flex justify-between items-center mb-3">
             <h2 className="font-semibold dark:text-white">팀 캘린더</h2>
             {team?.department_id && (
-              <div className="flex bg-gray-100 dark:bg-zinc-700 rounded-lg p-0.5">
-                <button
-                  onClick={() => setFilterScope('department')}
-                  className={`text-xs px-3 py-1 rounded-md transition ${
-                    filterScope === 'department'
-                      ? 'bg-white dark:bg-zinc-600 shadow text-blue-500 font-semibold'
-                      : 'text-gray-500 dark:text-zinc-400'
-                  }`}
-                >
-                  부서 전체
-                </button>
-                <button
-                  onClick={() => setFilterScope('team')}
-                  className={`text-xs px-3 py-1 rounded-md transition ${
-                    filterScope === 'team'
-                      ? 'bg-white dark:bg-zinc-600 shadow text-blue-500 font-semibold'
-                      : 'text-gray-500 dark:text-zinc-400'
-                  }`}
-                >
-                  내 팀만
-                </button>
-              </div>
+              <SegmentedControl
+                value={filterScope}
+                onChange={setFilterScope}
+                options={[
+                  { value: 'department' as const, label: '부서 전체' },
+                  { value: 'team' as const, label: '내 팀만' },
+                ]}
+              />
             )}
           </div>
           <div className="flex flex-col gap-3">
-            {/* 달력 + 시차출근 버튼 */}
-            <div className="flex items-start gap-2 ">
-              <div className="min-w-0">
-                <Calendar
-                  onClickDay={(date) => {
-                    setSelectedCalendarDate(date)
-                    setSelectedRemoteDate(date)
-                    setSelectedCommuteWeek(null)
-                  }}
-                  onActiveStartDateChange={({ activeStartDate }) => {
-                    if (activeStartDate) setCalendarMonth(activeStartDate)
-                  }}
-                  tileContent={getTileContent}
-                  tileClassName={getTileClassName}
-                  locale="ko-KR"
-                />
-              </div>
-
-              {/* 주차별 시차출근 버튼 */}
-              <div className="flex flex-col shrink-0 mt-[74px] sm:mt-[90px]">
-                {getWeeks(calendarMonth).map((weekStart, index) => {
-                  const weekNumber = String(index + 1)
-                  return (
-                    <div key={weekNumber} className="flex items-center justify-center h-8 sm:h-11">
-                      <button
-                        onClick={() =>
-                          setSelectedCommuteWeek(
-                            selectedCommuteWeek === weekNumber ? null : weekNumber
-                          )
-                        }
-                        className={`text-[12px] px-1 py-1.5 rounded-lg border transition ${
-                          selectedCommuteWeek === weekNumber
-                            ? 'bg-purple-500 text-white border-purple-500'
-                            : 'bg-white dark:bg-zinc-700 text-purple-400 dark:text-purple-300 border-purple-300 dark:border-purple-700'
-                        }`}
-                      >
-                        시차
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
+            <TeamMonthCalendar
+              month={calendarMonth}
+              onMonthChange={setCalendarMonth}
+              getEntriesForDate={getEntriesForDate}
+              selectedDate={selectedDate}
+              onSelectDate={setSelectedDate}
+              substituteHolidays={substituteHolidays}
+            />
 
             {/* 리스트 - 달력 아래 */}
-            {(selectedCalendarDate || selectedRemoteDate || selectedCommuteWeek) && (
+            {selectedDate && (
               <div className="border-t dark:border-zinc-700 pt-3">
-                {selectedCommuteWeek && (
-                  <div>
-                    <p className="text-sm font-semibold mb-2 dark:text-zinc-200">
-                      {(() => {
-                        const weeks = getWeeks(calendarMonth)
-                        const idx = parseInt(selectedCommuteWeek) - 1
-                        const weekStart = weeks[idx]
-                        if (!weekStart) return ''
-                        return `${weekStart.format('MM/DD')} ~ ${weekStart.endOf('isoWeek').format('MM/DD')}`
-                      })()}
-                    </p>
-                    <div className="flex gap-4">
-                      {['8시', '9시'].map((time) => {
-                        const planners = (weekCommutePlans[selectedCommuteWeek] || []).filter(
-                          (p) => p.commute_time === time && scopeUserIds.has(p.user_id)
-                        )
-                        return (
-                          <div key={time} className="flex-1">
-                            <p
-                              className={`text-base font-semibold mb-1 ${
-                                time === '8시' ? 'text-blue-500' : 'text-green-500'
-                              }`}
-                            >
-                              {time}
-                            </p>
-                            <div className="min-h-[40px]">
-                              {planners.length === 0 ? (
-                                <p className="text-xs text-gray-400 dark:text-zinc-500">없음</p>
-                              ) : (
-                                sortByMemberOrder(planners).map((p) => (
-                                  <p key={p.id} className="text-base py-0.5 dark:text-zinc-200">
-                                    {p.profiles?.name || p.profiles?.email?.split('@')[0]}
-                                  </p>
-                                ))
-                              )}
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                    <button
-                      onClick={() => setSelectedCommuteWeek(null)}
-                      className="text-xs text-gray-400 dark:text-zinc-500 hover:underline mt-2"
-                    >
-                      닫기
-                    </button>
+                <p className="text-sm font-semibold mb-2 dark:text-zinc-200">
+                  {dayjs(selectedDate).format('MM월 DD일')}
+                </p>
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <p className="text-base font-semibold text-orange-500 mb-1">휴가</p>
+                    {getVacationsOnDate(selectedDate).length === 0 ? (
+                      <p className="text-xs text-gray-500 dark:text-zinc-400">없음</p>
+                    ) : (
+                      getVacationsOnDate(selectedDate).map((v) => (
+                        <div key={v.id} className="flex items-center gap-1 mb-1">
+                          <p className="text-base font-medium dark:text-zinc-200">
+                            {getMemberName(v.user_id)}
+                          </p>
+                          <p className="text-[13px] text-orange-400">{vacationLabel(v.type)}</p>
+                        </div>
+                      ))
+                    )}
                   </div>
-                )}
-
-                {(selectedCalendarDate || selectedRemoteDate) && !selectedCommuteWeek && (
-                  <div>
-                    <p className="text-sm font-semibold mb-2 dark:text-zinc-200">
-                      {dayjs(selectedCalendarDate || selectedRemoteDate!).format('MM월 DD일')}
-                    </p>
-                    <div className="flex gap-4">
-                      <div className="flex-1">
-                        <p className="text-base font-semibold text-orange-500 mb-1">휴가</p>
-                        {getVacationsOnDate(selectedCalendarDate || selectedRemoteDate!).length ===
-                        0 ? (
-                          <p className="text-xs text-gray-400 dark:text-zinc-500">없음</p>
-                        ) : (
-                          getVacationsOnDate(selectedCalendarDate || selectedRemoteDate!).map(
-                            (v) => (
-                              <div key={v.id} className="flex items-center gap-1 mb-1">
-                                <p className="text-base font-medium dark:text-zinc-200">
-                                  {getMemberName(v.user_id)}
-                                </p>
-                                <p className="text-[13px] text-orange-400">
-                                  {v.type === 'annual'
-                                    ? '연차'
-                                    : v.type === 'special'
-                                      ? '특휴/대휴'
-                                      : v.type === 'morning'
-                                        ? '오전반차'
-                                        : '오후반차'}
-                                </p>
-                              </div>
-                            )
-                          )
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-base font-semibold text-indigo-500 mb-1">원격근무</p>
-                        {getRemoteOnDate(selectedCalendarDate || selectedRemoteDate!).length ===
-                        0 ? (
-                          <p className="text-xs text-gray-400 dark:text-zinc-500">없음</p>
-                        ) : (
-                          getRemoteOnDate(selectedCalendarDate || selectedRemoteDate!).map((r) => (
-                            <p key={r.id} className="text-base py-0.5 dark:text-zinc-200">
-                              {getMemberName(r.user_id)}
-                            </p>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setSelectedCalendarDate(null)
-                        setSelectedRemoteDate(null)
-                      }}
-                      className="text-xs text-gray-400 dark:text-zinc-500 hover:underline mt-2"
-                    >
-                      닫기
-                    </button>
+                  <div className="flex-1">
+                    <p className="text-base font-semibold text-indigo-500 mb-1">원격근무</p>
+                    {getRemoteOnDate(selectedDate).length === 0 ? (
+                      <p className="text-xs text-gray-500 dark:text-zinc-400">없음</p>
+                    ) : (
+                      getRemoteOnDate(selectedDate).map((r) => (
+                        <p key={r.id} className="text-base py-0.5 dark:text-zinc-200">
+                          {getMemberName(r.user_id)}
+                        </p>
+                      ))
+                    )}
                   </div>
-                )}
+                </div>
+                <button
+                  onClick={() => setSelectedDate(null)}
+                  className="text-xs text-gray-500 dark:text-zinc-400 hover:underline mt-2"
+                >
+                  닫기
+                </button>
               </div>
             )}
           </div>
@@ -484,7 +323,7 @@ export default function TeamDetailPage() {
           <h2 className="font-semibold dark:text-white">소속 인원</h2>
           {showDepartmentMemberList ? (
             deptScope!.allMembers.length === 0 ? (
-              <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-4">
+              <p className="text-sm text-gray-500 dark:text-zinc-400 text-center py-4">
                 소속 인원이 없어요.
               </p>
             ) : (
@@ -494,7 +333,7 @@ export default function TeamDetailPage() {
                     <p className="text-sm font-semibold text-gray-700 dark:text-zinc-200">
                       부서 직속
                     </p>
-                    <span className="text-xs text-gray-400 dark:text-zinc-500">
+                    <span className="text-xs text-gray-500 dark:text-zinc-400">
                       ({deptScope!.directMembers.length}명)
                     </span>
                   </div>
@@ -507,12 +346,12 @@ export default function TeamDetailPage() {
                         <div key={m.user_id} className="flex items-center gap-1.5 py-1">
                           <span className="text-sm text-gray-600 dark:text-zinc-300">{m.name}</span>
                           {m.position && (
-                            <span className="text-xs text-gray-400 dark:text-zinc-500">
+                            <span className="text-xs text-gray-500 dark:text-zinc-400">
                               {m.position}
                             </span>
                           )}
                           {m.isHead && (
-                            <span className="text-[10px] text-blue-500 shrink-0">부서장</span>
+                            <span className="text-[11px] text-blue-500 shrink-0">부서장</span>
                           )}
                         </div>
                       ))}
@@ -526,7 +365,7 @@ export default function TeamDetailPage() {
                         <p className="text-sm font-semibold text-gray-700 dark:text-zinc-200">
                           {g.name}
                         </p>
-                        <span className="text-xs text-gray-400 dark:text-zinc-500">
+                        <span className="text-xs text-gray-500 dark:text-zinc-400">
                           ({g.members.length}명)
                         </span>
                       </div>
@@ -538,12 +377,12 @@ export default function TeamDetailPage() {
                               {m.name}
                             </span>
                             {m.position && (
-                              <span className="text-xs text-gray-400 dark:text-zinc-500">
+                              <span className="text-xs text-gray-500 dark:text-zinc-400">
                                 {m.position}
                               </span>
                             )}
                             {m.isHead && (
-                              <span className="text-[10px] text-blue-500 shrink-0">팀장</span>
+                              <span className="text-[11px] text-blue-500 shrink-0">팀장</span>
                             )}
                           </div>
                         ))}
@@ -554,7 +393,7 @@ export default function TeamDetailPage() {
               </div>
             )
           ) : members.length === 0 ? (
-            <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-4">
+            <p className="text-sm text-gray-500 dark:text-zinc-400 text-center py-4">
               소속 인원이 없어요.
             </p>
           ) : (
@@ -563,9 +402,9 @@ export default function TeamDetailPage() {
                 <div key={m.user_id} className="flex items-center gap-1.5 py-1">
                   <span className="text-sm text-gray-600 dark:text-zinc-300">{m.name}</span>
                   {m.position && (
-                    <span className="text-xs text-gray-400 dark:text-zinc-500">{m.position}</span>
+                    <span className="text-xs text-gray-500 dark:text-zinc-400">{m.position}</span>
                   )}
-                  {m.isHead && <span className="text-[10px] text-blue-500 shrink-0">팀장</span>}
+                  {m.isHead && <span className="text-[11px] text-blue-500 shrink-0">팀장</span>}
                 </div>
               ))}
             </div>

@@ -2,9 +2,13 @@ import ApprovalCard from './ApprovalCard'
 import DateRangeFilter from './DateRangeFilter'
 import { Palmtree, Laptop, Building2 } from 'lucide-react'
 import OrgScopeSelect, { OrgScopeOption } from '../ui/OrgScopeSelect'
+import SegmentedControl from '../ui/SegmentedControl'
+import SkeletonRows from '../ui/SkeletonRows'
 
 interface ApprovalListProps {
   requests: any[]
+  /** 목록 최초 조회 중이면 true. 이 동안은 "결재 요청이 없어요"가 아니라 스켈레톤을 보여준다. */
+  loading?: boolean
   userId: string
   filterStatus: string
   filterType: string
@@ -22,6 +26,7 @@ interface ApprovalListProps {
 
 export default function ApprovalList({
   requests,
+  loading = false,
   userId,
   filterStatus,
   filterType,
@@ -65,26 +70,18 @@ export default function ApprovalList({
       </div>
 
       {/* 상태 필터 */}
-      <div className="flex bg-gray-100 dark:bg-zinc-700 rounded-lg p-0.5 mb-2">
-        {[
+      <SegmentedControl
+        fullWidth
+        className="mb-2"
+        value={filterStatus}
+        onChange={onFilterStatusChange}
+        options={[
           { value: 'all', label: '전체' },
           { value: 'mine', label: '내요청' },
           { value: 'pending', label: '대기중' },
           { value: 'completed', label: '완료' },
-        ].map(({ value, label }) => (
-          <button
-            key={value}
-            onClick={() => onFilterStatusChange(value)}
-            className={`flex-1 text-xs py-1.5 rounded-md transition ${
-              filterStatus === value
-                ? 'bg-white dark:bg-zinc-600 shadow text-blue-500 font-semibold'
-                : 'text-gray-500 dark:text-zinc-400'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+        ]}
+      />
 
       {/* 유형 필터 */}
       <div className="flex gap-1.5 mb-4 flex-wrap">
@@ -138,8 +135,10 @@ export default function ApprovalList({
 
       {/* 카드 목록 */}
       <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
-        {filteredRequests.length === 0 ? (
-          <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-4">
+        {loading ? (
+          <SkeletonRows rows={4} label="결재 목록" />
+        ) : filteredRequests.length === 0 ? (
+          <p className="text-sm text-gray-500 dark:text-zinc-400 text-center py-4">
             결재 요청이 없어요.
           </p>
         ) : (

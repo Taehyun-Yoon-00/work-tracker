@@ -14,7 +14,7 @@ interface LoadErrorProps {
  * 정상 상태와 구분되지 않는다. RLS를 켜면 특히 문제가 되므로 실패는 반드시 드러낸다.
  */
 export default function LoadError({
-  message = '데이터를 불러오지 못했습니다.',
+  message = '데이터를 불러오지 못했어요.',
   onRetry,
   className = '',
 }: LoadErrorProps) {

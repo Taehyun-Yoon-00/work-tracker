@@ -33,7 +33,7 @@ export default function ApprovalCard({ req, userId, onClick }: ApprovalCardProps
   return (
     <div
       onClick={() => onClick(req)}
-      className="py-3 border-b dark:border-zinc-700 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+      className="py-3 border-b dark:border-zinc-700 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-zinc-700"
     >
       <div className="flex justify-between items-start">
         <div className="flex-1 min-w-0">
@@ -54,15 +54,15 @@ export default function ApprovalCard({ req, userId, onClick }: ApprovalCardProps
               <Badge tone="warning">취소 요청됨</Badge>
             )}
           </div>
-          <p className="text-xs text-gray-400 dark:text-zinc-500">
+          <p className="text-xs text-gray-500 dark:text-zinc-400">
             {req.dates && req.dates.length > 1
               ? `${dayjs(req.dates[0]).format('MM/DD')} 외 ${req.dates.length - 1}일`
               : dayjs(req.date).format('YYYY년 MM월 DD일')}
           </p>
-          <p className="text-xs text-gray-400 dark:text-zinc-500">
+          <p className="text-xs text-gray-500 dark:text-zinc-400">
             결재권자: {req.approver?.name || req.approver?.email?.split('@')[0]}
           </p>
-          {req.memo && <p className="text-xs text-gray-400 dark:text-zinc-500">사유: {req.memo}</p>}
+          {req.memo && <p className="text-xs text-gray-500 dark:text-zinc-400">사유: {req.memo}</p>}
           {req.status === 'approved' && req.approved_at && (
             <p className="text-xs text-green-500 mt-0.5">
               승인일: {dayjs(req.approved_at).format('YYYY-MM-DD HH:mm')}

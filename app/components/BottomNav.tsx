@@ -46,13 +46,13 @@ export default function BottomNav() {
               className={`flex-1 h-full pt-2 flex flex-col items-center justify-start gap-0.5 transition relative ${
                 isActive
                   ? 'text-blue-500'
-                  : 'text-gray-400 dark:text-zinc-500 hover:text-gray-600 dark:hover:text-gray-300'
+                  : 'text-gray-500 dark:text-zinc-400 hover:text-gray-600 dark:hover:text-gray-300'
               }`}
             >
               <span className="relative">
                 <tab.Icon size={22} strokeWidth={1.75} />
                 {tab.path === '/approval' && pendingCount > 0 && (
-                  <span className="absolute -top-1 -right-2 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold">
+                  <span className="absolute -top-1 -right-2 bg-red-500 text-white text-[11px] rounded-full w-4 h-4 flex items-center justify-center font-bold">
                     {pendingCount > 9 ? '9+' : pendingCount}
                   </span>
                 )}

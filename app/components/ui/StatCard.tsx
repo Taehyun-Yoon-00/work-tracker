@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react'
 
-type Tone = 'blue' | 'green' | 'orange' | 'red'
+type Tone = 'gray' | 'blue' | 'green' | 'orange' | 'red'
 
 // Tailwind는 클래스명을 정적으로 스캔하므로 `bg-${tone}-50` 같은 조합은 쓸 수 없다.
 const TONE_CLASS: Record<Tone, { bg: string; text: string }> = {
+  gray: { bg: 'bg-gray-50 dark:bg-zinc-900/40', text: 'text-gray-700 dark:text-white' },
   blue: { bg: 'bg-blue-50 dark:bg-blue-950/40', text: 'text-blue-500 dark:text-blue-300' },
   green: { bg: 'bg-green-50 dark:bg-green-950/40', text: 'text-green-500 dark:text-green-300' },
   orange: {

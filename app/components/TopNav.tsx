@@ -1,5 +1,6 @@
 'use client'
 
+import { Menu, Bell } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAppBadge } from '../hooks/useAppBadge'
@@ -37,26 +38,14 @@ export default function TopNav() {
           aria-label="메뉴 열기"
           className="md:hidden absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-full text-gray-500 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-700 hover:text-gray-700 dark:hover:text-white transition"
         >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="w-5 h-5"
-          >
-            <path d="M4 6h16" />
-            <path d="M4 12h16" />
-            <path d="M4 18h16" />
-          </svg>
+          <Menu size={20} strokeWidth={1.75} />
         </button>
       )}
 
       <img
         src="/logo/toray-logo.png"
         alt="TORAY"
-        className="md:hidden h-[90px] w-auto absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+        className="md:hidden h-5 w-auto absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
       />
 
       {userId && (
@@ -68,20 +57,9 @@ export default function TopNav() {
           aria-label="알림"
           className="absolute right-4 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-full text-gray-500 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-700 hover:text-gray-700 dark:hover:text-white transition"
         >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="w-5 h-5"
-          >
-            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-          </svg>
+          <Bell size={20} strokeWidth={1.75} />
           {unreadCount > 0 && (
-            <span className="absolute top-0.5 right-0.5 bg-red-500 text-white text-[10px] rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center font-bold">
+            <span className="absolute top-0.5 right-0.5 bg-red-500 text-white text-[11px] rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center font-bold">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import dayjs from 'dayjs'
 import { supabase } from '../lib/supabase'
 import { getSettlementPeriod } from '../lib/dates'
+import Button from '../components/ui/Button'
 
 interface MatterRow {
   category: string
@@ -241,18 +242,14 @@ export default function ReportPage() {
               ›
             </button>
           </div>
-          <p className="text-center text-xs text-gray-400 dark:text-zinc-500 mt-2">
+          <p className="text-center text-xs text-gray-500 dark:text-zinc-400 mt-2">
             {dayjs(periodStart).format('YYYY.MM.DD')} ~ {dayjs(periodEnd).format('YYYY.MM.DD')}
           </p>
 
           {/* 서포트리스트(엑셀) 출력 — 총괄 관리자가 올려둔 양식에 이 기간 근무시간을 채워 넣는다 */}
-          <button
-            onClick={handleExport}
-            disabled={exporting}
-            className="w-full mt-3 bg-blue-500 text-white text-sm font-medium py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
-          >
+          <Button onClick={handleExport} disabled={exporting} fullWidth className="mt-3">
             {exporting ? '엑셀 만드는 중...' : '엑셀로 출력'}
-          </button>
+          </Button>
           {exportMessage && (
             <p className="text-xs text-red-500 text-center mt-2">{exportMessage}</p>
           )}
@@ -262,7 +259,7 @@ export default function ReportPage() {
         {canManageTemplate && (
           <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 mb-4">
             <h2 className="font-semibold mb-1 dark:text-white">서포트리스트 양식 관리</h2>
-            <p className="text-xs text-gray-400 dark:text-zinc-500 mb-3">
+            <p className="text-xs text-gray-500 dark:text-zinc-400 mb-3">
               서포트리스트 엑셀 양식(.xlsx)이에요. 
               새로 업로드하면 그 다음 출력부터 바로 최신 양식이 적용돼요.
             </p>
@@ -274,7 +271,7 @@ export default function ReportPage() {
                 {templateInfo.uploadedBy} 업로드
               </p>
             ) : (
-              <p className="text-xs text-gray-400 dark:text-zinc-500 mb-3">
+              <p className="text-xs text-gray-500 dark:text-zinc-400 mb-3">
                 아직 업로드된 양식이 없어요.
               </p>
             )}
@@ -290,7 +287,7 @@ export default function ReportPage() {
               className="text-sm text-gray-600 dark:text-zinc-300"
             />
             {uploadingTemplate && (
-              <p className="text-xs text-gray-400 dark:text-zinc-500 mt-2">업로드 중...</p>
+              <p className="text-xs text-gray-500 dark:text-zinc-400 mt-2">업로드 중...</p>
             )}
             {templateMessage && (
               <p className="text-xs text-blue-500 mt-2">{templateMessage}</p>
@@ -301,17 +298,17 @@ export default function ReportPage() {
         {/* 안건별 합계시간 */}
         <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
           {loading ? (
-            <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-6">
+            <p className="text-sm text-gray-500 dark:text-zinc-400 text-center py-6">
               불러오는 중...
             </p>
           ) : summary.length === 0 ? (
-            <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-6">
+            <p className="text-sm text-gray-500 dark:text-zinc-400 text-center py-6">
               해당 기간에 기록된 근무가 없어요.
             </p>
           ) : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b dark:border-zinc-700 text-left text-gray-400 dark:text-zinc-500">
+                <tr className="border-b dark:border-zinc-700 text-left text-gray-500 dark:text-zinc-400">
                   <th className="py-2 font-medium">안건명</th>
                   <th className="py-2 font-medium text-right">합계 시간</th>
                 </tr>

@@ -57,15 +57,15 @@ export default function UnitStatBarRow({
         </div>
 
         {/* 통계 영역: 내용 길이와 관계없이 항상 동일한 폭 */}
-        <div className="w-25 shrink-0 text-right text-[10px] leading-tight">
-          <p className="whitespace-nowrap text-gray-400 dark:text-zinc-500">
+        <div className="w-25 shrink-0 text-right text-[11px] leading-tight">
+          <p className="whitespace-nowrap text-gray-500 dark:text-zinc-400">
             <span className="text-blue-500">평일 {weekdayHours}h</span>
-            <span className="text-gray-400 dark:text-zinc-500">{' · '}</span>
+            <span className="text-gray-500 dark:text-zinc-400">{' · '}</span>
             <span className="text-orange-500">휴일 {holidayHours}h</span>
           </p>
 
           {isGroupUnit && (
-            <p className="mt-0.5 whitespace-nowrap text-gray-400 dark:text-zinc-500">
+            <p className="mt-0.5 whitespace-nowrap text-gray-500 dark:text-zinc-400">
               {memberCount}명 · 평균 {averageHours}h
             </p>
           )}

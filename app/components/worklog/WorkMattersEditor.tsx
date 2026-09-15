@@ -128,7 +128,7 @@ export default function WorkMattersEditor({ entries, onChange, totalHours, disab
               <div className="mt-3 border-t border-gray-100 dark:border-zinc-700 pt-3">
                 {presets.length > 0 && (
                   <div className="mb-3">
-                    <p className="text-xs text-gray-400 dark:text-zinc-500 mb-1.5">
+                    <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1.5">
                       최근 사용한 안건
                     </p>
                     <div className="flex flex-wrap gap-1.5">
@@ -191,7 +191,7 @@ export default function WorkMattersEditor({ entries, onChange, totalHours, disab
       )}
 
       <p
-        className={`text-xs mt-2 text-right ${matches ? 'text-gray-400 dark:text-zinc-500' : 'text-red-500'}`}
+        className={`text-xs mt-2 text-right ${matches ? 'text-gray-500 dark:text-zinc-400' : 'text-red-500'}`}
       >
         입력한 시간 합계 {sumHours.toFixed(2)}시간 / 총 근무시간 {totalHours.toFixed(2)}시간
         {!matches &&
@@ -222,7 +222,7 @@ function MatterField({
 }) {
   return (
     <div className="mb-2.5">
-      <label className="text-xs text-gray-400 dark:text-zinc-500">{label}</label>
+      <label className="text-xs text-gray-500 dark:text-zinc-400">{label}</label>
       <input
         type="text"
         value={value}
