@@ -480,7 +480,7 @@ export async function POST(req: NextRequest) {
   const yy = String(year).slice(-2)
   const mm = String(month).padStart(2, '0')
   const nameSlug = (profile?.name || profile?.email || 'report').replace(/\s+/g, '')
-  const filename = `TRENGKR_${yy}年_${mm}月_SUPPORT_LIST_${nameSlug}.xlsx`
+  const filename = `TRENGKR ${yy}年 ${mm}月 SUPPORT LIST ${nameSlug}.xlsx`
 
   return new NextResponse(outBuffer as any, {
     status: 200,
