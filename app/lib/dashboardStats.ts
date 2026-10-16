@@ -214,7 +214,7 @@ export async function getDashboardUnits(
       name: g.name,
       members: g.members.map(toRow),
     }))
-    // 팀에 속하지 않고 부서에 직접 소속된 인원(부서장 포함) — department_memberships가
+    // 팀에 속하지 않고 부서에 직접 소속된 인원(부장 포함) — department_memberships가
     // 이미 이 관계를 표현하고 있으므로(lib/orgOrder.fetchDepartmentScope.directMembers) 그대로 재사용한다.
     if (scope.directMembers.length > 0) {
       units.unshift({

@@ -72,7 +72,7 @@ main과 마찬가지로 renewal의 관리자용 API 라우트에도 서버 쪽 �
 - **`016_delete_user_fks.sql`**: `teams.created_by`, `approval_requests.approver_id`,
   `divisions.head_user_id`, `departments.head_user_id`, `general_admins.created_by`가
   `profiles`를 참조하면서 `ON DELETE`를 지정하지 않아, 팀을 만들었거나 결재권자였거나
-  부서장/부문장이었던 사람은 탈퇴 자체가 실패하던 문제를 고쳤다 (`SET NULL`로 변경).
+  부장/부문장이었던 사람은 탈퇴 자체가 실패하던 문제를 고쳤다 (`SET NULL`로 변경).
 - **`017_rls.sql`** (가장 중요): renewal의 모든 테이블에 Row Level Security를
   켰다. main에서 refactoring이 고쳤던 것과 같은 구멍(RLS가 아예 없어서 테이블/
   컬럼 이름만 알면 다른 사람 데이터에 접근 가능)이 renewal에도 그대로 있었다.
@@ -81,7 +81,7 @@ main과 마찬가지로 renewal의 관리자용 API 라우트에도 서버 쪽 �
   (`team/[id]/page.tsx`의 권한 판정, `approval/page.tsx`의 조회 조건,
   `org/page.tsx`의 조직 관리 흐름)가 이미 전제하고 있던 접근 범위를 그대로
   정책으로 옮겼다: 총괄 관리자/마스터는 전체, 부문장은 자기 부문 산하 전체,
-  부서장은 자기 부서 산하 전체, 팀장/팀원은 서로. 파일 맨 아래에 적용 전
+  부장은 자기 부서 산하 전체, 팀장/팀원은 서로. 파일 맨 아래에 적용 전
   반드시 확인해야 할 절차를 적어뒀다.
 - **`018_grants.sql`**: 위 GRANT 문. RLS 정책과는 별개의 권한 관문이라 함께 있어야 한다.
 

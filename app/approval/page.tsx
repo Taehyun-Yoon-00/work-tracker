@@ -26,7 +26,7 @@ interface MySource {
 // 결재 목록 부서 필터 옵션 (req 4).
 // 상위 조직부터 이어붙인 경로 형태의 라벨(대시보드의 OrgScopeSelect와 동일한 방식)로,
 // 총괄 관리자/마스터는 "전체" + 부문 단위, 부문장은 "부문 전체" + 부서 단위까지 노출한다.
-// 그 아래(부서장/팀장/팀원)는 필터 없이 항상 자기 부서 범위로 고정된다.
+// 그 아래(부장/팀장/팀원)는 필터 없이 항상 자기 부서 범위로 고정된다.
 // 여러 조직장을 겸임 중이면 각 역할에서 나오는 옵션을 모두 합쳐서 보여준다.
 interface ScopeOption extends OrgScopeOption {
   /** 이 옵션을 선택했을 때 조회할 department_id 목록. null이면 부서 제한 없음(전사 전체). */
@@ -89,7 +89,7 @@ function ApprovalPageContent() {
   const [editingRequestId, setEditingRequestId] = useState<string | null>(null)
 
   // 결재 목록 열람 범위 (req 4) — 로그인 시 한 번 계산해서 고정한다 (조직상 위치가 바뀌면 새로고침 필요).
-  // opts가 비어있으면(부서장 이상 겸임 없음) 필터 없이 baseDepartmentIds로 고정 조회한다.
+  // opts가 비어있으면(부장 이상 겸임 없음) 필터 없이 baseDepartmentIds로 고정 조회한다.
   const [baseDepartmentIds, setBaseDepartmentIds] = useState<string[]>([])
   const [scopeOptions, setScopeOptions] = useState<ScopeOption[]>([])
   const [selectedScope, setSelectedScope] = useState<ScopeOption | null>(null)
@@ -121,8 +121,8 @@ function ApprovalPageContent() {
   // 결재 페이지 열람 범위 계산 (req 4).
   // - 총괄 관리자/마스터: 전사 전체가 기본, 부문 단위로 좁혀보는 필터 제공.
   // - 부문장: 부문 전체가 기본, 부서 단위로 좁혀보는 필터 제공.
-  // - 그 아래(부서장/팀장/팀원): 필터 없이 자기 부서 범위로 고정.
-  // 한 사람이 여러 조직장을 겸임할 수 있으므로(예: 부문장이면서 다른 부서의 부서장), 역할별
+  // - 그 아래(부장/팀장/팀원): 필터 없이 자기 부서 범위로 고정.
+  // 한 사람이 여러 조직장을 겸임할 수 있으므로(예: 부문장이면서 다른 부서의 부장), 역할별
   // 옵션을 배타적으로 고르지 않고 해당되는 역할을 모두 합쳐서 하나의 드롭다운에 담는다.
   const initViewerScope = async (
     userId: string
@@ -203,7 +203,7 @@ function ApprovalPageContent() {
     }
 
     if ((headDepts?.length ?? 0) > 0) {
-      // 부서장: 부서 단위 (자신이 부서장인 부서)
+      // 부장: 부서 단위 (자신이 부장인 부서)
       for (const dept of headDepts || []) {
         const divName = (dept as any).divisions?.name
         const label = divName ? `${divName} > ${dept.name}` : dept.name
@@ -341,7 +341,7 @@ function ApprovalPageContent() {
   }
 
   // 내 소속(팀 또는 부서 직접 소속) 목록.
-  // 겸직 중이면(예: 팀장이면서 그 팀이 속한 부서의 부서장, 또는 부서장이면서 그 부서가
+  // 겸직 중이면(예: 팀장이면서 그 팀이 속한 부서의 부장, 또는 부장이면서 그 부서가
   // 속한 부문의 부문장) 결재는 항상 더 상위 직책의 이름으로 올라가야 하므로, 팀/부서
   // 소속을 그대로 노출하지 않고 내가 겸직 중인 상위 조직이 있으면 그 조직으로 치환한다.
   const fetchMySources = async (userId: string): Promise<MySource[]> => {
@@ -373,7 +373,7 @@ function ApprovalPageContent() {
     const deptInfoMap = new Map((deptInfoRows || []).map((d: any) => [d.id, d]))
 
     // 부서 id 기준으로 "이 부서 소속으로 요청하면 실제로는 어느 조직 이름으로 올라가야
-    // 하는지"를 판단한다: 부문장을 겸직 중이면 부문, 부서장을 겸직 중이면 부서, 둘 다
+    // 하는지"를 판단한다: 부문장을 겸직 중이면 부문, 부장을 겸직 중이면 부서, 둘 다
     // 아니면 그대로 부서.
     const resolveByDepartment = (deptId: string, fallbackName: string): MySource => {
       const info = deptInfoMap.get(deptId)
@@ -484,9 +484,9 @@ function ApprovalPageContent() {
 
   // 결재권자 후보 산정 (req 1, req 3)
   // - 팀/부서/부문 각 단계는 "자동 결재권자(장) + 위임된 결재권자(유형별 체크)"로 구성된다.
-  // - 부문장은 부문 산하 모든 부서에 대한 결재권을 갖는다. 부서장이 스스로 결재를 올릴 때는
-  //   그 결재가 부문장에게 올라간다(부서장은 자기 부서 단계의 결재권자가 될 수 없으므로 제외).
-  // - 신청자보다 하위 조직 단계의 결재권자는 후보에서 숨긴다: 신청자가 부서장이면 팀/부서 단계를
+  // - 부문장은 부문 산하 모든 부서에 대한 결재권을 갖는다. 부장이 스스로 결재를 올릴 때는
+  //   그 결재가 부문장에게 올라간다(부장은 자기 부서 단계의 결재권자가 될 수 없으므로 제외).
+  // - 신청자보다 하위 조직 단계의 결재권자는 후보에서 숨긴다: 신청자가 부장이면 팀/부서 단계를
   //   숨기고 부문 단계만 보여주고, 신청자가 팀장이면 팀 단계를 숨기고 부서/부문 단계를 보여준다.
   const fetchApproversForSource = async (source: MySource, type: string) => {
     setSelectedSourceKey(source.key)
@@ -518,7 +518,7 @@ function ApprovalPageContent() {
     const divisionHeadId = (dept as any)?.divisions?.head_user_id ?? null
 
     // 부문장인지는 "이 요청이 걸린 부서가 속한 부문"만 보지 않고 전사 어느 부문이든
-    // 내가 부문장이면 true로 잡는다. 부문장이 자기 부문과 무관한 부서의 부서장을
+    // 내가 부문장이면 true로 잡는다. 부문장이 자기 부문과 무관한 부서의 부장을
     // 겸임하거나, 부서-부문 매핑이 이 부서 기준으로는 안 맞는 경우에도 항상 총괄
     // 관리자에게만 결재가 올라가야 하기 때문이다.
     const { data: myDivisionHeadRows } = await supabase
@@ -545,7 +545,7 @@ function ApprovalPageContent() {
       const adminCandidates = await fetchGeneralAdminCandidates()
       adminCandidates.forEach((v, k) => candidates.set(k, v))
     } else {
-      // 팀 단계: 신청자가 이 팀의 팀장이거나 부서장이면(자신보다 하위/동일 단계) 숨긴다.
+      // 팀 단계: 신청자가 이 팀의 팀장이거나 부장이면(자신보다 하위/동일 단계) 숨긴다.
       if (source.teamId && !isTeamLeaderRequester && !isDeptHeadRequester) {
         const { data: leads } = await supabase
           .from('team_members')
@@ -566,7 +566,7 @@ function ApprovalPageContent() {
         })
       }
 
-      // 부서 단계: 신청자 본인이 그 부서의 부서장이면 자기 자신이 결재권자가 될 수 없으므로 숨긴다.
+      // 부서 단계: 신청자 본인이 그 부서의 부장이면 자기 자신이 결재권자가 될 수 없으므로 숨긴다.
       if (!isDeptHeadRequester) {
         if (dept?.head_user_id) {
           const { data: headProfile } = await supabase

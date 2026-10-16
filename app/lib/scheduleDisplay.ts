@@ -27,7 +27,7 @@ export function vacationColorClass(type: VacationType): string {
     case 'annual':
       return 'bg-orange-500'
     case 'special':
-      return 'bg-rose-500'
+      return 'bg-orange-500'
     case 'morning':
     case 'afternoon':
       return 'bg-amber-500'

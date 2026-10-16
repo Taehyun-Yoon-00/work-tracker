@@ -3,7 +3,7 @@
 --
 -- 설계 원칙
 -- - team_members는 전혀 건드리지 않는다 (팀장 = role='admin', 기존 그대로)
--- - 팀장은 지금처럼 team_members.role, 부문장/부서장은 head_user_id 컬럼("자리")으로 표현
+-- - 팀장은 지금처럼 team_members.role, 부문장/부장은 head_user_id 컬럼("자리")으로 표현
 -- - 팀이 없는 "부서 직접 소속" 사용자만 department_memberships에 들어간다
 --   (팀이 있는 사용자는 team_members -> teams.department_id로 부서/부문이 자동으로 유도됨)
 -- - 기존 teams는 전부 임시 "미지정 부문 / 미지정 부서" 밑으로 일괄 배치.

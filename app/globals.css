@@ -120,6 +120,7 @@ body {
 .react-calendar__tile abbr {
   position: relative;
   z-index: 1;
+  font-size: 14px;
 }
 
 /* 오늘 날짜 강조 (라이트 모드) */
@@ -199,6 +200,10 @@ body {
   .react-calendar__tile {
     height: 32px !important;
     padding: 1px !important;
+  }
+
+  .react-calendar__tile abbr {
+    font-size: 11px !important;
   }
 
   .react-calendar__navigation button {

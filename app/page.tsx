@@ -255,7 +255,10 @@ export default function Home() {
     setIsRemote(!!data)
   }
 
+  const isAnnualVacation = vacation === 'annual' || vacation === 'special'
+
   const handleRemote = async () => {
+    if (isAnnualVacation) return
     setRemoteLoading(true)
     if (isRemote) {
       await supabase
@@ -316,12 +319,22 @@ export default function Home() {
         setMessage('')
         fetchWeeklyLogs()
         fetchMonthlyLogs()
+
+        // 연차/특휴일에는 원격근무도 함께 둘 수 없으므로 이미 선택돼 있었다면 해제한다.
+        if (isRemote) {
+          await supabase
+            .from('remote_works')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('date', dayjs(selectedDate).format('YYYY-MM-DD'))
+          setIsRemote(false)
+          fetchMonthlyRemoteWorks()
+        }
       }
     }
     setVacationLoading(false)
   }
 
-  const isAnnualVacation = vacation === 'annual' || vacation === 'special'
   const workInputDisabled = isLocked || isAnnualVacation
 
   const calcCurrentTotalHours = () => {
@@ -570,6 +583,8 @@ export default function Home() {
                 locale="ko-KR"
                 tileClassName={getTileClassName}
                 tileContent={getTileContent}
+                prev2Label={null}
+                next2Label={null}
               />
             </div>
 
@@ -820,11 +835,13 @@ export default function Home() {
           </h2>
           <button
             onClick={handleRemote}
-            disabled={remoteLoading}
+            disabled={remoteLoading || isAnnualVacation}
             className={`w-full py-2 rounded-lg text-sm font-medium transition flex items-center justify-center gap-1 ${
               isRemote
                 ? 'bg-indigo-500 text-white'
-                : 'bg-indigo-50 text-indigo-500 hover:bg-indigo-100'
+                : isAnnualVacation
+                  ? 'bg-gray-100 text-gray-400 dark:bg-zinc-700 dark:text-zinc-500 cursor-not-allowed'
+                  : 'bg-indigo-50 text-indigo-500 hover:bg-indigo-100'
             }`}
           >
             {isRemote && <Check size={14} strokeWidth={2.5} />}

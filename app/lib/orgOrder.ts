@@ -7,7 +7,7 @@ import { displayName } from './labels'
  *
  * 규칙(요구사항 그대로):
  * - 팀장은 팀 안에서 항상 최상단
- * - 부서장은 부서 안에서 항상 최상단
+ * - 부장은 부서 안에서 항상 최상단
  * - 부문장은 부문 안에서 항상 최상단
  * - 그 외 인원은 조직관리에서 지정한 display_order 순서를 그대로 유지
  *
@@ -18,7 +18,7 @@ export type OrgMember = {
   user_id: string
   name: string
   position: string | null
-  /** 이 목록이 속한 조직 단위(팀/부서/부문)의 리더인지 — 팀장/부서장/부문장 */
+  /** 이 목록이 속한 조직 단위(팀/부서/부문)의 리더인지 — 팀장/부장/부문장 */
   isHead: boolean
 }
 
@@ -30,11 +30,11 @@ export type TeamMemberGroup = {
 
 export type DepartmentScope = {
   headUserId: string | null
-  /** 부서장 포함, 부서 직속 인원 (부서장이 항상 최상단) */
+  /** 부장 포함, 부서 직속 인원 (부장이 항상 최상단) */
   directMembers: OrgMember[]
   /** 팀별 그룹. 팀 순서는 teams.display_order, 각 팀 내부는 팀장이 항상 최상단 */
   teamGroups: TeamMemberGroup[]
-  /** 표시 순서: 부서 직속(부서장 포함) → 각 팀 순서대로 이어붙인 전체 목록 */
+  /** 표시 순서: 부서 직속(부장 포함) → 각 팀 순서대로 이어붙인 전체 목록 */
   allMembers: OrgMember[]
 }
 
@@ -46,7 +46,7 @@ const toMember = (userId: string, profile: any, isHead: boolean): OrgMember => (
 })
 
 /**
- * 리더(팀장/부서장/부문장)를 항상 맨 위로 고정하고, 나머지는 원래 순서(=display_order로 이미
+ * 리더(팀장/부장/부문장)를 항상 맨 위로 고정하고, 나머지는 원래 순서(=display_order로 이미
  * 정렬된 순서)를 그대로 유지한다. Array.prototype.sort는 안정 정렬이므로 리더가 아닌 인원끼리는
  * 서로 순서가 바뀌지 않는다.
  */
@@ -71,7 +71,7 @@ export async function fetchTeamMembers(teamId: string): Promise<OrgMember[]> {
 }
 
 /**
- * 부서 전체 소속 인원 — 부서장 고정 + 부서 직속 + 팀별(팀장 고정) 그룹을,
+ * 부서 전체 소속 인원 — 부장 고정 + 부서 직속 + 팀별(팀장 고정) 그룹을,
  * 조직관리와 동일한 순서(부서 직속 → 팀 순서대로)로 구성한다.
  */
 export async function fetchDepartmentScope(departmentId: string): Promise<DepartmentScope> {
@@ -91,7 +91,7 @@ export async function fetchDepartmentScope(departmentId: string): Promise<Depart
 
   const headUserId = dept?.head_user_id || null
 
-  // 부서 직속 (부서장은 department_memberships에 없을 수도 있으므로 별도로 항상 포함시킨다)
+  // 부서 직속 (부장은 department_memberships에 없을 수도 있으므로 별도로 항상 포함시킨다)
   const directList: OrgMember[] = (directDept || [])
     .filter((m: any) => !m.profiles?.is_master && m.user_id !== headUserId)
     .map((m: any) => toMember(m.user_id, m.profiles, false))
@@ -101,7 +101,7 @@ export async function fetchDepartmentScope(departmentId: string): Promise<Depart
     if (existingHead) {
       directList.unshift(toMember(existingHead.user_id, existingHead.profiles, true))
     } else {
-      // department_memberships에는 없고 "자리"만 있는 부서장도 목록에 노출
+      // department_memberships에는 없고 "자리"만 있는 부장도 목록에 노출
       const { data: headProfile } = await supabase
         .from('profiles')
         .select('id, name, email, position, is_master')

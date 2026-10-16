@@ -102,7 +102,7 @@ export default function TeamDetailPage() {
     const isMember = !!myRole
     let unionUserIds: string[] = teamMembersList.map((m) => m.user_id)
 
-    // 열람 권한: 팀 소속 인원 본인, 이 팀이 속한 부서의 부서장, 그 부서가 속한 부문의 부문장,
+    // 열람 권한: 팀 소속 인원 본인, 이 팀이 속한 부서의 부장, 그 부서가 속한 부문의 부문장,
     // 총괄 관리자, 시스템 관리자(마스터)만 볼 수 있다. 그 외에는 접근을 차단한다.
     const deptHeadId = teamData?.departments?.head_user_id
     const divisionHeadId = teamData?.departments?.divisions?.head_user_id
@@ -110,7 +110,7 @@ export default function TeamDetailPage() {
     setAuthorized(masterFlag || !!generalAdminRow || isMember || canViewAsOrgHead)
 
     // 부서 전체 스코프: 같은 부서의 다른 팀 + 부서 직접 소속 인원까지 모아둔다.
-    // 표시 순서는 조직관리와 동일한 공용 규칙(부서장 최상단 → 부서 직속 → 팀 순서대로,
+    // 표시 순서는 조직관리와 동일한 공용 규칙(부장 최상단 → 부서 직속 → 팀 순서대로,
     // 각 팀은 팀장이 최상단)을 그대로 따른다.
     if (teamData?.department_id) {
       const scope = await fetchDepartmentScope(teamData.department_id)
@@ -178,12 +178,21 @@ export default function TeamDetailPage() {
   }
 
   // 캘린더 각 날짜 칸에 쌓을 막대 목록: "이름 · 휴가종류/원격"을 종류별 색으로 구분해서 보여준다.
+  // 표시 순서는 연차/특휴(구분 없이 구성원 순서만) → 오전반차 → 오후반차 → 원격 순이다.
+  const vacationGroupRank = (type: string) => {
+    if (type === 'morning') return 1
+    if (type === 'afternoon') return 2
+    return 0 // annual, special 등은 구분 없이 구성원 순서만 반영
+  }
+
   const getEntriesForDate = (date: Date): CalendarEntry[] => {
-    const vacEntries: CalendarEntry[] = getVacationsOnDate(date).map((v) => ({
-      id: `v-${v.id}`,
-      label: `${getMemberName(v.user_id)} · ${vacationLabel(v.type)}`,
-      colorClass: vacationColorClass(v.type),
-    }))
+    const vacEntries: CalendarEntry[] = [...getVacationsOnDate(date)]
+      .sort((a, b) => vacationGroupRank(a.type) - vacationGroupRank(b.type))
+      .map((v) => ({
+        id: `v-${v.id}`,
+        label: `${getMemberName(v.user_id)} · ${vacationLabel(v.type)}`,
+        colorClass: vacationColorClass(v.type),
+      }))
     const remEntries: CalendarEntry[] = getRemoteOnDate(date).map((r) => ({
       id: `r-${r.id}`,
       label: `${getMemberName(r.user_id)} · ${REMOTE_LABEL}`,
@@ -351,7 +360,7 @@ export default function TeamDetailPage() {
                             </span>
                           )}
                           {m.isHead && (
-                            <span className="text-[11px] text-blue-500 shrink-0">부서장</span>
+                            <span className="text-[11px] text-blue-500 shrink-0">부장</span>
                           )}
                         </div>
                       ))}

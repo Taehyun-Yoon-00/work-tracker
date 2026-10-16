@@ -2,7 +2,7 @@
 //
 // 시스템 권한(MASTER)과 조직 관리 권한은 서로 다른 트랙이다:
 //   [시스템 권한]   MASTER
-//   [조직 관리 권한] 총괄 관리자 > 부문장 > 부서장 > 팀장 > 팀원
+//   [조직 관리 권한] 총괄 관리자 > 부문장 > 부장 > 팀장 > 팀원
 //
 // MASTER는 시스템 관리자이므로 조직 관리 화면에서도 항상 모든 권한을 갖지만,
 // 이는 "총괄 관리자"라서가 아니라 "시스템 관리자라 무엇이든 할 수 있다"는
@@ -58,7 +58,7 @@ export function isDepartmentHead(
   return division ? isDivisionHead(userId, division, hasTopAccess) : false
 }
 
-/** 특정 부서 안에서 팀/구성원을 관리할 수 있는지 (부서장 이상) */
+/** 특정 부서 안에서 팀/구성원을 관리할 수 있는지 (부장 이상) */
 export function canManageDepartment(
   userId: string,
   departmentId: string,
@@ -97,8 +97,8 @@ export function isTeamLead(
 
 /**
  * 특정 팀 안에서 팀장급 권한(자기 팀의 권한 관리·구성원 관리)을 행사할 수 있는지.
- * 부서장 이상(canManageDepartment)이거나, 그 팀의 팀장이면 true.
- * 팀장 변경/팀 삭제 등 팀 자체에 대한 구조 변경 권한은 여전히 부서장 이상만 가진다 —
+ * 부장 이상(canManageDepartment)이거나, 그 팀의 팀장이면 true.
+ * 팀장 변경/팀 삭제 등 팀 자체에 대한 구조 변경 권한은 여전히 부장 이상만 가진다 —
  * 이 함수는 "자기 팀"의 결재권자 위임·구성원 관리에만 쓰인다.
  */
 export function canManageTeam(

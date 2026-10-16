@@ -18,7 +18,7 @@ interface ApprovalListProps {
   onFilterTypeChange: (value: string) => void
   onDateRangeChange: (start: string, end: string) => void
   onCardClick: (req: any) => void
-  /** 부서 필터 — 옵션이 없으면(부서장 이하) 필터 없이 항상 자기 부서 범위로 고정되므로 렌더링하지 않는다. */
+  /** 부서 필터 — 옵션이 없으면(부장 이하) 필터 없이 항상 자기 부서 범위로 고정되므로 렌더링하지 않는다. */
   scopeOptions?: OrgScopeOption[]
   selectedScope?: OrgScopeOption | null
   onScopeChange?: (opt: OrgScopeOption) => void

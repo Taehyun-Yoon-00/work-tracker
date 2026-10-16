@@ -1280,7 +1280,7 @@ export default function OrgPage() {
               <h2 className="text-lg font-semibold dark:text-white truncate">{division.name}</h2>
             </div>
             <p className="text-sm text-gray-500 dark:text-zinc-400 mt-0.5">
-              {profileName(division.head_user_id) || '부문장 공석'} · 총{' '}
+              {division.head_user_id ? `부문장 ${profileName(division.head_user_id)}` : '부문장 공석'} · 총{' '}
               {headcountOfDivision(division.id)}명
             </p>
           </div>
@@ -1395,7 +1395,7 @@ export default function OrgPage() {
                           {department.name}
                         </p>
                         <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
-                          {profileName(department.head_user_id) || '부서장 공석'} ·{' '}
+                          {department.head_user_id ? `부장 ${profileName(department.head_user_id)}` : '부장 공석'} ·{' '}
                           {headcountOfDept(department.id)}명
                         </p>
                       </div>
@@ -1410,7 +1410,7 @@ export default function OrgPage() {
                           {department.name}
                         </p>
                         <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
-                          {profileName(department.head_user_id) || '부서장 공석'} ·{' '}
+                          {department.head_user_id ? `부장 ${profileName(department.head_user_id)}` : '부장 공석'} ·{' '}
                           {headcountOfDept(department.id)}명
                         </p>
                       </div>
@@ -1739,7 +1739,7 @@ export default function OrgPage() {
               <h2 className="text-lg font-semibold dark:text-white truncate">{department.name}</h2>
             </div>
             <p className="text-sm text-gray-500 dark:text-zinc-400 mt-0.5">
-              {profileName(department.head_user_id) || '부서장 공석'} · 총{' '}
+              {department.head_user_id ? `부장 ${profileName(department.head_user_id)}` : '부장 공석'} · 총{' '}
               {headcountOfDept(department.id)}명
             </p>
           </div>
@@ -2414,9 +2414,6 @@ export default function OrgPage() {
           <div className="flex items-start justify-between gap-2">
             <div>
               <h1 className="text-xl font-semibold dark:text-white">조직 관리</h1>
-              <p className="text-sm text-gray-500 dark:text-zinc-400 mt-0.5">
-                회사 조직 구조와 구성원을 관리합니다.
-              </p>
             </div>
             {hasTopAccess && (
               <Button
@@ -2458,12 +2455,31 @@ export default function OrgPage() {
                   조직 구조
                 </p>
                 {hasTopAccess && divisions.length > 1 && !reorder && (
-                  <button
-                    onClick={startReorderDivisions}
-                    className="text-xs text-blue-500 hover:underline font-medium"
-                  >
-                    순서 변경
-                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setMenuOpenId(menuOpenId === 'org-tree' ? null : 'org-tree')
+                      }}
+                      className="text-gray-500 dark:text-zinc-400 px-1.5 py-0.5"
+                      aria-label="더보기"
+                    >
+                      ⋮
+                    </button>
+                    {menuOpenId === 'org-tree' && (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute right-0 top-7 bg-white dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700 rounded-lg shadow-lg py-1 w-28 z-10"
+                      >
+                        <button
+                          onClick={startReorderDivisions}
+                          className="w-full text-left px-3 py-1.5 text-xs text-gray-600 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-700"
+                        >
+                          순서 변경
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
                 {reorder?.kind === 'divisions' && (
                   <span className="flex items-center gap-3">

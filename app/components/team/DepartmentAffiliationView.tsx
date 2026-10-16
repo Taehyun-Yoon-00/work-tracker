@@ -68,7 +68,7 @@ export default function DepartmentAffiliationView({ departmentId }: { department
     }
 
     // 정렬/조회 규칙은 lib/orgOrder에 모아둔 공용 로직을 그대로 쓴다 — 조직관리, 대시보드와
-    // 항상 같은 순서(부서장 최상단 → 부서 직속 → 팀 순서대로, 각 팀은 팀장이 최상단)를 보장한다.
+    // 항상 같은 순서(부장 최상단 → 부서 직속 → 팀 순서대로, 각 팀은 팀장이 최상단)를 보장한다.
     const scope = await fetchDepartmentScope(deptId)
     setHasTeams(scope.teamGroups.length > 0)
 
@@ -191,7 +191,7 @@ export default function DepartmentAffiliationView({ departmentId }: { department
         <div className="mb-6">
           <h1 className="text-xl font-semibold dark:text-white">{department?.name}</h1>
           <p className="text-sm text-gray-500 dark:text-zinc-400 mt-0.5">
-            {headName ? `부서장 ${headName}` : '부서장 미지정'} · 소속 {allMembers.length}명
+            {headName ? `부장 ${headName}` : '부장 미지정'} · 소속 {allMembers.length}명
           </p>
         </div>
 
@@ -301,7 +301,7 @@ export default function DepartmentAffiliationView({ departmentId }: { department
                             </span>
                           )}
                           {m.isHead && (
-                            <span className="text-[11px] text-blue-500 shrink-0">부서장</span>
+                            <span className="text-[11px] text-blue-500 shrink-0">부장</span>
                           )}
                         </div>
                       ))}
@@ -354,7 +354,7 @@ export default function DepartmentAffiliationView({ departmentId }: { department
                   {m.position && (
                     <span className="text-xs text-gray-500 dark:text-zinc-400">{m.position}</span>
                   )}
-                  {m.isHead && <span className="text-[11px] text-blue-500 shrink-0">부서장</span>}
+                  {m.isHead && <span className="text-[11px] text-blue-500 shrink-0">부장</span>}
                 </div>
               ))}
             </div>

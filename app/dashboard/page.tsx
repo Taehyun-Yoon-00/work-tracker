@@ -27,13 +27,13 @@ import UnitStatBarRow from '../components/ui/UnitStatBarRow'
 
 // 대시보드 조회 범위 (req 6).
 // - team: 팀장(team_members.role='admin') 기본 범위. 팀 하나.
-// - department: 부서장 기본 범위. 이 부서(부서 직속 + 산하 모든 팀).
+// - department: 부장 기본 범위. 이 부서(부서 직속 + 산하 모든 팀).
 // - division: 부문장 기본 범위. 이 부문(산하 모든 부서).
 // - company: 총괄 관리자/마스터 기본 범위. 회사 전체.
 //
 // 역할별로 선택 가능한 옵션(조직 단위 콤보박스 하나에 모두 담긴다):
 //   팀장            → 본인이 팀장인 팀들
-//   부서장          → 부서 전체 + 그 산하 팀들
+//   부장          → 부서 전체 + 그 산하 팀들
 //   부문장          → 부문 전체 + 그 산하 부서들
 //   총괄 관리자     → 회사 전체 + 산하 부문들
 //   마스터(시스템)  → 회사 전체 + 전체 부문 · 부서 · 팀 트리
@@ -143,7 +143,7 @@ export default function DashboardPage() {
       // "그 조직 전체"를 의미하므로 별도의 "전체" 표시는 회사 최상위 옵션에만 붙인다.
       //
       // 한 사람이 여러 조직장을 겸임할 수 있으므로(예: 부문장이면서 동시에 다른 부서의
-      // 부서장), 역할별 옵션을 배타적으로 고르지 않고 해당되는 역할을 모두 합쳐서 보여준다.
+      // 부장), 역할별 옵션을 배타적으로 고르지 않고 해당되는 역할을 모두 합쳐서 보여준다.
       // 마스터는 이미 전체 트리를 보므로 예외적으로 다른 역할과 합치지 않는다.
       const opts: OrgScopeOption[] = []
       const seen = new Set<string>()
@@ -231,7 +231,7 @@ export default function DashboardPage() {
         }
 
         if ((headDepts?.length ?? 0) > 0) {
-          // 부서장: 부서 전체 + 그 산하 팀들
+          // 부장: 부서 전체 + 그 산하 팀들
           for (const dept of headDepts || []) {
             const divName = (dept as any).divisions?.name
             const deptLabel = divName ? `${divName} > ${dept.name}` : dept.name

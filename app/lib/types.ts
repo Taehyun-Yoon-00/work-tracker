@@ -213,7 +213,7 @@ export interface Department {
   id: UUID
   division_id: UUID
   name: string
-  /** 부서장 (자리) */
+  /** 부장 (자리) */
   head_user_id: UUID | null
   created_at: Timestamp
   updated_at: Timestamp
@@ -231,7 +231,7 @@ export interface DepartmentMembership {
   display_order: number
 }
 
-/** 부서장이 위임한 결재권자 (부서장 본인은 여기 없어도 항상 결재권자다) */
+/** 부장이 위임한 결재권자 (부장 본인은 여기 없어도 항상 결재권자다) */
 export interface DepartmentApprover {
   id: UUID
   department_id: UUID

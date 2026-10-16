@@ -12,13 +12,13 @@
 -- 이미 전제하고 있는 접근 범위를 그대로 정책으로 옮긴 것이다:
 --
 --   [시스템 권한] MASTER(profiles.is_master) — 항상 전체 접근
---   [조직 관리 권한] 총괄 관리자 > 부문장 > 부서장 > 팀장 > 팀원
+--   [조직 관리 권한] 총괄 관리자 > 부문장 > 부장 > 팀장 > 팀원
 --     - 총괄 관리자(general_admins)와 마스터는 조직 전체를 본다 (team/[id]/page.tsx:116 참고)
 --     - 부문장(divisions.head_user_id)은 자기 부문 산하 모든 부서/팀을 본다
---     - 부서장(departments.head_user_id)은 자기 부서 산하 모든 팀 + 부서 직속 인원을 본다
+--     - 부장(departments.head_user_id)은 자기 부서 산하 모든 팀 + 부서 직속 인원을 본다
 --     - 팀장(team_members.role='admin')은 같은 팀원과 데이터를 공유해서 본다(팀원과 동일)
 --   [조직 구조 변경] 팀/부서/부문 생성·수정·삭제, 인원 배치는 /org 화면 전용이며
---     화면 접근 자체가 "부서장 이상"으로 제한돼 있다(client-side). 여기서도 같은 기준
+--     화면 접근 자체가 "부장 이상"으로 제한돼 있다(client-side). 여기서도 같은 기준
 --     (manages_department/manages_division)으로 서버에서 다시 막는다.
 --   [결재] 요청자·지정된 결재권자·같은 팀·같은 부서 사람은 조회 가능
 --     (approval/page.tsx의 or 조건: requester_id/approver_id/team_id/department_id)
@@ -115,7 +115,7 @@ AS $$
   );
 $$;
 
--- 내가 이 부서의 부서장인가
+-- 내가 이 부서의 부장인가
 CREATE OR REPLACE FUNCTION public.is_department_head(p_department_id uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -143,7 +143,7 @@ AS $$
   );
 $$;
 
--- 내가 이 부서를 관리할 수 있는가 (부서장 자신, 그 부서가 속한 부문의 부문장,
+-- 내가 이 부서를 관리할 수 있는가 (부장 자신, 그 부서가 속한 부문의 부문장,
 -- 총괄 관리자, 마스터). /org 화면에서 부서 하위 팀/인원을 배치·수정할 수 있는 기준과 같다.
 CREATE OR REPLACE FUNCTION public.manages_department(p_department_id uuid)
 RETURNS boolean
@@ -288,7 +288,7 @@ CREATE OR REPLACE TRIGGER profiles_guard_master_flag
 -- divisions / departments
 --
 -- 조직도가 전 직원에게 공개되는 화면(사이드바, 결재 대상 선택 등)이라 조회는 전체 공개.
--- 생성/수정/삭제는 /org 화면 전용이며 그 화면 접근 자체가 부서장 이상으로 제한된다.
+-- 생성/수정/삭제는 /org 화면 전용이며 그 화면 접근 자체가 부장 이상으로 제한된다.
 -- ============================================================
 ALTER TABLE public.divisions ENABLE ROW LEVEL SECURITY;
 
@@ -342,7 +342,7 @@ CREATE POLICY department_memberships_select
     OR public.manages_department(department_id)
   );
 
--- 배치는 /org 화면(부서장 이상)에서만 한다
+-- 배치는 /org 화면(부장 이상)에서만 한다
 CREATE POLICY department_memberships_insert_manager
   ON public.department_memberships FOR INSERT TO authenticated
   WITH CHECK (public.manages_department(department_id));
@@ -430,7 +430,7 @@ CREATE POLICY teams_delete_manager
 -- ============================================================
 -- team_members
 --
--- 조회는 팀원 본인 + 같은 팀원 + 그 팀을 관리할 수 있는 사람(부서장/부문장/
+-- 조회는 팀원 본인 + 같은 팀원 + 그 팀을 관리할 수 있는 사람(부장/부문장/
 -- 총괄관리자/마스터). 배치/변경/삭제도 /org 화면 전용이라 관리자만 가능하다.
 -- ============================================================
 ALTER TABLE public.team_members ENABLE ROW LEVEL SECURITY;
@@ -692,18 +692,18 @@ CREATE POLICY substitute_holidays_delete_master
 -- 1) 운영에 바로 넣지 말고 로컬/스테이징에서 먼저 적용한다.
 --      npx supabase db reset      (로컬 DB를 001~018로 새로 만든다)
 --
--- 2) 최소 아래 조합의 계정으로 직접 확인한다: 팀원, 팀장, 부서장, 부문장,
+-- 2) 최소 아래 조합의 계정으로 직접 확인한다: 팀원, 팀장, 부장, 부문장,
 --    총괄 관리자, 마스터, 그리고 "아무 소속도 없는" 일반 계정.
 --    - 근무기록 저장/수정/삭제, 안건별 공수 저장
 --    - 휴가/원격근무 토글, 주차별 출근계획 저장
 --    - /team 진입 시 소속에 따라 팀/부서 화면으로 올바르게 라우팅되는지
 --    - 팀 상세(/team/[id])에서 팀원 + (부서 전체 스코프일 때) 부서 인원의
 --      주간/월간 근무시간이 보이는지
---    - 부서 직속 인원 화면(/team/dept/[id])이 부서장/부문장/총괄관리자/마스터에게
+--    - 부서 직속 인원 화면(/team/dept/[id])이 부장/부문장/총괄관리자/마스터에게
 --      제대로 보이고, 무관한 계정에는 막히는지
 --    - /org 화면에서 부문/부서/팀 생성·수정·삭제·인원 배치·순서 변경
---      (부서장은 자기 부서만, 부문장은 자기 부문 산하만, 그 외에는 총괄관리자/마스터만)
---    - 결재 신청 → 결재권자 후보(부서장 자동 + 위임된 결재권자) 조회 →
+--      (부장은 자기 부서만, 부문장은 자기 부문 산하만, 그 외에는 총괄관리자/마스터만)
+--    - 결재 신청 → 결재권자 후보(부장 자동 + 위임된 결재권자) 조회 →
 --      승인/반려 → 취소 요청 → 리포트 페이지 합계
 --    - 마스터 회원 관리 화면의 회원 목록/대체공휴일 등록/총괄관리자 지정/강제 탈퇴
 --

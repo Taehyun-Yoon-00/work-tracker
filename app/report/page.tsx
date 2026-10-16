@@ -248,7 +248,7 @@ export default function ReportPage() {
 
           {/* 서포트리스트(엑셀) 출력 — 총괄 관리자가 올려둔 양식에 이 기간 근무시간을 채워 넣는다 */}
           <Button onClick={handleExport} disabled={exporting} fullWidth className="mt-3">
-            {exporting ? '엑셀 만드는 중...' : '엑셀로 출력'}
+            {exporting ? '서포트리스트 만드는 중...' : '서포트리스트 출력'}
           </Button>
           {exportMessage && (
             <p className="text-xs text-red-500 text-center mt-2">{exportMessage}</p>

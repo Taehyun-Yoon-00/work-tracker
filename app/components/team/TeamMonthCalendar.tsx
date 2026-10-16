@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import dayjs from 'dayjs'
 import { getMonthGrid } from '../../lib/dates'
 import { isPublicHoliday } from '../../lib/holidays'
@@ -22,7 +23,7 @@ interface TeamMonthCalendarProps {
   maxVisible?: number
 }
 
-const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
+const WEEKDAY_LABELS = ['월', '화', '수', '목', '금', '토', '일']
 
 /**
  * 팀/부서 일정 캘린더. 근무기록 페이지의 react-calendar(단순 날짜 선택용)와 달리,
@@ -43,6 +44,23 @@ export default function TeamMonthCalendar({
   const monthNum = dayjs(month).month()
   const todayStr = dayjs().format('YYYY-MM-DD')
   const selectedStr = selectedDate ? dayjs(selectedDate).format('YYYY-MM-DD') : null
+  const [pickerOpen, setPickerOpen] = useState(false)
+
+  // 년/월 직접 선택: 한 달씩만 넘기면 예전 이력을 찾기 번거로워서, 상단 라벨을 누르면
+  // 바로 연도/월을 골라 이동할 수 있게 한다. 근무기록 페이지(react-calendar)의 년/월 표시와
+  // 화살표 디자인에 맞춰 평소에는 "‹ YYYY년 M월 ›"만 보이고, 라벨을 눌렀을 때만 선택
+  // 드롭다운이 뜬다. 1년 단위로 넘기는 화살표는 두지 않는다.
+  const nowYear = dayjs().year()
+  const yearOptions: number[] = []
+  for (let y = nowYear; y >= nowYear - 5; y--) yearOptions.push(y)
+  const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1)
+
+  const handleYearChange = (year: number) => {
+    onMonthChange(dayjs(month).year(year).toDate())
+  }
+  const handleMonthSelect = (m: number) => {
+    onMonthChange(dayjs(month).month(m - 1).toDate())
+  }
 
   const dateColorClass = (d: dayjs.Dayjs, inMonth: boolean) => {
     if (!inMonth) return 'text-gray-300 dark:text-zinc-600'
@@ -55,19 +73,63 @@ export default function TeamMonthCalendar({
 
   return (
     <div>
-      {/* 월 이동 */}
-      <div className="flex items-center justify-between mb-2 px-0.5">
+      {/* 월 이동 + 년/월 선택 (근무기록 페이지 캘린더와 같은 화살표 + 라벨 구성) */}
+      <div className="flex items-center justify-center gap-1 mb-2 px-0.5">
         <button
           onClick={() => onMonthChange(dayjs(month).subtract(1, 'month').toDate())}
-          className="p-1 text-gray-400 hover:text-gray-600 dark:text-zinc-500 dark:hover:text-zinc-300"
+          className="w-9 h-9 flex items-center justify-center rounded text-gray-500 hover:bg-gray-100 dark:text-zinc-400 dark:hover:bg-zinc-700"
           aria-label="이전 달"
         >
           <ChevronLeft size={18} />
         </button>
-        <p className="text-sm font-semibold dark:text-white">{dayjs(month).format('YYYY년 M월')}</p>
+        <div className="relative">
+          <button
+            onClick={() => setPickerOpen((open) => !open)}
+            className="px-2 py-1.5 rounded text-sm font-semibold dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-700"
+          >
+            {dayjs(month).format('YYYY년 M월')}
+          </button>
+          {pickerOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setPickerOpen(false)} />
+              <div className="absolute z-20 top-full left-1/2 -translate-x-1/2 mt-1 flex gap-1.5 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-lg p-2">
+                <select
+                  value={dayjs(month).year()}
+                  onChange={(e) => {
+                    handleYearChange(Number(e.target.value))
+                    setPickerOpen(false)
+                  }}
+                  className="border rounded-lg px-2 py-1 text-sm dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
+                  aria-label="연도 선택"
+                >
+                  {yearOptions.map((y) => (
+                    <option key={y} value={y}>
+                      {y}년
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={monthNum + 1}
+                  onChange={(e) => {
+                    handleMonthSelect(Number(e.target.value))
+                    setPickerOpen(false)
+                  }}
+                  className="border rounded-lg px-2 py-1 text-sm dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
+                  aria-label="월 선택"
+                >
+                  {monthOptions.map((m) => (
+                    <option key={m} value={m}>
+                      {m}월
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
+        </div>
         <button
           onClick={() => onMonthChange(dayjs(month).add(1, 'month').toDate())}
-          className="p-1 text-gray-400 hover:text-gray-600 dark:text-zinc-500 dark:hover:text-zinc-300"
+          className="w-9 h-9 flex items-center justify-center rounded text-gray-500 hover:bg-gray-100 dark:text-zinc-400 dark:hover:bg-zinc-700"
           aria-label="다음 달"
         >
           <ChevronRight size={18} />
@@ -80,9 +142,9 @@ export default function TeamMonthCalendar({
           <div
             key={label}
             className={`text-center text-[11px] font-medium ${
-              i === 0
+              i === 6
                 ? 'text-red-500'
-                : i === 6
+                : i === 5
                   ? 'text-blue-500'
                   : 'text-gray-400 dark:text-zinc-500'
             }`}
