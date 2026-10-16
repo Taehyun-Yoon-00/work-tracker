@@ -1641,7 +1641,7 @@ export default function OrgPage() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs text-gray-400 dark:text-zinc-500">
-                  결재권자 · 부문 산하 모든 부서의 결재를 받아요
+                  결재권자
                 </p>
                 {canManageThisDivision && (
                   <button
@@ -2355,7 +2355,7 @@ export default function OrgPage() {
                 팀원들이 결재를 올릴 때 결재권자로 팀장을 선택할 수 있는 것과 짝이 되는 관리 화면. */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-gray-400 dark:text-zinc-500">결재권자 · 이 팀</p>
+                <p className="text-xs text-gray-400 dark:text-zinc-500">결재권자</p>
                 {canManageThisTeam && (
                   <button
                     onClick={() =>
