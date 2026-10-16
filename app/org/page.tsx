@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import { Search } from 'lucide-react'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
+import Button from '../components/ui/Button'
 import ApproverRow from '../components/org/ApproverRow'
 import {
   DivisionRow,
@@ -535,6 +536,27 @@ export default function OrgPage() {
   const divisionMatchesSearch = (division: DivisionRow) =>
     matchesTerm(division.name) || departmentsOfDivision(division.id).some(departmentMatchesSearch)
   const visibleDivisions = divisions.filter(divisionMatchesSearch)
+
+  // 모바일은 트리 사이드바 대신 부문 select + 드릴다운 방식이라, 검색어가 있을 때는
+  // 부문/부서/팀을 한 번에 훑어 탭 한 번으로 바로 이동할 수 있는 평탄화된 결과 목록을 보여준다.
+  type MobileSearchResult =
+    | { kind: 'division'; division: DivisionRow }
+    | { kind: 'department'; division: DivisionRow; department: DepartmentRow }
+    | { kind: 'team'; division: DivisionRow; department: DepartmentRow; team: TeamRow }
+  const mobileSearchResults: MobileSearchResult[] = []
+  if (searchTerm) {
+    divisions.forEach((division) => {
+      if (matchesTerm(division.name)) mobileSearchResults.push({ kind: 'division', division })
+      departmentsOfDivision(division.id).forEach((department) => {
+        if (matchesTerm(department.name))
+          mobileSearchResults.push({ kind: 'department', division, department })
+        teamsInDept(department.id).forEach((team) => {
+          if (matchesTerm(team.name))
+            mobileSearchResults.push({ kind: 'team', division, department, team })
+        })
+      })
+    })
+  }
 
   // ---------- 모달 열기/닫기 ----------
   const openModal = (m: ModalState) => {
@@ -1164,16 +1186,16 @@ export default function OrgPage() {
       <div>
         <div className="flex items-center gap-2 flex-wrap mb-1">
           <h2 className="text-lg font-semibold dark:text-white">미지정 인원</h2>
-          <span className="text-sm text-gray-400 dark:text-zinc-500 shrink-0">
+          <span className="text-sm text-gray-500 dark:text-zinc-400 shrink-0">
             {unassignedProfiles.length}명
           </span>
         </div>
-        <p className="text-sm text-gray-400 dark:text-zinc-500 mb-4">
+        <p className="text-sm text-gray-500 dark:text-zinc-400 mb-4">
           어느 팀이나 부서에도 소속되지 않은 인원이에요. 내가 관리하는 조직으로 배정할 수 있어요.
         </p>
 
         {unassignedProfiles.length === 0 && (
-          <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-6">
+          <p className="text-sm text-gray-500 dark:text-zinc-400 text-center py-6">
             미지정 인원이 없어요.
           </p>
         )}
@@ -1257,8 +1279,8 @@ export default function OrgPage() {
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-lg font-semibold dark:text-white truncate">{division.name}</h2>
             </div>
-            <p className="text-sm text-gray-400 dark:text-zinc-500 mt-0.5">
-              {profileName(division.head_user_id) || '부문장 공석'} · 총{' '}
+            <p className="text-sm text-gray-500 dark:text-zinc-400 mt-0.5">
+              {division.head_user_id ? `부문장 ${profileName(division.head_user_id)}` : '부문장 공석'} · 총{' '}
               {headcountOfDivision(division.id)}명
             </p>
           </div>
@@ -1270,7 +1292,7 @@ export default function OrgPage() {
                     e.stopPropagation()
                     setMenuOpenId(menuOpenId === `div-${division.id}` ? null : `div-${division.id}`)
                   }}
-                  className="text-gray-400 dark:text-zinc-500 px-1.5 py-1.5"
+                  className="text-gray-500 dark:text-zinc-400 px-1.5 py-1.5"
                 >
                   ⋮
                 </button>
@@ -1340,21 +1362,18 @@ export default function OrgPage() {
                 <span className="flex items-center gap-3">
                   <button
                     onClick={cancelReorder}
-                    className="text-xs text-gray-400 dark:text-zinc-500 hover:underline"
+                    className="text-xs text-gray-500 dark:text-zinc-400 hover:underline"
                   >
                     취소
                   </button>
-                  <button
-                    onClick={finishReorder}
-                    className="text-xs bg-blue-500 text-white px-3 py-1.5 rounded-lg font-medium"
-                  >
+                  <Button size="sm" onClick={finishReorder}>
                     완료
-                  </button>
+                  </Button>
                 </span>
               )}
             </div>
             {deptList.length === 0 && (
-              <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-6">
+              <p className="text-sm text-gray-500 dark:text-zinc-400 text-center py-6">
                 등록된 부서가 없어요.
               </p>
             )}
@@ -1375,8 +1394,8 @@ export default function OrgPage() {
                         <p className="font-semibold text-sm dark:text-white truncate">
                           {department.name}
                         </p>
-                        <p className="text-xs text-gray-400 dark:text-zinc-500 mt-0.5">
-                          {profileName(department.head_user_id) || '부서장 공석'} ·{' '}
+                        <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
+                          {department.head_user_id ? `부장 ${profileName(department.head_user_id)}` : '부장 공석'} ·{' '}
                           {headcountOfDept(department.id)}명
                         </p>
                       </div>
@@ -1390,8 +1409,8 @@ export default function OrgPage() {
                         <p className="font-semibold text-sm dark:text-white truncate">
                           {department.name}
                         </p>
-                        <p className="text-xs text-gray-400 dark:text-zinc-500 mt-0.5">
-                          {profileName(department.head_user_id) || '부서장 공석'} ·{' '}
+                        <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
+                          {department.head_user_id ? `부장 ${profileName(department.head_user_id)}` : '부장 공석'} ·{' '}
                           {headcountOfDept(department.id)}명
                         </p>
                       </div>
@@ -1475,7 +1494,7 @@ export default function OrgPage() {
               </div>
             )}
             {deptList.length === 0 && (
-              <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-6">
+              <p className="text-sm text-gray-500 dark:text-zinc-400 text-center py-6">
                 등록된 부서가 없어요.
               </p>
             )}
@@ -1502,7 +1521,7 @@ export default function OrgPage() {
                     <span className="text-sm font-semibold text-gray-700 dark:text-zinc-200 truncate">
                       {department.name}
                     </span>
-                    <span className="text-xs text-gray-400 dark:text-zinc-500 shrink-0">
+                    <span className="text-xs text-gray-500 dark:text-zinc-400 shrink-0">
                       ({headcountOfDept(department.id)}명)
                     </span>
                   </div>
@@ -1514,7 +1533,7 @@ export default function OrgPage() {
                           <span className="text-sm font-medium dark:text-white truncate">
                             {headEntry.name}
                           </span>
-                          <span className="text-[10px] text-blue-500 shrink-0">부서장</span>
+                          <span className="text-[11px] text-blue-500 shrink-0">부서장</span>
                         </div>
                         <MemberActionMenu
                           rowKey={`div-direct-${department.id}-${headEntry.user_id}`}
@@ -1591,7 +1610,7 @@ export default function OrgPage() {
                             {m.name}
                           </span>
                           {m.role === 'admin' && (
-                            <span className="text-[10px] text-blue-500 shrink-0">팀장</span>
+                            <span className="text-[11px] text-blue-500 shrink-0">팀장</span>
                           )}
                         </div>
                         <MemberActionMenu
@@ -1640,7 +1659,7 @@ export default function OrgPage() {
                 부서장과 같은 패턴으로 부문장도 결재권자를 위임할 수 있다. */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-gray-400 dark:text-zinc-500">
+                <p className="text-xs text-gray-500 dark:text-zinc-400">
                   결재권자
                 </p>
                 {canManageThisDivision && (
@@ -1719,8 +1738,8 @@ export default function OrgPage() {
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-lg font-semibold dark:text-white truncate">{department.name}</h2>
             </div>
-            <p className="text-sm text-gray-400 dark:text-zinc-500 mt-0.5">
-              {profileName(department.head_user_id) || '부서장 공석'} · 총{' '}
+            <p className="text-sm text-gray-500 dark:text-zinc-400 mt-0.5">
+              {department.head_user_id ? `부장 ${profileName(department.head_user_id)}` : '부장 공석'} · 총{' '}
               {headcountOfDept(department.id)}명
             </p>
           </div>
@@ -1734,7 +1753,7 @@ export default function OrgPage() {
                       menuOpenId === `dept-${department.id}` ? null : `dept-${department.id}`
                     )
                   }}
-                  className="text-gray-400 dark:text-zinc-500 px-1.5 py-1.5"
+                  className="text-gray-500 dark:text-zinc-400 px-1.5 py-1.5"
                 >
                   ⋮
                 </button>
@@ -1813,16 +1832,13 @@ export default function OrgPage() {
                 <span className="flex items-center gap-3">
                   <button
                     onClick={cancelReorder}
-                    className="text-xs text-gray-400 dark:text-zinc-500 hover:underline"
+                    className="text-xs text-gray-500 dark:text-zinc-400 hover:underline"
                   >
                     취소
                   </button>
-                  <button
-                    onClick={finishReorder}
-                    className="text-xs bg-blue-500 text-white px-3 py-1.5 rounded-lg font-medium"
-                  >
+                  <Button size="sm" onClick={finishReorder}>
                     완료
-                  </button>
+                  </Button>
                 </span>
               </div>
             )}
@@ -1837,7 +1853,7 @@ export default function OrgPage() {
               >
                 <div className="min-w-0">
                   <p className="font-semibold text-sm dark:text-white truncate">부서 직속</p>
-                  <p className="text-xs text-gray-400 dark:text-zinc-500 mt-0.5">
+                  <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
                     {directs.length}명
                   </p>
                 </div>
@@ -1864,7 +1880,7 @@ export default function OrgPage() {
                           >
                             <span>{d.name}</span>
                             {d.user_id === department.head_user_id && (
-                              <span className="text-[10px] text-blue-500">부서장</span>
+                              <span className="text-[11px] text-blue-500">부서장</span>
                             )}
                           </div>
                         )
@@ -1876,7 +1892,7 @@ export default function OrgPage() {
             </div>
 
             {deptTeams.length === 0 && (
-              <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-4">
+              <p className="text-sm text-gray-500 dark:text-zinc-400 text-center py-4">
                 등록된 팀이 없어요.
               </p>
             )}
@@ -1899,7 +1915,7 @@ export default function OrgPage() {
                         <p className="font-semibold text-sm dark:text-white truncate">
                           {team.name}
                         </p>
-                        <p className="text-xs text-gray-400 dark:text-zinc-500 mt-0.5">
+                        <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
                           {lead ? `팀장 ${lead.name}` : '팀장 공석'} · {members.length}명
                         </p>
                       </div>
@@ -1913,7 +1929,7 @@ export default function OrgPage() {
                         <p className="font-semibold text-sm dark:text-white truncate">
                           {team.name}
                         </p>
-                        <p className="text-xs text-gray-400 dark:text-zinc-500 mt-0.5">
+                        <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
                           {lead ? `팀장 ${lead.name}` : '팀장 공석'} · {members.length}명
                         </p>
                       </div>
@@ -1945,16 +1961,13 @@ export default function OrgPage() {
                 <span className="flex items-center gap-3">
                   <button
                     onClick={cancelReorder}
-                    className="text-xs text-gray-400 dark:text-zinc-500 hover:underline"
+                    className="text-xs text-gray-500 dark:text-zinc-400 hover:underline"
                   >
                     취소
                   </button>
-                  <button
-                    onClick={finishReorder}
-                    className="text-xs bg-blue-500 text-white px-3 py-1.5 rounded-lg font-medium"
-                  >
+                  <Button size="sm" onClick={finishReorder}>
                     완료
-                  </button>
+                  </Button>
                 </span>
               </div>
             )}
@@ -2005,7 +2018,7 @@ export default function OrgPage() {
                         >
                           {d.name}
                         </span>
-                        {isHead && <span className="text-[10px] text-blue-500 shrink-0">부서장</span>}
+                        {isHead && <span className="text-[11px] text-blue-500 shrink-0">부서장</span>}
                       </div>
                       {!isReorderingMembers && (
                         <MemberActionMenu
@@ -2041,7 +2054,7 @@ export default function OrgPage() {
                       <p className="text-sm font-semibold text-gray-700 dark:text-zinc-200">
                         부서 직속
                       </p>
-                      <span className="text-xs text-gray-400 dark:text-zinc-500">
+                      <span className="text-xs text-gray-500 dark:text-zinc-400">
                         ({directsAll.length}명)
                       </span>
                     </div>
@@ -2088,7 +2101,7 @@ export default function OrgPage() {
                     <p className="text-sm font-semibold text-gray-700 dark:text-zinc-200">
                       {team.name}
                     </p>
-                    <span className="text-xs text-gray-400 dark:text-zinc-500">
+                    <span className="text-xs text-gray-500 dark:text-zinc-400">
                       ({members.length}명)
                     </span>
                   </div>
@@ -2112,7 +2125,7 @@ export default function OrgPage() {
                                 {m.name}
                               </span>
                               {m.role === 'admin' && (
-                                <span className="text-[10px] text-blue-500 shrink-0">팀장</span>
+                                <span className="text-[11px] text-blue-500 shrink-0">팀장</span>
                               )}
                             </div>
                             {!isReorderingMembers && (
@@ -2151,7 +2164,7 @@ export default function OrgPage() {
             })}
 
             {deptTeams.every((t) => membersOfTeam(t.id).length === 0) && directs.length === 0 && (
-              <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-4">
+              <p className="text-sm text-gray-500 dark:text-zinc-400 text-center py-4">
                 소속된 구성원이 없어요.
               </p>
             )}
@@ -2161,7 +2174,7 @@ export default function OrgPage() {
         {activeTab === 'permissions' && (
           <div>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs text-gray-400 dark:text-zinc-500">결재권자</p>
+              <p className="text-xs text-gray-500 dark:text-zinc-400">결재권자</p>
               {canManageThisDept && (
                 <button
                   onClick={() =>
@@ -2241,7 +2254,7 @@ export default function OrgPage() {
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-lg font-semibold dark:text-white truncate">{team.name}</h2>
             </div>
-            <p className="text-sm text-gray-400 dark:text-zinc-500 mt-0.5">
+            <p className="text-sm text-gray-500 dark:text-zinc-400 mt-0.5">
               {lead ? `팀장 ${lead.name}` : '팀장 공석'} · 총 {members.length}명
             </p>
           </div>
@@ -2253,7 +2266,7 @@ export default function OrgPage() {
                     e.stopPropagation()
                     setMenuOpenId(menuOpenId === `team-${team.id}` ? null : `team-${team.id}`)
                   }}
-                  className="text-gray-400 dark:text-zinc-500 px-1.5 py-1.5"
+                  className="text-gray-500 dark:text-zinc-400 px-1.5 py-1.5"
                 >
                   ⋮
                 </button>
@@ -2303,7 +2316,7 @@ export default function OrgPage() {
         {activeTab !== 'permissions' && (
           <div className="divide-y divide-gray-50 dark:divide-zinc-900/60">
             {members.length === 0 && (
-              <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-6">
+              <p className="text-sm text-gray-500 dark:text-zinc-400 text-center py-6">
                 소속된 구성원이 없어요.
               </p>
             )}
@@ -2316,7 +2329,7 @@ export default function OrgPage() {
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="text-sm text-gray-600 dark:text-zinc-300 truncate">{m.name}</span>
                     {m.role === 'admin' && (
-                      <span className="text-[10px] text-blue-500 shrink-0">팀장</span>
+                      <span className="text-[11px] text-blue-500 shrink-0">팀장</span>
                     )}
                   </div>
                   {canManageThisTeam && (
@@ -2355,7 +2368,7 @@ export default function OrgPage() {
                 팀원들이 결재를 올릴 때 결재권자로 팀장을 선택할 수 있는 것과 짝이 되는 관리 화면. */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-gray-400 dark:text-zinc-500">결재권자</p>
+                <p className="text-xs text-gray-500 dark:text-zinc-400">결재권자</p>
                 {canManageThisTeam && (
                   <button
                     onClick={() =>
@@ -2397,15 +2410,25 @@ export default function OrgPage() {
     >
       <div className="max-w-6xl mx-auto">
         {/* ---------- 헤더 ---------- */}
-        <div className="flex items-start justify-between gap-2 mb-4">
-          <div>
-            <h1 className="text-xl font-semibold dark:text-white">조직 관리</h1>
-            <p className="text-sm text-gray-400 dark:text-zinc-500 mt-0.5">
-              회사 조직 구조와 구성원을 관리합니다.
-            </p>
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2 mb-4">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <h1 className="text-xl font-semibold dark:text-white">조직 관리</h1>
+            </div>
+            {hasTopAccess && (
+              <Button
+                size="sm"
+                className="md:hidden whitespace-nowrap shrink-0"
+                onClick={() => openModal({ kind: 'createDivision' })}
+              >
+                + 부문 생성
+              </Button>
+            )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <div className="hidden md:block relative">
+            {/* 모바일 관리자도 부문/부서/팀이 많아지면 스크롤 대신 검색으로 찾을 수 있어야 하므로
+                더 이상 md 이상에서만 보이지 않고 항상 노출한다. */}
+            <div className="relative w-full md:w-64">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 dark:text-zinc-600 pointer-events-none">
                 <Search size={14} strokeWidth={1.75} />
               </span>
@@ -2413,17 +2436,9 @@ export default function OrgPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="부문, 부서, 팀 검색"
-                className="pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-zinc-700 rounded-lg w-64 dark:bg-zinc-800 dark:text-zinc-200"
+                className="pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-zinc-700 rounded-lg w-full dark:bg-zinc-800 dark:text-zinc-200"
               />
             </div>
-            {hasTopAccess && (
-              <button
-                onClick={() => openModal({ kind: 'createDivision' })}
-                className="md:hidden text-sm bg-blue-500 text-white px-3 py-1.5 rounded-lg whitespace-nowrap"
-              >
-                + 부문 생성
-              </button>
-            )}
           </div>
         </div>
 
@@ -2440,27 +2455,43 @@ export default function OrgPage() {
                   조직 구조
                 </p>
                 {hasTopAccess && divisions.length > 1 && !reorder && (
-                  <button
-                    onClick={startReorderDivisions}
-                    className="text-[11px] text-blue-500 hover:underline font-medium"
-                  >
-                    순서 변경
-                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setMenuOpenId(menuOpenId === 'org-tree' ? null : 'org-tree')
+                      }}
+                      className="text-gray-500 dark:text-zinc-400 px-1.5 py-0.5"
+                      aria-label="더보기"
+                    >
+                      ⋮
+                    </button>
+                    {menuOpenId === 'org-tree' && (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute right-0 top-7 bg-white dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700 rounded-lg shadow-lg py-1 w-28 z-10"
+                      >
+                        <button
+                          onClick={startReorderDivisions}
+                          className="w-full text-left px-3 py-1.5 text-xs text-gray-600 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-700"
+                        >
+                          순서 변경
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
                 {reorder?.kind === 'divisions' && (
                   <span className="flex items-center gap-3">
                     <button
                       onClick={cancelReorder}
-                      className="text-[11px] text-gray-400 dark:text-zinc-500 hover:underline"
+                      className="text-xs text-gray-500 dark:text-zinc-400 hover:underline"
                     >
                       취소
                     </button>
-                    <button
-                      onClick={finishReorder}
-                      className="text-[11px] bg-blue-500 text-white px-2.5 py-1 rounded-lg font-medium"
-                    >
+                    <Button size="sm" onClick={finishReorder}>
                       완료
-                    </button>
+                    </Button>
                   </span>
                 )}
               </div>
@@ -2505,7 +2536,7 @@ export default function OrgPage() {
                       onClick={() => handleDivisionRowClick(division.id)}
                       className={`w-full flex items-center gap-2 px-3 py-2.5 mx-1 rounded-lg text-left ${isSelected ? 'bg-blue-50 dark:bg-blue-500/10' : 'hover:bg-gray-50 dark:hover:bg-zinc-700/50'}`}
                     >
-                      <span className="text-gray-400 dark:text-zinc-500 text-xs w-3 shrink-0">
+                      <span className="text-gray-500 dark:text-zinc-400 text-xs w-3 shrink-0">
                         {isOpen ? '▾' : '▸'}
                       </span>
                       <span
@@ -2541,7 +2572,7 @@ export default function OrgPage() {
                                 className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-[13px] min-w-0 ${isDeptSelected ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-500 dark:text-zinc-400 hover:bg-gray-50 dark:hover:bg-zinc-700/50'}`}
                               >
                                 {deptTeams.length > 0 && (
-                                  <span className="text-gray-400 dark:text-zinc-500 text-[10px] w-3 shrink-0">
+                                  <span className="text-gray-500 dark:text-zinc-400 text-[11px] w-3.5 shrink-0">
                                     {isDeptOpen ? '▾' : '▸'}
                                   </span>
                                 )}
@@ -2559,7 +2590,7 @@ export default function OrgPage() {
                                       <button
                                         key={team.id}
                                         onClick={() => selectTeam(team.id)}
-                                        className={`w-full flex items-center gap-2 px-2 py-1 rounded-lg text-left text-[12px] min-w-0 ${isTeamSelected ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-400 dark:text-zinc-500 hover:bg-gray-50 dark:hover:bg-zinc-700/50'}`}
+                                        className={`w-full flex items-center gap-2 px-2 py-1 rounded-lg text-left text-[12px] min-w-0 ${isTeamSelected ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-500 dark:text-zinc-400 hover:bg-gray-50 dark:hover:bg-zinc-700/50'}`}
                                       >
                                         <span className="flex-1 min-w-0 truncate">{team.name}</span>
                                         <span className="text-gray-300 dark:text-zinc-600 shrink-0">
@@ -2617,12 +2648,13 @@ export default function OrgPage() {
             </div>
             {hasTopAccess && !reorder && (
               <div className="p-3 border-t border-gray-100 dark:border-zinc-700">
-                <button
+                <Button
+                  variant="tint"
+                  fullWidth
                   onClick={() => openModal({ kind: 'createDivision' })}
-                  className="w-full text-sm bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 py-2 rounded-lg font-medium hover:bg-blue-100 dark:hover:bg-blue-500/20 transition"
                 >
                   + 부문 생성
-                </button>
+                </Button>
               </div>
             )}
           </aside>
@@ -2642,7 +2674,7 @@ export default function OrgPage() {
               parentDivOfSelectedTeamDept &&
               renderTeamDetail(selectedTeam, parentDeptOfSelectedTeam, parentDivOfSelectedTeamDept)}
             {!selected && (
-              <p className="text-sm text-gray-400 dark:text-zinc-500">
+              <p className="text-sm text-gray-500 dark:text-zinc-400">
                 왼쪽에서 부문, 부서 또는 미지정 인원을 선택해주세요.
               </p>
             )}
@@ -2651,67 +2683,112 @@ export default function OrgPage() {
 
         {/* ================= 모바일 레이아웃 ================= */}
         <div className="md:hidden" onClick={(e) => e.stopPropagation()}>
-          <select
-            value={
-              selected?.type === 'unassigned'
-                ? '__unassigned__'
-                : selected?.type === 'team'
-                  ? parentDivOfSelectedTeamDept?.id || ''
-                  : selectedDepartment
-                    ? selectedDepartment.division_id
-                    : selectedDivision?.id || ''
-            }
-            onChange={(e) => {
-              if (e.target.value === '__unassigned__') setSelected({ type: 'unassigned' })
-              else selectDivision(e.target.value)
-            }}
-            className="w-full mb-3 border border-gray-200 dark:border-zinc-700 rounded-lg px-3 py-2.5 text-sm font-medium dark:bg-zinc-800 dark:text-zinc-200"
-          >
-            {divisions.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-            <option value="__unassigned__">
-              미지정 인원 {unassignedProfiles.length > 0 ? `(${unassignedProfiles.length})` : ''}
-            </option>
-          </select>
+          {searchTerm ? (
+            /* 검색 중에는 select+드릴다운 대신, 부문/부서/팀을 가리지 않고 매칭된 항목을
+               평탄한 목록으로 보여준다. 탭하면 바로 해당 상세로 이동한다. */
+            <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 divide-y divide-gray-100 dark:divide-zinc-700 overflow-hidden">
+              {mobileSearchResults.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-zinc-400 text-center py-8">
+                  검색 결과가 없어요.
+                </p>
+              ) : (
+                mobileSearchResults.map((r, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      if (r.kind === 'division') selectDivision(r.division.id)
+                      else if (r.kind === 'department') selectDepartment(r.department.id)
+                      else selectTeam(r.team.id)
+                    }}
+                    className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-zinc-700/50 transition"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium dark:text-white truncate">
+                        {r.kind === 'division'
+                          ? r.division.name
+                          : r.kind === 'department'
+                            ? r.department.name
+                            : r.team.name}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5 truncate">
+                        {r.kind === 'division'
+                          ? '부문'
+                          : r.kind === 'department'
+                            ? `${r.division.name} · 부서`
+                            : `${r.division.name} · ${r.department.name} · 팀`}
+                      </p>
+                    </div>
+                    <span className="text-gray-300 dark:text-zinc-600 shrink-0 ml-2">›</span>
+                  </button>
+                ))
+              )}
+            </div>
+          ) : (
+            <>
+              <select
+                value={
+                  selected?.type === 'unassigned'
+                    ? '__unassigned__'
+                    : selected?.type === 'team'
+                      ? parentDivOfSelectedTeamDept?.id || ''
+                      : selectedDepartment
+                        ? selectedDepartment.division_id
+                        : selectedDivision?.id || ''
+                }
+                onChange={(e) => {
+                  if (e.target.value === '__unassigned__') setSelected({ type: 'unassigned' })
+                  else selectDivision(e.target.value)
+                }}
+                className="w-full mb-3 border border-gray-200 dark:border-zinc-700 rounded-lg px-3 py-2.5 text-sm font-medium dark:bg-zinc-800 dark:text-zinc-200"
+              >
+                {divisions.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+                <option value="__unassigned__">
+                  미지정 인원{' '}
+                  {unassignedProfiles.length > 0 ? `(${unassignedProfiles.length})` : ''}
+                </option>
+              </select>
 
-          <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 overflow-x-hidden">
-            {selected?.type === 'unassigned' ? (
-              renderUnassignedDetail()
-            ) : selected?.type === 'team' &&
-              selectedTeam &&
-              parentDeptOfSelectedTeam &&
-              parentDivOfSelectedTeamDept ? (
-              <div>
-                <button
-                  onClick={() => selectDepartment(parentDeptOfSelectedTeam.id)}
-                  className="mb-2 text-xs text-gray-400 dark:text-zinc-500 flex items-center gap-1"
-                >
-                  ‹ {parentDeptOfSelectedTeam.name}
-                </button>
-                {renderTeamDetail(
-                  selectedTeam,
-                  parentDeptOfSelectedTeam,
-                  parentDivOfSelectedTeamDept,
-                  true
+              <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 overflow-x-hidden">
+                {selected?.type === 'unassigned' ? (
+                  renderUnassignedDetail()
+                ) : selected?.type === 'team' &&
+                  selectedTeam &&
+                  parentDeptOfSelectedTeam &&
+                  parentDivOfSelectedTeamDept ? (
+                  <div>
+                    <button
+                      onClick={() => selectDepartment(parentDeptOfSelectedTeam.id)}
+                      className="mb-2 text-xs text-gray-500 dark:text-zinc-400 flex items-center gap-1"
+                    >
+                      ‹ {parentDeptOfSelectedTeam.name}
+                    </button>
+                    {renderTeamDetail(
+                      selectedTeam,
+                      parentDeptOfSelectedTeam,
+                      parentDivOfSelectedTeamDept,
+                      true
+                    )}
+                  </div>
+                ) : selectedDepartment && parentDivisionOfSelectedDept ? (
+                  <div>
+                    <button
+                      onClick={() => selectDivision(parentDivisionOfSelectedDept.id)}
+                      className="mb-2 text-xs text-gray-500 dark:text-zinc-400 flex items-center gap-1"
+                    >
+                      ‹ {parentDivisionOfSelectedDept.name}
+                    </button>
+                    {renderDepartmentDetail(selectedDepartment, parentDivisionOfSelectedDept, true)}
+                  </div>
+                ) : (
+                  selectedDivision && renderDivisionDetail(selectedDivision, true)
                 )}
               </div>
-            ) : selectedDepartment && parentDivisionOfSelectedDept ? (
-              <div>
-                <button
-                  onClick={() => selectDivision(parentDivisionOfSelectedDept.id)}
-                  className="mb-2 text-xs text-gray-400 dark:text-zinc-500 flex items-center gap-1"
-                >
-                  ‹ {parentDivisionOfSelectedDept.name}
-                </button>
-                {renderDepartmentDetail(selectedDepartment, parentDivisionOfSelectedDept, true)}
-              </div>
-            ) : (
-              selectedDivision && renderDivisionDetail(selectedDivision, true)
-            )}
-          </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -2772,7 +2849,7 @@ export default function OrgPage() {
                 </select>
               )}
               {(modal.kind === 'assignDepartmentHead' || modal.kind === 'assignTeamHead') && (
-                <p className="text-xs text-gray-400 dark:text-zinc-500 -mt-2">
+                <p className="text-xs text-gray-500 dark:text-zinc-400 -mt-2">
                   {modal.kind === 'assignDepartmentHead'
                     ? '이 부문 소속 인원과 미지정 인원만 선택할 수 있어요.'
                     : '이 부서 소속 인원과 미지정 인원만 선택할 수 있어요.'}
@@ -2794,7 +2871,7 @@ export default function OrgPage() {
                     ))}
                   </select>
                   <div>
-                    <p className="text-xs text-gray-400 dark:text-zinc-500 mb-2.5">
+                    <p className="text-xs text-gray-500 dark:text-zinc-400 mb-2.5">
                       어떤 유형을 위임할까요?
                     </p>
                     <div className="flex gap-4">
@@ -2826,18 +2903,12 @@ export default function OrgPage() {
             </div>
 
             <div className="flex gap-3 mt-7">
-              <button
-                onClick={closeModal}
-                className="flex-1 bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300 py-2.5 rounded-lg text-sm font-medium"
-              >
+              <Button variant="secondary" className="flex-1" onClick={closeModal}>
                 취소
-              </button>
-              <button
-                onClick={submitModal}
-                className="flex-1 bg-blue-500 text-white py-2.5 rounded-lg text-sm font-medium"
-              >
+              </Button>
+              <Button className="flex-1" onClick={submitModal}>
                 확인
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -2874,7 +2945,7 @@ function TabBar({
           className={`pb-2 text-sm font-medium border-b-2 -mb-px transition ${
             active === t.key
               ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-              : 'border-transparent text-gray-400 dark:text-zinc-500 hover:text-gray-600 dark:hover:text-zinc-300'
+              : 'border-transparent text-gray-500 dark:text-zinc-400 hover:text-gray-600 dark:hover:text-zinc-300'
           }`}
         >
           {t.label}
@@ -2919,7 +2990,7 @@ function MemberActionMenu({
     <div className="relative shrink-0">
       <button
         onClick={() => setOpenKey(isOpen ? null : rowKey)}
-        className="w-6 h-6 flex items-center justify-center rounded text-gray-400 dark:text-zinc-500 hover:bg-gray-100 dark:hover:bg-zinc-800 hover:text-gray-600 dark:hover:text-zinc-300 leading-none text-base"
+        className="w-6 h-6 flex items-center justify-center rounded text-gray-500 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-800 hover:text-gray-600 dark:hover:text-zinc-300 leading-none text-base"
         aria-label="더보기"
       >
         ⋮
