@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState, type KeyboardEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import dayjs from 'dayjs'
 // isoWeek 플러그인은 lib/dates가 한 번만 등록한다. side-effect import로 이 파일에서도 적용된다.
@@ -377,12 +377,68 @@ export default function DashboardPage() {
   )
   const maxHours = Math.max(1, ...detailStatRows.map((r) => r.totalHours))
 
+  // 부서 직속 행 펼치기 — 팀 단위 목록에서 "부서 직속"만 개인별로 펼쳐볼 수 있다.
+  // (팀 소속 개인은 팀 대시보드에서 확인 가능하지만, 직속 인원은 볼 방법이 없었기 때문)
+  // 직속 unit의 id는 lib/dashboardStats에서 `${부서id}-direct`로 만든다.
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  const toggleExpand = (id: string) =>
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+
+  // 직속 unit → 소속 인원별 월간 통계. 개인 한 명을 unit 하나로 보고 같은 buildStatRows를 재사용한다.
+  const directMemberRowsByUnit = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof buildStatRows>>()
+    if (unitLevel !== 'team') return map
+    units
+      .filter((u) => u.id.endsWith('-direct'))
+      .forEach((u) => {
+        const memberUnits: DashboardUnit[] = u.members.map((m) => ({
+          id: m.userId,
+          name: m.name,
+          members: [m],
+        }))
+        map.set(u.id, buildStatRows(memberUnits, monthlyLogsByUser, [], substituteHolidays))
+      })
+    return map
+  }, [units, unitLevel, monthlyLogsByUser, substituteHolidays])
+
   // 주간 통계: 이번 달에 걸친 각 주(월~일) 전체 범위 기준, 상세 통계와 같은 단위(unit)로 집계한다.
   // 월 경계를 넘나드는 주도 그 주에 속한 모든 날짜의 로그를 합산하므로, 어느 달에서 보든 같은 합계로 나온다.
   const weeklyStatRows = useMemo(
     () => buildStatRows(units, logsByUser, weeks, substituteHolidays),
     [units, logsByUser, weeks, substituteHolidays]
   )
+
+  // 주간 통계의 부서 직속 행 펼치기 — 월간 상세 통계와 펼침 상태는 따로 관리한다.
+  const [weeklyExpandedIds, setWeeklyExpandedIds] = useState<Set<string>>(new Set())
+  const toggleWeeklyExpand = (id: string) =>
+    setWeeklyExpandedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+
+  // 직속 unit → 소속 인원별 주차별 통계 (월간과 같은 방식으로 개인 한 명을 unit 하나로 계산).
+  const directWeeklyMemberRowsByUnit = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof buildStatRows>>()
+    if (unitLevel !== 'team') return map
+    units
+      .filter((u) => u.id.endsWith('-direct'))
+      .forEach((u) => {
+        const memberUnits: DashboardUnit[] = u.members.map((m) => ({
+          id: m.userId,
+          name: m.name,
+          members: [m],
+        }))
+        map.set(u.id, buildStatRows(memberUnits, logsByUser, weeks, substituteHolidays))
+      })
+    return map
+  }, [units, unitLevel, logsByUser, weeks, substituteHolidays])
 
   const moveMonth = (diff: number) => {
     const next = dayjs(`${targetYear}-${String(targetMonth).padStart(2, '0')}-01`).add(
@@ -569,19 +625,81 @@ export default function DashboardPage() {
                       row.totalHours > 0 ? (row.weekdayHours / row.totalHours) * barPct : 0
                     const holidayPct =
                       row.totalHours > 0 ? (row.holidayHours / row.totalHours) * barPct : 0
+                    // 부서 직속 행만 탭하면 소속 인원별 근무시간이 아래에 펼쳐진다.
+                    const memberRows = directMemberRowsByUnit.get(row.id)
+                    if (!memberRows || memberRows.length === 0) {
+                      return (
+                        <UnitStatBarRow
+                          key={row.id}
+                          unitLevel={unitLevel}
+                          name={row.name}
+                          totalHours={row.totalHours}
+                          weekdayHours={row.weekdayHours}
+                          holidayHours={row.holidayHours}
+                          weekdayPct={weekdayPct}
+                          holidayPct={holidayPct}
+                          memberCount={row.memberCount}
+                          averageHours={row.averageHours}
+                        />
+                      )
+                    }
+                    const expanded = expandedIds.has(row.id)
+                    // 펼친 개인 막대는 직속 합계가 아니라 직속 인원 중 최댓값 기준으로 스케일한다.
+                    const groupMax = Math.max(1, ...memberRows.map((r) => r.totalHours))
                     return (
-                      <UnitStatBarRow
-                        key={row.id}
-                        unitLevel={unitLevel}
-                        name={row.name}
-                        totalHours={row.totalHours}
-                        weekdayHours={row.weekdayHours}
-                        holidayHours={row.holidayHours}
-                        weekdayPct={weekdayPct}
-                        holidayPct={holidayPct}
-                        memberCount={row.memberCount}
-                        averageHours={row.averageHours}
-                      />
+                      <div key={row.id}>
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          aria-expanded={expanded}
+                          onClick={() => toggleExpand(row.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              toggleExpand(row.id)
+                            }
+                          }}
+                          className="cursor-pointer rounded-md hover:bg-gray-50 dark:hover:bg-zinc-700/40"
+                        >
+                          <UnitStatBarRow
+                            unitLevel={unitLevel}
+                            name={`${expanded ? '▾' : '▸'} ${row.name}`}
+                            totalHours={row.totalHours}
+                            weekdayHours={row.weekdayHours}
+                            holidayHours={row.holidayHours}
+                            weekdayPct={weekdayPct}
+                            holidayPct={holidayPct}
+                            memberCount={row.memberCount}
+                            averageHours={row.averageHours}
+                          />
+                        </div>
+                        {expanded && (
+                          <div className="mt-2 ml-3 pl-3 border-l-2 border-gray-100 dark:border-zinc-700 space-y-3 sm:space-y-2.5">
+                            {memberRows.map((m) => {
+                              const mBarPct =
+                                m.totalHours > 0 ? Math.max(4, (m.totalHours / groupMax) * 100) : 0
+                              const mWeekdayPct =
+                                m.totalHours > 0 ? (m.weekdayHours / m.totalHours) * mBarPct : 0
+                              const mHolidayPct =
+                                m.totalHours > 0 ? (m.holidayHours / m.totalHours) * mBarPct : 0
+                              return (
+                                <UnitStatBarRow
+                                  key={m.id}
+                                  unitLevel="member"
+                                  name={m.name}
+                                  totalHours={m.totalHours}
+                                  weekdayHours={m.weekdayHours}
+                                  holidayHours={m.holidayHours}
+                                  weekdayPct={mWeekdayPct}
+                                  holidayPct={mHolidayPct}
+                                  memberCount={1}
+                                  averageHours={m.averageHours}
+                                />
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
                     )
                   })}
                 </div>
@@ -628,29 +746,84 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {weeklyStatRows.map((row) => (
-                      <tr key={row.id} className="border-b last:border-0 dark:border-zinc-700">
-                        <td
-                          className="py-2 dark:text-zinc-200 whitespace-nowrap max-w-[7rem] truncate"
-                          title={row.name}
-                        >
-                          {row.name}
-                        </td>
-                        {row.weekStats.map((stat, i) => (
-                          <td
-                            key={i}
-                            className="py-2 text-right dark:text-zinc-200 whitespace-nowrap"
+                    {weeklyStatRows.map((row) => {
+                      // 부서 직속 행만 탭하면 소속 인원별 주차별 근무시간이 아래 행들로 펼쳐진다.
+                      const memberRows = directWeeklyMemberRowsByUnit.get(row.id)
+                      const expandable = !!memberRows && memberRows.length > 0
+                      const expanded = expandable && weeklyExpandedIds.has(row.id)
+                      return (
+                        <Fragment key={row.id}>
+                          <tr
+                            className={`border-b last:border-0 dark:border-zinc-700 ${
+                              expandable
+                                ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-zinc-700/40'
+                                : ''
+                            }`}
+                            {...(expandable
+                              ? {
+                                  role: 'button',
+                                  tabIndex: 0,
+                                  'aria-expanded': expanded,
+                                  onClick: () => toggleWeeklyExpand(row.id),
+                                  onKeyDown: (e: KeyboardEvent) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault()
+                                      toggleWeeklyExpand(row.id)
+                                    }
+                                  },
+                                }
+                              : {})}
                           >
-                            <div className="font-medium">{stat.total}h</div>
-                            <div className="text-[10px] text-gray-400 dark:text-zinc-500">
-                              (<span className="text-blue-500">{stat.weekday}h</span>
-                              <span> · </span>
-                              <span className="text-orange-500">{stat.holiday}h</span>)
-                            </div>
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
+                            <td
+                              className="py-2 dark:text-zinc-200 whitespace-nowrap max-w-[7rem] truncate"
+                              title={row.name}
+                            >
+                              {expandable ? `${expanded ? '▾' : '▸'} ${row.name}` : row.name}
+                            </td>
+                            {row.weekStats.map((stat, i) => (
+                              <td
+                                key={i}
+                                className="py-2 text-right dark:text-zinc-200 whitespace-nowrap"
+                              >
+                                <div className="font-medium">{stat.total}h</div>
+                                <div className="text-[10px] text-gray-400 dark:text-zinc-500">
+                                  (<span className="text-blue-500">{stat.weekday}h</span>
+                                  <span> · </span>
+                                  <span className="text-orange-500">{stat.holiday}h</span>)
+                                </div>
+                              </td>
+                            ))}
+                          </tr>
+                          {expanded &&
+                            memberRows!.map((m) => (
+                              <tr
+                                key={m.id}
+                                className="border-b last:border-0 dark:border-zinc-700 bg-gray-50/60 dark:bg-zinc-900/30"
+                              >
+                                <td
+                                  className="py-2 pl-4 text-gray-600 dark:text-zinc-300 whitespace-nowrap max-w-[7rem] truncate"
+                                  title={m.name}
+                                >
+                                  {m.name}
+                                </td>
+                                {m.weekStats.map((stat, i) => (
+                                  <td
+                                    key={i}
+                                    className="py-2 text-right dark:text-zinc-200 whitespace-nowrap"
+                                  >
+                                    <div className="font-medium">{stat.total}h</div>
+                                    <div className="text-[10px] text-gray-400 dark:text-zinc-500">
+                                      (<span className="text-blue-500">{stat.weekday}h</span>
+                                      <span> · </span>
+                                      <span className="text-orange-500">{stat.holiday}h</span>)
+                                    </div>
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                        </Fragment>
+                      )
+                    })}
                   </tbody>
                 </table>
               )}
