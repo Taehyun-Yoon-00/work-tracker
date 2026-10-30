@@ -371,6 +371,25 @@ export default function OrgPage() {
     )
   const directOfDept = (departmentId: string) =>
     directMembers.filter((m) => m.department_id === departmentId)
+  // 부서 직속 구성원 "표시용" 목록: 저장된 순서(display_order)를 따르되 부서장은 항상 최상단.
+  // 구성원 탭/팀 구성원 목록과 같은 규칙(pinHeadFirst)이다. 부서장이 직속 소속 레코드에 없어도
+  // (자리만 있는 경우) 목록과 인원수에 포함해 구성원 탭과 어긋나지 않게 한다.
+  const orderedDirectsOfDept = (department: DepartmentRow) => {
+    const list = directOfDept(department.id)
+    const headId = department.head_user_id
+    const withHead =
+      headId && !list.some((m) => m.user_id === headId)
+        ? [
+            {
+              user_id: headId,
+              name: profileName(headId) || '알 수 없음',
+              department_id: department.id,
+            },
+            ...list,
+          ]
+        : list
+    return pinHeadFirst(withHead.map((m) => ({ ...m, isHead: !!headId && m.user_id === headId })))
+  }
   const approversOfDept = (departmentId: string) =>
     approverDelegates.filter((a) => a.department_id === departmentId)
   const approversOfDivision = (divisionId: string) =>
@@ -1717,6 +1736,8 @@ export default function OrgPage() {
     const canManageThisDivision = canManageDivision(user.id, division.id, divisions, hasTopAccess)
     const deptTeams = teamsInDept(department.id)
     const directs = directOfDept(department.id)
+    // 구조 탭의 "부서 직속" 펼침 목록 전용 — 부서장 최상단 + 저장된 순서 반영
+    const directsOrdered = orderedDirectsOfDept(department)
     const delegates = approversOfDept(department.id)
     const isReorderingTeams = reorder?.kind === 'teams' && reorder.departmentId === department.id
     const isReorderingMembers =
@@ -1854,7 +1875,7 @@ export default function OrgPage() {
                 <div className="min-w-0">
                   <p className="font-semibold text-sm dark:text-white truncate">부서 직속</p>
                   <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
-                    {directs.length}명
+                    {directsOrdered.length}명
                   </p>
                 </div>
                 <span className="text-gray-300 dark:text-zinc-600 shrink-0 ml-2">
@@ -1863,7 +1884,7 @@ export default function OrgPage() {
               </button>
               {openStructureItem === 'direct' && (
                 <div className="mt-1.5 px-4 py-3 bg-gray-50/60 dark:bg-zinc-900/20 rounded-lg">
-                  {directs.length === 0 ? (
+                  {directsOrdered.length === 0 ? (
                     <p className="text-xs text-gray-300 dark:text-zinc-600">
                       소속된 인원이 없어요.
                     </p>
@@ -1871,7 +1892,7 @@ export default function OrgPage() {
                     <div className="space-y-1.5">
                       {/* 이동/내보내기는 "구성원" 탭에서만 할 수 있다 — 팀 구조 탭의 부서 직속
                           펼침 목록은 보기 전용이다. */}
-                      {directs.map((d) => {
+                      {directsOrdered.map((d) => {
                         const key = `direct-${department.id}-${d.user_id}`
                         return (
                           <div
