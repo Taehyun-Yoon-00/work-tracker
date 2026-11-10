@@ -449,12 +449,16 @@ export default function DashboardPage() {
     setTargetMonth(next.month() + 1)
   }
 
+  // 연도 선택지: 5년 전 ~ 내년. 12월에서 다음 달(내년 1월)로 넘길 수 있고, 그때 select에 해당 연도가
+  // 없으면 상태는 바뀌었는데 화면에는 이전 연도가 남아 보이므로, 현재 선택된 연도는 항상 포함한다.
   const yearOptions = useMemo(() => {
     const nowYear = today.year()
+    const maxYear = Math.max(nowYear + 1, targetYear)
+    const minYear = Math.min(nowYear - 5, targetYear)
     const years: number[] = []
-    for (let y = nowYear; y >= nowYear - 5; y--) years.push(y)
+    for (let y = maxYear; y >= minYear; y--) years.push(y)
     return years
-  }, [today])
+  }, [today, targetYear])
 
   if (checking) {
     return (
