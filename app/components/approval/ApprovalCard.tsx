@@ -23,17 +23,31 @@ interface ApprovalCardProps {
   req: any
   userId: string
   onClick: (req: any) => void
+  /** 필터가 "전체/부문" 단위일 때 true — 팀 배지에 부서명을 함께 표시한다 (예: 'xxx부/xxx팀'). */
+  showDepartment?: boolean
+  /** department_id → 부서명 */
+  departmentNames?: Record<string, string>
 }
 
-export default function ApprovalCard({ req, userId, onClick }: ApprovalCardProps) {
+export default function ApprovalCard({
+  req,
+  userId,
+  onClick,
+  showDepartment = false,
+  departmentNames = {},
+}: ApprovalCardProps) {
   const isRequester = req.requester_id === userId
   const status = statusLabel(req.status)
   const type = typeLabel(req.type)
+  // 팀 배지는 기본적으로 팀 이름만 보여주고, 부문 이상 단위로 보고 있을 때만 '부서명/팀명'으로 바꾼다.
+  const teamDeptName = req.teams?.department_id ? departmentNames[req.teams.department_id] : undefined
+  const teamBadgeText =
+    showDepartment && teamDeptName ? `${teamDeptName}/${req.teams?.name}` : req.teams?.name
 
   return (
     <div
       onClick={() => onClick(req)}
-      className="py-3 border-b dark:border-zinc-700 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+      className="py-3 border-b dark:border-zinc-700 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-zinc-700"
     >
       <div className="flex justify-between items-start">
         <div className="flex-1 min-w-0">
@@ -43,7 +57,7 @@ export default function ApprovalCard({ req, userId, onClick }: ApprovalCardProps
             </span>
             <Badge colorClassName={type.colorClassName}>{type.text}</Badge>
             {req.teams?.name ? (
-              <Badge tone="neutral">{req.teams.name}</Badge>
+              <Badge tone="neutral">{teamBadgeText}</Badge>
             ) : req.departments?.name ? (
               <Badge tone="neutral">{req.departments.name}</Badge>
             ) : (
@@ -54,15 +68,15 @@ export default function ApprovalCard({ req, userId, onClick }: ApprovalCardProps
               <Badge tone="warning">취소 요청됨</Badge>
             )}
           </div>
-          <p className="text-xs text-gray-400 dark:text-zinc-500">
+          <p className="text-xs text-gray-500 dark:text-zinc-400">
             {req.dates && req.dates.length > 1
               ? `${dayjs(req.dates[0]).format('MM/DD')} 외 ${req.dates.length - 1}일`
               : dayjs(req.date).format('YYYY년 MM월 DD일')}
           </p>
-          <p className="text-xs text-gray-400 dark:text-zinc-500">
+          <p className="text-xs text-gray-500 dark:text-zinc-400">
             결재권자: {req.approver?.name || req.approver?.email?.split('@')[0]}
           </p>
-          {req.memo && <p className="text-xs text-gray-400 dark:text-zinc-500">사유: {req.memo}</p>}
+          {req.memo && <p className="text-xs text-gray-500 dark:text-zinc-400">사유: {req.memo}</p>}
           {req.status === 'approved' && req.approved_at && (
             <p className="text-xs text-green-500 mt-0.5">
               승인일: {dayjs(req.approved_at).format('YYYY-MM-DD HH:mm')}

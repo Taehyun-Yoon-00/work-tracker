@@ -86,6 +86,9 @@ type ModalState =
   | { kind: 'assignDivisionHead'; divisionId: string }
   | { kind: 'assignDepartmentHead'; departmentId: string }
   | { kind: 'assignTeamHead'; teamId: string; departmentId: string }
+  | { kind: 'renameDivision'; divisionId: string }
+  | { kind: 'renameDepartment'; departmentId: string }
+  | { kind: 'renameTeam'; teamId: string }
   | { kind: 'addApprover'; scope: ApproverScope; targetId: string }
   | null
 
@@ -226,8 +229,17 @@ export default function OrgPage() {
       }
 
       await fetchAll()
+      // 알림("소속 배정이 필요한 인원")에서 넘어온 경우 미지정 인원 화면을 바로 연다.
+      if (new URLSearchParams(window.location.search).get('view') === 'unassigned') {
+        setSelected({ type: 'unassigned' })
+      }
       // 부문/부서 권한 없이 팀장 권한만 있는 사람은 자기 팀 화면을 기본으로 보여준다.
-      if (onlyTeamLead && headTeams && headTeams.length > 0) {
+      if (
+        onlyTeamLead &&
+        headTeams &&
+        headTeams.length > 0 &&
+        new URLSearchParams(window.location.search).get('view') !== 'unassigned'
+      ) {
         setSelected({ type: 'team', id: headTeams[0].team_id })
       }
       setChecking(false)
@@ -356,6 +368,10 @@ export default function OrgPage() {
       if (prev) return prev
       return divs.length > 0 ? { type: 'division', id: divs[0].id } : null
     })
+
+    // 팀/부서 삭제, 소속 해제처럼 "미지정 인원"이 새로 생길 수 있는 조작 뒤에도 항상 이 함수로
+    // 다시 불러오므로, 여기서 서버에 새 미지정 인원이 있는지 확인시킨다 (중복 알림은 서버가 막는다).
+    fetch('/api/notify-unassigned', { method: 'POST' }).catch(() => {})
   }
 
   const profileName = (id: string | null) =>
@@ -620,6 +636,40 @@ export default function OrgPage() {
         .insert({ name: modalInput.trim(), department_id: modal.departmentId, created_by: user.id })
       if (error) {
         setMessage('팀 생성 실패: ' + error.message)
+        return
+      }
+    }
+
+    if (
+      modal.kind === 'renameDivision' ||
+      modal.kind === 'renameDepartment' ||
+      modal.kind === 'renameTeam'
+    ) {
+      const nextName = modalInput.trim()
+      if (!nextName) return
+      const target =
+        modal.kind === 'renameDivision'
+          ? { table: 'divisions', id: modal.divisionId, label: '부문', current: divisions.find((d) => d.id === modal.divisionId)?.name }
+          : modal.kind === 'renameDepartment'
+            ? { table: 'departments', id: modal.departmentId, label: '부서', current: departments.find((d) => d.id === modal.departmentId)?.name }
+            : { table: 'teams', id: modal.teamId, label: '팀', current: teams.find((t) => t.id === modal.teamId)?.name }
+      // 이름이 그대로면 DB를 건드리지 않고 닫는다.
+      if (target.current === nextName) {
+        closeModal()
+        return
+      }
+      const { data: updated, error } = await supabase
+        .from(target.table)
+        .update({ name: nextName })
+        .eq('id', target.id)
+        .select('id')
+      if (error) {
+        setMessage(`${target.label} 이름 변경 실패: ` + error.message)
+        return
+      }
+      // 권한 정책(RLS)에 막히면 에러 없이 0행만 수정되므로, 성공으로 착각하지 않도록 따로 확인한다.
+      if (!updated || updated.length === 0) {
+        setMessage(`${target.label} 이름을 변경하지 못했어요. 권한이 없거나 이미 삭제된 ${target.label}일 수 있어요.`)
         return
       }
     }
@@ -1324,6 +1374,19 @@ export default function OrgPage() {
                       <button
                         onClick={() => {
                           setMenuOpenId(null)
+                          openModal({ kind: 'renameDivision', divisionId: division.id })
+                          // openModal이 입력값을 비우므로, 현재 이름을 채워서 바로 고칠 수 있게 한다.
+                          setModalInput(division.name)
+                        }}
+                        className="w-full text-left px-3 py-1.5 text-xs text-gray-600 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-700"
+                      >
+                        부문 이름 변경
+                      </button>
+                    )}
+                    {hasTopAccess && (
+                      <button
+                        onClick={() => {
+                          setMenuOpenId(null)
                           openModal({ kind: 'assignDivisionHead', divisionId: division.id })
                         }}
                         className="w-full text-left px-3 py-1.5 text-xs text-gray-600 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-700"
@@ -1783,6 +1846,18 @@ export default function OrgPage() {
                     onClick={(e) => e.stopPropagation()}
                     className="absolute right-0 top-9 bg-white dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700 rounded-lg shadow-lg py-1 w-36 z-10"
                   >
+                    {canManageThisDivision && (
+                      <button
+                        onClick={() => {
+                          setMenuOpenId(null)
+                          openModal({ kind: 'renameDepartment', departmentId: department.id })
+                          setModalInput(department.name)
+                        }}
+                        className="w-full text-left px-3 py-1.5 text-xs text-gray-600 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-700"
+                      >
+                        부서 이름 변경
+                      </button>
+                    )}
                     {canManageThisDivision && (
                       <button
                         onClick={() => {
@@ -2294,8 +2369,19 @@ export default function OrgPage() {
                 {menuOpenId === `team-${team.id}` && (
                   <div
                     onClick={(e) => e.stopPropagation()}
-                    className="absolute right-0 top-9 bg-white dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700 rounded-lg shadow-lg py-1 w-32 z-10"
+                    className="absolute right-0 top-9 bg-white dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700 rounded-lg shadow-lg py-1 w-36 z-10"
                   >
+                    <button
+                      onClick={() => {
+                        setMenuOpenId(null)
+                        openModal({ kind: 'renameTeam', teamId: team.id })
+                        // openModal이 입력값을 비우므로, 현재 이름을 채워서 바로 고칠 수 있게 한다.
+                        setModalInput(team.name)
+                      }}
+                      className="w-full text-left px-3 py-1.5 text-xs text-gray-600 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-700"
+                    >
+                      팀 이름 변경
+                    </button>
                     <button
                       onClick={() => {
                         setMenuOpenId(null)
@@ -2794,6 +2880,9 @@ export default function OrgPage() {
               {modal.kind === 'createDivision' && '부문 생성'}
               {modal.kind === 'createDepartment' && '부서 생성'}
               {modal.kind === 'createTeam' && '팀 생성'}
+              {modal.kind === 'renameDivision' && '부문 이름 변경'}
+              {modal.kind === 'renameDepartment' && '부서 이름 변경'}
+              {modal.kind === 'renameTeam' && '팀 이름 변경'}
               {modal.kind === 'assignDivisionHead' && '부문장 지정'}
               {modal.kind === 'assignDepartmentHead' && '부서장 지정'}
               {modal.kind === 'assignTeamHead' && '팀장 지정'}
@@ -2803,11 +2892,17 @@ export default function OrgPage() {
             <div className="space-y-4">
               {(modal.kind === 'createDivision' ||
                 modal.kind === 'createDepartment' ||
-                modal.kind === 'createTeam') && (
+                modal.kind === 'createTeam' ||
+                modal.kind === 'renameDivision' ||
+                modal.kind === 'renameDepartment' ||
+                modal.kind === 'renameTeam') && (
                 <input
                   autoFocus
                   value={modalInput}
                   onChange={(e) => setModalInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.nativeEvent.isComposing) submitModal()
+                  }}
                   placeholder="이름 입력"
                   className="w-full border rounded-lg px-3.5 py-2.5 text-sm dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
                 />

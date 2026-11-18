@@ -2,9 +2,13 @@ import ApprovalCard from './ApprovalCard'
 import DateRangeFilter from './DateRangeFilter'
 import { Palmtree, Laptop, Building2 } from 'lucide-react'
 import OrgScopeSelect, { OrgScopeOption } from '../ui/OrgScopeSelect'
+import SegmentedControl from '../ui/SegmentedControl'
+import SkeletonRows from '../ui/SkeletonRows'
 
 interface ApprovalListProps {
   requests: any[]
+  /** 목록 최초 조회 중이면 true. 이 동안은 "결재 요청이 없어요"가 아니라 스켈레톤을 보여준다. */
+  loading?: boolean
   userId: string
   filterStatus: string
   filterType: string
@@ -14,14 +18,19 @@ interface ApprovalListProps {
   onFilterTypeChange: (value: string) => void
   onDateRangeChange: (start: string, end: string) => void
   onCardClick: (req: any) => void
-  /** 부서 필터 — 옵션이 없으면(부서장 이하) 필터 없이 항상 자기 부서 범위로 고정되므로 렌더링하지 않는다. */
+  /** 부서 필터 — 옵션이 없으면(부장 이하) 필터 없이 항상 자기 부서 범위로 고정되므로 렌더링하지 않는다. */
   scopeOptions?: OrgScopeOption[]
   selectedScope?: OrgScopeOption | null
   onScopeChange?: (opt: OrgScopeOption) => void
+  /** 팀 배지에 부서명을 함께 보여줄지 (필터가 전체/부문 단위일 때) */
+  showDepartment?: boolean
+  /** department_id → 부서명 */
+  departmentNames?: Record<string, string>
 }
 
 export default function ApprovalList({
   requests,
+  loading = false,
   userId,
   filterStatus,
   filterType,
@@ -34,6 +43,8 @@ export default function ApprovalList({
   scopeOptions = [],
   selectedScope = null,
   onScopeChange,
+  showDepartment = false,
+  departmentNames = {},
 }: ApprovalListProps) {
   const filteredRequests = requests.filter((r) => {
     const statusMatch =
@@ -65,26 +76,18 @@ export default function ApprovalList({
       </div>
 
       {/* 상태 필터 */}
-      <div className="flex bg-gray-100 dark:bg-zinc-700 rounded-lg p-0.5 mb-2">
-        {[
+      <SegmentedControl
+        fullWidth
+        className="mb-2"
+        value={filterStatus}
+        onChange={onFilterStatusChange}
+        options={[
           { value: 'all', label: '전체' },
           { value: 'mine', label: '내요청' },
           { value: 'pending', label: '대기중' },
           { value: 'completed', label: '완료' },
-        ].map(({ value, label }) => (
-          <button
-            key={value}
-            onClick={() => onFilterStatusChange(value)}
-            className={`flex-1 text-xs py-1.5 rounded-md transition ${
-              filterStatus === value
-                ? 'bg-white dark:bg-zinc-600 shadow text-blue-500 font-semibold'
-                : 'text-gray-500 dark:text-zinc-400'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+        ]}
+      />
 
       {/* 유형 필터 */}
       <div className="flex gap-1.5 mb-4 flex-wrap">
@@ -138,13 +141,22 @@ export default function ApprovalList({
 
       {/* 카드 목록 */}
       <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
-        {filteredRequests.length === 0 ? (
-          <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-4">
+        {loading ? (
+          <SkeletonRows rows={4} label="결재 목록" />
+        ) : filteredRequests.length === 0 ? (
+          <p className="text-sm text-gray-500 dark:text-zinc-400 text-center py-4">
             결재 요청이 없어요.
           </p>
         ) : (
           filteredRequests.map((req) => (
-            <ApprovalCard key={req.id} req={req} userId={userId} onClick={onCardClick} />
+            <ApprovalCard
+              key={req.id}
+              req={req}
+              userId={userId}
+              onClick={onCardClick}
+              showDepartment={showDepartment}
+              departmentNames={departmentNames}
+            />
           ))
         )}
       </div>

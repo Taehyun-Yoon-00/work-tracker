@@ -34,13 +34,23 @@ export const ALL_CATEGORIES: WorkCategory[] = [...FIXED_CATEGORIES, '청구안�
 export interface Profile {
   id: UUID
   email: string | null
+  /** 한글 이름. 앱 화면에는 항상 이 값이 표시된다 */
   name: string | null
+  /** 한자 이름 (020_profile_name_variants). 출력 파일 내부 이름란에 쓴다 */
+  name_hanja: string | null
+  /** 이니셜 (020_profile_name_variants). 출력 파일명에 쓴다 */
+  name_initial: string | null
   created_at: Timestamp | null
   total_vacation: number | null
   avatar_url: string | null
   is_master: boolean | null
   /** 직급 (012_profile_position) */
   position: string | null
+  /**
+   * 미지정 인원 알림을 이미 보낸 시각 (028_unassigned_notification).
+   * 소속이 배정되면 서버가 null로 되돌려서, 다시 미지정이 되면 새로 알림이 가도록 한다.
+   */
+  unassigned_notified_at: Timestamp | null
 }
 
 export interface Team {
@@ -183,7 +193,14 @@ export interface SubstituteHoliday {
   created_at: Timestamp | null
 }
 
-export type NotificationType = 'REQUEST' | 'APPROVED' | 'REJECTED' | 'CANCEL_REQUEST' | 'CANCELLED'
+export type NotificationType =
+  | 'REQUEST'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'CANCEL_REQUEST'
+  | 'CANCELLED'
+  /** 소속이 배정되지 않은 인원 발생 (028_unassigned_notification) */
+  | 'UNASSIGNED'
 
 export interface Notification {
   id: UUID
@@ -213,7 +230,7 @@ export interface Department {
   id: UUID
   division_id: UUID
   name: string
-  /** 부서장 (자리) */
+  /** 부장 (자리) */
   head_user_id: UUID | null
   created_at: Timestamp
   updated_at: Timestamp
@@ -231,7 +248,7 @@ export interface DepartmentMembership {
   display_order: number
 }
 
-/** 부서장이 위임한 결재권자 (부서장 본인은 여기 없어도 항상 결재권자다) */
+/** 부장이 위임한 결재권자 (부장 본인은 여기 없어도 항상 결재권자다) */
 export interface DepartmentApprover {
   id: UUID
   department_id: UUID
