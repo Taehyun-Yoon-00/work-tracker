@@ -9,22 +9,34 @@ export const runtime = 'nodejs'
 
 const BUCKET = 'report-templates'
 
+// 양식 종류 — report_templates.kind 값과 같다 (supabase/migrations/026_report_template_kind.sql).
+const TEMPLATE_KINDS = ['support_list', 'attendance'] as const
+type TemplateKind = (typeof TEMPLATE_KINDS)[number]
+
+function parseKind(value: unknown): TemplateKind | null {
+  return TEMPLATE_KINDS.includes(value as TemplateKind) ? (value as TemplateKind) : null
+}
+
 async function canManageTemplate(userId: string) {
-  // 총괄 관리자 또는 마스터만 서포트리스트 양식을 업로드할 수 있다.
+  // 총괄 관리자 또는 마스터만 양식(서포트리스트/근무관리표)을 업로드할 수 있다.
   return (await isMaster(userId)) || (await isGeneralAdmin(userId))
 }
 
-/** 현재 등록된(가장 최근에 업로드된) 서포트리스트 양식 정보를 반환한다. */
-export async function GET() {
+/** 현재 등록된(가장 최근에 업로드된) 양식 정보를 종류별로 반환한다. (?kind=support_list|attendance) */
+export async function GET(req: NextRequest) {
   const user = await getSessionUser()
   if (!user) return NextResponse.json({ error: '로그인이 필요해요.' }, { status: 401 })
   if (!(await canManageTemplate(user.id))) {
     return NextResponse.json({ error: '권한이 없어요.' }, { status: 403 })
   }
 
+  const kind = parseKind(req.nextUrl.searchParams.get('kind') ?? 'support_list')
+  if (!kind) return NextResponse.json({ error: '알 수 없는 양식 종류예요.' }, { status: 400 })
+
   const { data, error } = await supabaseAdmin
     .from('report_templates')
     .select('original_filename, uploaded_at, uploaded_by, profiles(name, email)')
+    .eq('kind', kind)
     .order('uploaded_at', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -46,7 +58,7 @@ export async function GET() {
   })
 }
 
-/** 새 서포트리스트 양식을 업로드한다. 기존 양식은 지우지 않고 이력으로 남기되, 조회는 항상 최신본을 쓴다. */
+/** 새 양식을 종류별로 업로드한다(formData의 kind, 생략하면 support_list). 기존 양식은 지우지 않고 이력으로 남기되, 조회는 항상 최신본을 쓴다. */
 export async function POST(req: NextRequest) {
   const user = await getSessionUser()
   if (!user) return NextResponse.json({ error: '로그인이 필요해요.' }, { status: 401 })
@@ -55,6 +67,8 @@ export async function POST(req: NextRequest) {
   }
 
   const formData = await req.formData()
+  const kind = parseKind(formData.get('kind') ?? 'support_list')
+  if (!kind) return NextResponse.json({ error: '알 수 없는 양식 종류예요.' }, { status: 400 })
   const file = formData.get('file')
   if (!(file instanceof File)) {
     return NextResponse.json({ error: '파일이 필요해요.' }, { status: 400 })
@@ -70,7 +84,7 @@ export async function POST(req: NextRequest) {
     .replace(/\.xlsx$/i, '')
     .replace(/[^\w.-]/g, '_') // 한글/한자/공백 등은 전부 _ 로 치환
     .slice(0, 80) || 'template'
-  const storagePath = `templates/${Date.now()}-${safeName}.xlsx`
+  const storagePath = `templates/${kind}/${Date.now()}-${safeName}.xlsx`
 
   const { error: uploadError } = await supabaseAdmin.storage
     .from(BUCKET)
@@ -83,6 +97,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { error: insertError } = await supabaseAdmin.from('report_templates').insert({
+    kind,
     storage_path: storagePath,
     original_filename: file.name,
     uploaded_by: user.id,

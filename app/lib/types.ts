@@ -34,7 +34,12 @@ export const ALL_CATEGORIES: WorkCategory[] = [...FIXED_CATEGORIES, '청구안�
 export interface Profile {
   id: UUID
   email: string | null
+  /** 한글 이름. 앱 화면에는 항상 이 값이 표시된다 */
   name: string | null
+  /** 한자 이름 (020_profile_name_variants). 출력 파일 내부 이름란에 쓴다 */
+  name_hanja: string | null
+  /** 이니셜 (020_profile_name_variants). 출력 파일명에 쓴다 */
+  name_initial: string | null
   created_at: Timestamp | null
   total_vacation: number | null
   avatar_url: string | null

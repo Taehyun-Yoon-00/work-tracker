@@ -371,6 +371,25 @@ export default function OrgPage() {
     )
   const directOfDept = (departmentId: string) =>
     directMembers.filter((m) => m.department_id === departmentId)
+  // 부서 직속 구성원 "표시용" 목록: 저장된 순서(display_order)를 따르되 부서장은 항상 최상단.
+  // 구성원 탭/팀 구성원 목록과 같은 규칙(pinHeadFirst)이다. 부서장이 직속 소속 레코드에 없어도
+  // (자리만 있는 경우) 목록과 인원수에 포함해 구성원 탭과 어긋나지 않게 한다.
+  const orderedDirectsOfDept = (department: DepartmentRow) => {
+    const list = directOfDept(department.id)
+    const headId = department.head_user_id
+    const withHead =
+      headId && !list.some((m) => m.user_id === headId)
+        ? [
+            {
+              user_id: headId,
+              name: profileName(headId) || '알 수 없음',
+              department_id: department.id,
+            },
+            ...list,
+          ]
+        : list
+    return pinHeadFirst(withHead.map((m) => ({ ...m, isHead: !!headId && m.user_id === headId })))
+  }
   const approversOfDept = (departmentId: string) =>
     approverDelegates.filter((a) => a.department_id === departmentId)
   const approversOfDivision = (divisionId: string) =>
@@ -1660,7 +1679,7 @@ export default function OrgPage() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs text-gray-500 dark:text-zinc-400">
-                  결재권자 · 부문 산하 모든 부서의 결재를 받아요
+                  결재권자
                 </p>
                 {canManageThisDivision && (
                   <button
@@ -1717,6 +1736,8 @@ export default function OrgPage() {
     const canManageThisDivision = canManageDivision(user.id, division.id, divisions, hasTopAccess)
     const deptTeams = teamsInDept(department.id)
     const directs = directOfDept(department.id)
+    // 구조 탭의 "부서 직속" 펼침 목록 전용 — 부서장 최상단 + 저장된 순서 반영
+    const directsOrdered = orderedDirectsOfDept(department)
     const delegates = approversOfDept(department.id)
     const isReorderingTeams = reorder?.kind === 'teams' && reorder.departmentId === department.id
     const isReorderingMembers =
@@ -1854,7 +1875,7 @@ export default function OrgPage() {
                 <div className="min-w-0">
                   <p className="font-semibold text-sm dark:text-white truncate">부서 직속</p>
                   <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
-                    {directs.length}명
+                    {directsOrdered.length}명
                   </p>
                 </div>
                 <span className="text-gray-300 dark:text-zinc-600 shrink-0 ml-2">
@@ -1863,7 +1884,7 @@ export default function OrgPage() {
               </button>
               {openStructureItem === 'direct' && (
                 <div className="mt-1.5 px-4 py-3 bg-gray-50/60 dark:bg-zinc-900/20 rounded-lg">
-                  {directs.length === 0 ? (
+                  {directsOrdered.length === 0 ? (
                     <p className="text-xs text-gray-300 dark:text-zinc-600">
                       소속된 인원이 없어요.
                     </p>
@@ -1871,7 +1892,7 @@ export default function OrgPage() {
                     <div className="space-y-1.5">
                       {/* 이동/내보내기는 "구성원" 탭에서만 할 수 있다 — 팀 구조 탭의 부서 직속
                           펼침 목록은 보기 전용이다. */}
-                      {directs.map((d) => {
+                      {directsOrdered.map((d) => {
                         const key = `direct-${department.id}-${d.user_id}`
                         return (
                           <div
@@ -2368,7 +2389,7 @@ export default function OrgPage() {
                 팀원들이 결재를 올릴 때 결재권자로 팀장을 선택할 수 있는 것과 짝이 되는 관리 화면. */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-gray-500 dark:text-zinc-400">결재권자 · 이 팀</p>
+                <p className="text-xs text-gray-500 dark:text-zinc-400">결재권자</p>
                 {canManageThisTeam && (
                   <button
                     onClick={() =>
@@ -2525,90 +2546,71 @@ export default function OrgPage() {
                     </p>
                   )}
                   {visibleDivisions.map((division) => {
-                const isOpen = expandedDiv.has(division.id) || !!searchTerm
-                const isSelected = selected?.type === 'division' && selected.id === division.id
-                const deptList = departmentsOfDivision(division.id).filter(
-                  (d) => !searchTerm || departmentMatchesSearch(d)
-                )
-                return (
-                  <div key={division.id}>
-                    <button
-                      onClick={() => handleDivisionRowClick(division.id)}
-                      className={`w-full flex items-center gap-2 px-3 py-2.5 mx-1 rounded-lg text-left ${isSelected ? 'bg-blue-50 dark:bg-blue-500/10' : 'hover:bg-gray-50 dark:hover:bg-zinc-700/50'}`}
-                    >
-                      <span className="text-gray-500 dark:text-zinc-400 text-xs w-3 shrink-0">
-                        {isOpen ? '▾' : '▸'}
-                      </span>
-                      <span
-                        className={`flex-1 min-w-0 text-left text-sm truncate ${isSelected ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-gray-700 dark:text-zinc-200 font-medium'}`}
-                      >
-                        {division.name}
-                      </span>
-                      <span className="text-[11px] text-gray-300 dark:text-zinc-600 shrink-0">
-                        {headcountOfDivision(division.id)}
-                      </span>
-                    </button>
-                    {isOpen && (
-                      <div className="pb-1.5 ml-6 pl-3 border-l-2 border-gray-100 dark:border-zinc-700 space-y-0.5 min-w-0 overflow-hidden">
-                        {deptList.length === 0 && (
-                          <p className="pr-3 py-1 text-[11px] text-gray-300 dark:text-zinc-600">
-                            등록된 부서가 없어요.
-                          </p>
-                        )}
-                        {deptList.map((department) => {
-                          const isDeptSelected =
-                            selected?.type === 'department' && selected.id === department.id
-                          const deptTeams = teamsInDept(department.id).filter(
-                            (t) =>
-                              !searchTerm || matchesTerm(t.name) || matchesTerm(department.name)
-                          )
-                          const isDeptOpen =
-                            deptTeams.length > 0 &&
-                            (expandedDept.has(department.id) || !!searchTerm)
-                          return (
-                            <div key={department.id}>
-                              <button
-                                onClick={() => handleDepartmentRowClick(department.id)}
-                                className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-[13px] min-w-0 ${isDeptSelected ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-500 dark:text-zinc-400 hover:bg-gray-50 dark:hover:bg-zinc-700/50'}`}
-                              >
-                                {deptTeams.length > 0 && (
-                                  <span className="text-gray-500 dark:text-zinc-400 text-[11px] w-3.5 shrink-0">
-                                    {isDeptOpen ? '▾' : '▸'}
-                                  </span>
-                                )}
-                                <span className="flex-1 min-w-0 truncate">{department.name}</span>
-                                <span className="text-[11px] text-gray-300 dark:text-zinc-600 shrink-0">
-                                  {headcountOfDept(department.id)}
-                                </span>
-                              </button>
-                              {isDeptOpen && (
-                                <div className="ml-3 pl-3 border-l-2 border-gray-50 dark:border-zinc-800 space-y-0.5 min-w-0 overflow-hidden">
-                                  {deptTeams.map((team) => {
-                                    const isTeamSelected =
-                                      selected?.type === 'team' && selected.id === team.id
-                                    return (
-                                      <button
-                                        key={team.id}
-                                        onClick={() => selectTeam(team.id)}
-                                        className={`w-full flex items-center gap-2 px-2 py-1 rounded-lg text-left text-[12px] min-w-0 ${isTeamSelected ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-500 dark:text-zinc-400 hover:bg-gray-50 dark:hover:bg-zinc-700/50'}`}
-                                      >
-                                        <span className="flex-1 min-w-0 truncate">{team.name}</span>
-                                        <span className="text-gray-300 dark:text-zinc-600 shrink-0">
-                                          {membersOfTeam(team.id).length}
-                                        </span>
-                                      </button>
-                                    )
-                                  })}
+                    const isSelected = selected?.type === 'division' && selected.id === division.id
+                    // 부문 이름이 검색어와 맞으면 하위 부서를 모두 보여준다 (부서 → 팀 단계와 같은 규칙).
+                    const deptList = departmentsOfDivision(division.id).filter(
+                      (d) => !searchTerm || matchesTerm(division.name) || departmentMatchesSearch(d)
+                    )
+                    const hasDepts = deptList.length > 0
+                    const isOpen = hasDepts && (expandedDiv.has(division.id) || !!searchTerm)
+                    return (
+                      <div key={division.id} className="mx-1">
+                        <TreeRow
+                          level={0}
+                          label={division.name}
+                          count={headcountOfDivision(division.id)}
+                          selected={isSelected}
+                          hasChildren={hasDepts}
+                          open={isOpen}
+                          onClick={() => handleDivisionRowClick(division.id)}
+                        />
+                        {isOpen && (
+                          <div className={TREE_CHILDREN_CLASS}>
+                            {deptList.map((department) => {
+                              const isDeptSelected =
+                                selected?.type === 'department' && selected.id === department.id
+                              const deptTeams = teamsInDept(department.id).filter(
+                                (t) =>
+                                  !searchTerm || matchesTerm(t.name) || matchesTerm(department.name)
+                              )
+                              const hasTeams = deptTeams.length > 0
+                              const isDeptOpen =
+                                hasTeams && (expandedDept.has(department.id) || !!searchTerm)
+                              return (
+                                <div key={department.id}>
+                                  <TreeRow
+                                    level={1}
+                                    label={department.name}
+                                    count={headcountOfDept(department.id)}
+                                    selected={isDeptSelected}
+                                    hasChildren={hasTeams}
+                                    open={isDeptOpen}
+                                    onClick={() => handleDepartmentRowClick(department.id)}
+                                  />
+                                  {isDeptOpen && (
+                                    <div className={TREE_CHILDREN_CLASS}>
+                                      {deptTeams.map((team) => (
+                                        <TreeRow
+                                          key={team.id}
+                                          level={2}
+                                          label={team.name}
+                                          count={membersOfTeam(team.id).length}
+                                          selected={selected?.type === 'team' && selected.id === team.id}
+                                          hasChildren={false}
+                                          open={false}
+                                          onClick={() => selectTeam(team.id)}
+                                        />
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                          )
-                        })}
+                              )
+                            })}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                )
-              })}
+                    )
+                  })}
               {visibleDivisions.length === 0 && (
                 <p className="px-4 py-6 text-center text-xs text-gray-300 dark:text-zinc-600">
                   검색 결과가 없어요.
@@ -2618,32 +2620,18 @@ export default function OrgPage() {
               )}
 
               <div className="mt-3 pt-3 mx-1 border-t border-gray-100 dark:border-zinc-700">
-                <button
+                <TreeRow
+                  level={0}
+                  label="미지정 인원"
+                  count={unassignedProfiles.length > 0 ? unassignedProfiles.length : undefined}
+                  selected={selected?.type === 'unassigned'}
+                  hasChildren={false}
+                  open={false}
                   onClick={() => {
                     setSelected({ type: 'unassigned' })
                     setMenuOpenId(null)
                   }}
-                  className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-left min-w-0 ${
-                    selected?.type === 'unassigned'
-                      ? 'bg-blue-50 dark:bg-blue-500/10'
-                      : 'hover:bg-gray-50 dark:hover:bg-zinc-700/50'
-                  }`}
-                >
-                  <span
-                    className={`flex-1 min-w-0 truncate text-sm ${
-                      selected?.type === 'unassigned'
-                        ? 'text-blue-600 dark:text-blue-400 font-semibold'
-                        : 'text-gray-700 dark:text-zinc-200 font-medium'
-                    }`}
-                  >
-                    미지정 인원
-                  </span>
-                  {unassignedProfiles.length > 0 && (
-                    <span className="text-xs text-gray-300 dark:text-zinc-600 shrink-0">
-                      {unassignedProfiles.length}
-                    </span>
-                  )}
-                </button>
+                />
               </div>
             </div>
             {hasTopAccess && !reorder && (
@@ -2924,6 +2912,82 @@ export default function OrgPage() {
         onConfirm={() => pendingConfirm?.onConfirm()}
       />
     </div>
+  )
+}
+
+// 사이드바 조직 트리(부문 → 부서 → 팀)의 한 행. 세 단계가 모두 이 컴포넌트를 써서
+// "화살표 자리 · 이름 · 인원수" 구조와 들여쓰기 간격이 단계와 무관하게 똑같다.
+// - 화살표 칸은 하위 항목이 없어도 같은 폭을 차지한다 (형제끼리 이름 위치가 어긋나지 않도록).
+// - 단계별로 달라지는 건 글자 크기/굵기/세로 여백뿐이다.
+type TreeLevel = 0 | 1 | 2
+const TREE_LEVEL_STYLE: Record<
+  TreeLevel,
+  { row: string; text: string; idle: string; selected: string }
+> = {
+  0: {
+    row: 'py-2.5',
+    text: 'text-sm',
+    idle: 'text-gray-700 dark:text-zinc-200 font-medium',
+    selected: 'text-blue-600 dark:text-blue-400 font-semibold',
+  },
+  1: {
+    row: 'py-1.5',
+    text: 'text-[13px]',
+    idle: 'text-gray-500 dark:text-zinc-400',
+    selected: 'text-blue-600 dark:text-blue-400 font-medium',
+  },
+  2: {
+    row: 'py-1',
+    text: 'text-[12px]',
+    idle: 'text-gray-500 dark:text-zinc-400',
+    selected: 'text-blue-600 dark:text-blue-400 font-medium',
+  },
+}
+// 하위 목록 컨테이너: 안내선이 부모 행의 화살표 칸 중앙 아래에 오고, 자식 행의 화살표가
+// 부모 이름 시작 위치와 맞물리도록 모든 단계에서 같은 값을 쓴다.
+const TREE_CHILDREN_CLASS =
+  'ml-[15px] pl-1 mt-0.5 mb-1 border-l-2 border-gray-100 dark:border-zinc-700 space-y-0.5 min-w-0 overflow-hidden'
+
+function TreeRow({
+  level,
+  label,
+  count,
+  selected,
+  hasChildren,
+  open,
+  onClick,
+}: {
+  level: TreeLevel
+  label: string
+  count?: number
+  selected: boolean
+  hasChildren: boolean
+  open: boolean
+  onClick: () => void
+}) {
+  const style = TREE_LEVEL_STYLE[level]
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-1 px-2 rounded-lg text-left min-w-0 ${style.row} ${
+        selected ? 'bg-blue-50 dark:bg-blue-500/10' : 'hover:bg-gray-50 dark:hover:bg-zinc-700/50'
+      }`}
+    >
+      <span
+        className="w-4 shrink-0 text-center text-[11px] text-gray-500 dark:text-zinc-400"
+        aria-hidden
+      >
+        {hasChildren ? (open ? '▾' : '▸') : ''}
+      </span>
+      <span
+        className={`flex-1 min-w-0 truncate ${style.text} ${selected ? style.selected : style.idle}`}
+      >
+        {label}
+      </span>
+      {count !== undefined && (
+        <span className="text-[11px] text-gray-300 dark:text-zinc-600 shrink-0">{count}</span>
+      )}
+    </button>
   )
 }
 

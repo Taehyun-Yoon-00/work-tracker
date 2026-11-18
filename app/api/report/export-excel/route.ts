@@ -5,7 +5,18 @@ import Holidays from 'date-holidays'
 import { getSessionUser } from '@/app/lib/apiAuth'
 import { supabaseAdmin } from '@/app/lib/supabaseAdmin'
 import { getSettlementPeriod } from '@/app/lib/dates'
-import { displayName } from '@/app/lib/labels'
+import { reportFileNameLabel, reportInsideName } from '@/app/lib/labels'
+import {
+  colLetter,
+  setCellNumber,
+  setCellString,
+  setFormulaCachedValue,
+  setFormulaCachedString,
+  getCellCachedNumber,
+  enableWorkbookRecalculation,
+  excelSerial,
+  excelWeekday,
+} from '@/app/lib/xlsxXml'
 
 // date-holidays 인스턴스 생성 비용이 있어 모듈 단위로 한 번만 만든다.
 // (app/lib/holidays.ts와 같은 규칙이지만, 그 파일은 브라우저 supabase 클라이언트를 물고 있어
@@ -54,107 +65,6 @@ function matterKey(m: MatterMeta): string {
 // 잃어버려서("복구했습니다" 경고) 파일이 손상된 것처럼 보인다. 그래서 exceljs 대신 zip을 열어
 // 우리가 실제로 채워야 하는 셀만 XML 텍스트 수준에서 직접 고치고, 나머지는 그대로 둔다. ──
 
-function colLetter(col: number): string {
-  let s = ''
-  let n = col
-  while (n > 0) {
-    const rem = (n - 1) % 26
-    s = String.fromCharCode(65 + rem) + s
-    n = Math.floor((n - 1) / 26)
-  }
-  return s
-}
-
-function escapeXml(str: string): string {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;')
-}
-
-function findCell(xml: string, ref: string): RegExpMatchArray | null {
-  const regex = new RegExp(`<c r="${ref}"([^>]*?)(/>|>([\\s\\S]*?)</c>)`)
-  return xml.match(regex)
-}
-
-/** 셀을 고정 숫자값으로 덮어쓴다(있던 수식이나 문자열 타입은 사라진다). 템플릿에 그 셀이
- * 아예 없으면(희소 셀) 건드리지 않고 그대로 둔다 — 이 양식은 우리가 쓰는 모든 셀이 빈 셀로라도
- * 미리 존재하므로 실제로는 항상 값이 채워진다. */
-function setCellNumber(xml: string, ref: string, value: number): string {
-  const m = findCell(xml, ref)
-  if (!m || m.index === undefined) return xml
-  const attrs = m[1].replace(/\st="[^"]*"/, '')
-  const replacement = `<c r="${ref}"${attrs}><v>${value}</v></c>`
-  return xml.slice(0, m.index) + replacement + xml.slice(m.index + m[0].length)
-}
-
-/** 셀을 문자열(inline string)로 덮어쓴다. */
-function setCellString(xml: string, ref: string, text: string): string {
-  const m = findCell(xml, ref)
-  if (!m || m.index === undefined) return xml
-  const attrs = m[1].replace(/\st="[^"]*"/, '')
-  const replacement = `<c r="${ref}"${attrs} t="inlineStr"><is><t xml:space="preserve">${escapeXml(
-    text
-  )}</t></is></c>`
-  return xml.slice(0, m.index) + replacement + xml.slice(m.index + m[0].length)
-}
-
-/** 수식(<f>)은 그대로 두고 캐시된 숫자 결과값(<v>)만 갱신한다. 기존 양식의 t="str"은
- * 제거해야 숫자 서식(통화 단위, 시간 표시, 정렬)이 보호된 보기에서도 즉시 적용된다. */
-function setFormulaCachedValue(xml: string, ref: string, cachedValue: number): string {
-  const regex = new RegExp(`<c r="${ref}"([^>]*)>([\\s\\S]*?)</c>`)
-  const m = xml.match(regex)
-  if (!m || m.index === undefined) return xml
-  const attrs = m[1].replace(/\st="[^"]*"/, '')
-  let inner = m[2]
-  inner = inner.replace(/<v[^>]*\/>|<v>[\s\S]*?<\/v>/, '')
-  inner += `<v>${cachedValue}</v>`
-  const replacement = `<c r="${ref}"${attrs}>${inner}</c>`
-  return xml.slice(0, m.index) + replacement + xml.slice(m.index + m[0].length)
-}
-
-/** 수식의 캐시된 문자열 결과값도 갱신한다. 청구안건의 필수 정보가 빠진 경우처럼
- * 수식 결과가 숫자가 아닐 수 있는 셀(AL열)에 사용한다. */
-function setFormulaCachedString(xml: string, ref: string, cachedValue: string): string {
-  const regex = new RegExp(`<c r="${ref}"([^>]*)>([\\s\\S]*?)</c>`)
-  const m = xml.match(regex)
-  if (!m || m.index === undefined) return xml
-  const attrs = m[1]
-  let inner = m[2]
-  inner = inner.replace(/<v[^>]*\/>|<v>[\s\S]*?<\/v>/, '')
-  inner += `<v>${escapeXml(cachedValue)}</v>`
-  const replacement = `<c r="${ref}"${attrs}>${inner}</c>`
-  return xml.slice(0, m.index) + replacement + xml.slice(m.index + m[0].length)
-}
-
-/** 템플릿에 이미 입력된 숫자(예: 시간당 단가, BS열 보정액)의 캐시값을 읽는다. */
-function getCellCachedNumber(xml: string, ref: string): number {
-  const m = findCell(xml, ref)
-  if (!m) return 0
-  const value = m[0].match(/<v>([\s\S]*?)<\/v>/)?.[1]
-  const numberValue = Number(value)
-  return Number.isFinite(numberValue) ? numberValue : 0
-}
-
-/** Excel이 계산을 허용하는 환경에서는 수식도 다시 계산하도록 지시한다. 보호된 보기처럼
- * 재계산이 보류되는 환경에서도 위의 캐시값이 즉시 표시되므로 두 경우 모두 처리된다. */
-function enableWorkbookRecalculation(xml: string): string {
-  const calcPr = '<calcPr calcMode="auto" fullCalcOnLoad="1" forceFullCalc="1" calcId="0"/>'
-  if (/<calcPr\b/.test(xml)) {
-    return xml.replace(/<calcPr\b[^>]*(?:\/>|>[\s\S]*?<\/calcPr>)/, calcPr)
-  }
-  return xml.replace('</workbook>', `${calcPr}</workbook>`)
-}
-
-function excelSerial(dateStr: string): number {
-  return dayjs(dateStr).diff(dayjs('1899-12-30'), 'day')
-}
-function excelWeekday(dateStr: string): number {
-  return dayjs(dateStr).day() + 1 // 일요일=1 ... 토요일=7 (WEEKDAY 기본값)
-}
-
 /** 근태 집계에서 "휴일"로 볼지 여부 — 주말 + 법정 공휴일 + 사내 대체공휴일.
  * app/lib/holidays.ts의 isHoliday()와 같은 규칙이다. */
 function isHolidayDate(dateStr: string, substituteHolidays: Set<string>): boolean {
@@ -179,6 +89,7 @@ export async function POST(req: NextRequest) {
   const { data: templateRow, error: templateError } = await supabaseAdmin
     .from('report_templates')
     .select('storage_path')
+    .eq('kind', 'support_list')
     .order('uploaded_at', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -203,13 +114,13 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // 2) 본인 프로필(AI4에 들어갈 이름)
+  // 2) 본인 프로필 — AI4(파일 내부 이름란)에는 한자, 파일명에는 이니셜이 들어간다.
   const { data: profile } = await supabaseAdmin
     .from('profiles')
-    .select('name, email')
+    .select('name, email, name_hanja, name_initial')
     .eq('id', user.id)
     .single()
-  const personName = displayName(profile, '이름 미설정')
+  const personName = reportInsideName(profile, '이름 미설정')
 
   // 3) 정산 기간(전월 16일 ~ 당월 15일) — 대시보드/리포트 화면과 같은 규칙(lib/dates.ts)
   const monthStart = dayjs(`${year}-${String(month).padStart(2, '0')}-01`)
@@ -479,8 +390,8 @@ export async function POST(req: NextRequest) {
 
   const yy = String(year).slice(-2)
   const mm = String(month).padStart(2, '0')
-  const nameSlug = (profile?.name || profile?.email || 'report').replace(/\s+/g, '')
-  const filename = `TRENGKR ${yy}年 ${mm}月 SUPPORT_LIST ${nameSlug}.xlsx`
+  const nameSlug = reportFileNameLabel(profile, 'report')
+  const filename = `TRENGKR ${yy}年 ${mm}月 SUPPORT LIST_${nameSlug}.xlsx`
 
   return new NextResponse(outBuffer as any, {
     status: 200,

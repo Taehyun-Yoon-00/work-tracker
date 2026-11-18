@@ -34,6 +34,23 @@ interface TemplateInfo {
   uploadedBy: string
 }
 
+// 출력 양식 종류. report_templates.kind / 출력 API와 1:1로 대응한다.
+type ExportKind = 'support_list' | 'attendance'
+
+const EXPORT_CONFIG: Record<ExportKind, { label: string; endpoint: string; defaultName: string }> = {
+  support_list: {
+    label: '서포트리스트',
+    endpoint: '/api/report/export-excel',
+    defaultName: '서포트리스트',
+  },
+  attendance: {
+    label: '근무관리표',
+    endpoint: '/api/report/export-attendance',
+    defaultName: '근무관리표',
+  },
+}
+const EXPORT_KINDS: ExportKind[] = ['support_list', 'attendance']
+
 export default function ReportPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
@@ -43,20 +60,25 @@ export default function ReportPage() {
   const [summary, setSummary] = useState<MatterSummary[]>([])
   const [loading, setLoading] = useState(false)
 
-  // 엑셀 출력(서포트리스트) 관련 상태
-  const [exporting, setExporting] = useState(false)
+  // 엑셀 출력(서포트리스트/근무관리표) 관련 상태 — 한 번에 하나만 출력한다.
+  const [exporting, setExporting] = useState<ExportKind | null>(null)
   const [exportMessage, setExportMessage] = useState('')
 
-  // 서포트리스트 양식 업로드는 총괄 관리자/마스터만 볼 수 있다.
+  // 출력 양식 업로드는 총괄 관리자/마스터만 볼 수 있다. (일반 사용자는 본인 데이터가 채워진 결과물만 받는다)
   const [canManageTemplate, setCanManageTemplate] = useState(false)
-  const [templateInfo, setTemplateInfo] = useState<TemplateInfo | null>(null)
-  const [uploadingTemplate, setUploadingTemplate] = useState(false)
-  const [templateMessage, setTemplateMessage] = useState('')
+  const [templateInfo, setTemplateInfo] = useState<Record<ExportKind, TemplateInfo | null>>({
+    support_list: null,
+    attendance: null,
+  })
+  const [uploadingTemplate, setUploadingTemplate] = useState<ExportKind | null>(null)
+  const [templateMessage, setTemplateMessage] = useState<{ kind: ExportKind; text: string } | null>(
+    null
+  )
 
-  const fetchTemplateInfo = async () => {
-    const res = await fetch('/api/admin/report-template')
+  const fetchTemplateInfo = async (kind: ExportKind) => {
+    const res = await fetch(`/api/admin/report-template?kind=${kind}`)
     const data = await res.json()
-    if (res.ok) setTemplateInfo(data.template)
+    if (res.ok) setTemplateInfo((prev) => ({ ...prev, [kind]: data.template }))
   }
 
   useEffect(() => {
@@ -70,38 +92,44 @@ export default function ReportPage() {
       }
       setUser(user)
 
-      // 총괄 관리자/마스터 여부 확인 — 서포트리스트 양식 업로드 카드 노출 여부에만 쓴다.
+      // 총괄 관리자/마스터 여부 확인 — 출력 양식 업로드 카드 노출 여부에만 쓴다.
+      // (실제 권한 검사는 /api/admin/report-template 라우트가 서버에서 다시 한다.)
       const [{ data: profileData }, { data: generalAdminRow }] = await Promise.all([
         supabase.from('profiles').select('is_master').eq('id', user.id).single(),
         supabase.from('general_admins').select('user_id').eq('user_id', user.id).maybeSingle(),
       ])
       const isAllowed = !!profileData?.is_master || !!generalAdminRow
       setCanManageTemplate(isAllowed)
-      if (isAllowed) fetchTemplateInfo()
+      if (isAllowed) EXPORT_KINDS.forEach(fetchTemplateInfo)
     }
     getUser()
   }, [])
 
-  const handleTemplateUpload = async (file: File) => {
-    setUploadingTemplate(true)
-    setTemplateMessage('')
+  const handleTemplateUpload = async (kind: ExportKind, file: File) => {
+    setUploadingTemplate(kind)
+    setTemplateMessage(null)
     const formData = new FormData()
     formData.append('file', file)
+    formData.append('kind', kind)
     const res = await fetch('/api/admin/report-template', { method: 'POST', body: formData })
     const data = await res.json()
     if (!res.ok || data.error) {
-      setTemplateMessage(data.error ? data.error : '업로드 실패: 알 수 없는 오류')
+      setTemplateMessage({
+        kind,
+        text: data.error ? data.error : '업로드 실패: 알 수 없는 오류',
+      })
     } else {
-      setTemplateMessage('서포트리스트 양식이 업로드됐어요!')
-      fetchTemplateInfo()
+      setTemplateMessage({ kind, text: `${EXPORT_CONFIG[kind].label} 양식이 업로드됐어요!` })
+      fetchTemplateInfo(kind)
     }
-    setUploadingTemplate(false)
+    setUploadingTemplate(null)
   }
 
-  const handleExport = async () => {
-    setExporting(true)
+  const handleExport = async (kind: ExportKind) => {
+    const config = EXPORT_CONFIG[kind]
+    setExporting(kind)
     setExportMessage('')
-    const res = await fetch('/api/report/export-excel', {
+    const res = await fetch(config.endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ year: targetYear, month: targetMonth }),
@@ -109,7 +137,7 @@ export default function ReportPage() {
     if (!res.ok) {
       const data = await res.json().catch(() => ({}))
       setExportMessage(data.error || '출력에 실패했어요.')
-      setExporting(false)
+      setExporting(null)
       return
     }
     const blob = await res.blob()
@@ -117,7 +145,7 @@ export default function ReportPage() {
     const match = disposition.match(/filename\*=UTF-8''([^;]+)/)
     const filename = match
       ? decodeURIComponent(match[1])
-      : `서포트리스트_${targetYear}_${targetMonth}.xlsx`
+      : `${config.defaultName}_${targetYear}_${targetMonth}.xlsx`
 
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -127,7 +155,7 @@ export default function ReportPage() {
     a.click()
     a.remove()
     URL.revokeObjectURL(url)
-    setExporting(false)
+    setExporting(null)
   }
 
   // 선택한 "당월"을 기준으로 전월 16일 ~ 당월 15일 범위를 계산.
@@ -185,12 +213,16 @@ export default function ReportPage() {
     setTargetMonth(next.month() + 1)
   }
 
+  // 연도 선택지: 5년 전 ~ 내년. 12월에서 다음 달(내년 1월)로 넘길 수 있고, 그때 select에 해당 연도가
+  // 없으면 상태는 바뀌었는데 화면에는 이전 연도가 남아 보이므로, 현재 선택된 연도는 항상 포함한다.
   const yearOptions = useMemo(() => {
     const nowYear = today.year()
+    const maxYear = Math.max(nowYear + 1, targetYear)
+    const minYear = Math.min(nowYear - 5, targetYear)
     const years: number[] = []
-    for (let y = nowYear; y >= nowYear - 5; y--) years.push(y)
+    for (let y = maxYear; y >= minYear; y--) years.push(y)
     return years
-  }, [today])
+  }, [today, targetYear])
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
@@ -246,52 +278,67 @@ export default function ReportPage() {
             {dayjs(periodStart).format('YYYY.MM.DD')} ~ {dayjs(periodEnd).format('YYYY.MM.DD')}
           </p>
 
-          {/* 서포트리스트(엑셀) 출력 — 총괄 관리자가 올려둔 양식에 이 기간 근무시간을 채워 넣는다 */}
-          <Button onClick={handleExport} disabled={exporting} fullWidth className="mt-3">
-            {exporting ? '서포트리스트 만드는 중...' : '서포트리스트 출력'}
-          </Button>
+          {/* 엑셀 출력 — 총괄 관리자가 올려둔 양식에 본인의 이 기간 기록을 채워 넣는다 */}
+          <div className="grid grid-cols-2 gap-2 mt-3">
+            {EXPORT_KINDS.map((kind) => (
+              <Button key={kind} onClick={() => handleExport(kind)} disabled={exporting !== null}>
+                {exporting === kind ? '만드는 중...' : `${EXPORT_CONFIG[kind].label} 출력`}
+              </Button>
+            ))}
+          </div>
           {exportMessage && (
             <p className="text-xs text-red-500 text-center mt-2">{exportMessage}</p>
           )}
         </div>
 
-        {/* 서포트리스트 양식 관리 (총괄 관리자/마스터 전용) */}
+        {/* 출력 양식 관리 (총괄 관리자/마스터 전용) */}
         {canManageTemplate && (
           <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 mb-4">
-            <h2 className="font-semibold mb-1 dark:text-white">서포트리스트 양식 관리</h2>
+            <h2 className="font-semibold mb-1 dark:text-white">출력 양식 관리</h2>
             <p className="text-xs text-gray-500 dark:text-zinc-400 mb-3">
-              서포트리스트 엑셀 양식(.xlsx)이에요. 
-              새로 업로드하면 그 다음 출력부터 바로 최신 양식이 적용돼요.
+              출력에 쓰는 엑셀 양식(.xlsx)이에요. 새로 업로드하면 그 다음 출력부터 바로 최신 양식이
+              적용돼요.
             </p>
-            {templateInfo ? (
-              <p className="text-xs text-gray-500 dark:text-zinc-400 mb-3">
-                현재 양식: <span className="font-medium">{templateInfo.filename}</span>
-                <br />
-                {dayjs(templateInfo.uploadedAt).format('YYYY.MM.DD HH:mm')} ·{' '}
-                {templateInfo.uploadedBy} 업로드
-              </p>
-            ) : (
-              <p className="text-xs text-gray-500 dark:text-zinc-400 mb-3">
-                아직 업로드된 양식이 없어요.
-              </p>
-            )}
-            <input
-              type="file"
-              accept=".xlsx"
-              disabled={uploadingTemplate}
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                if (file) handleTemplateUpload(file)
-                e.target.value = ''
-              }}
-              className="text-sm text-gray-600 dark:text-zinc-300"
-            />
-            {uploadingTemplate && (
-              <p className="text-xs text-gray-500 dark:text-zinc-400 mt-2">업로드 중...</p>
-            )}
-            {templateMessage && (
-              <p className="text-xs text-blue-500 mt-2">{templateMessage}</p>
-            )}
+            <div className="divide-y dark:divide-zinc-700">
+              {EXPORT_KINDS.map((kind) => {
+                const info = templateInfo[kind]
+                return (
+                  <div key={kind} className="py-3 first:pt-0 last:pb-0">
+                    <p className="text-sm font-medium dark:text-zinc-200 mb-1">
+                      {EXPORT_CONFIG[kind].label} 양식
+                    </p>
+                    {info ? (
+                      <p className="text-xs text-gray-500 dark:text-zinc-400 mb-2">
+                        현재 양식: <span className="font-medium">{info.filename}</span>
+                        <br />
+                        {dayjs(info.uploadedAt).format('YYYY.MM.DD HH:mm')} · {info.uploadedBy} 업로드
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-500 dark:text-zinc-400 mb-2">
+                        아직 업로드된 양식이 없어요.
+                      </p>
+                    )}
+                    <input
+                      type="file"
+                      accept=".xlsx"
+                      disabled={uploadingTemplate !== null}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) handleTemplateUpload(kind, file)
+                        e.target.value = ''
+                      }}
+                      className="text-sm text-gray-600 dark:text-zinc-300"
+                    />
+                    {uploadingTemplate === kind && (
+                      <p className="text-xs text-gray-500 dark:text-zinc-400 mt-2">업로드 중...</p>
+                    )}
+                    {templateMessage?.kind === kind && (
+                      <p className="text-xs text-blue-500 mt-2">{templateMessage.text}</p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </div>
         )}
 

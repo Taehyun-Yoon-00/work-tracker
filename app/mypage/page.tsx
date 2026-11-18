@@ -8,11 +8,19 @@ import ConfirmDialog from '../components/ui/ConfirmDialog'
 import SectionHeader from '../components/ui/SectionHeader'
 import Button from '../components/ui/Button'
 
+// 직급 선택지. 'custom'을 고르면 직접 입력 칸이 나타나고, 입력한 값이 그대로 position에 저장된다.
+const POSITION_PRESETS = ['사원', '선임', '책임', '수석'] as const
+const POSITION_CUSTOM = '__custom__'
+
 export default function MyPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
-  const [name, setName] = useState('')
-  const [position, setPosition] = useState('')
+  const [name, setName] = useState('') // 한글 (앱 화면에 표시되는 이름)
+  const [nameHanja, setNameHanja] = useState('') // 한자 (출력 파일 내부 이름란)
+  const [nameInitial, setNameInitial] = useState('') // 이니셜 (출력 파일명)
+  // 직급 select 값: '' (미선택) | 프리셋 | POSITION_CUSTOM. 직접 입력 값은 customPosition에 둔다.
+  const [positionChoice, setPositionChoice] = useState('')
+  const [customPosition, setCustomPosition] = useState('')
   const [totalVacation, setTotalVacation] = useState<number>(0)
   const [usedVacation, setUsedVacation] = useState<number>(0)
   const [loading, setLoading] = useState(false)
@@ -47,12 +55,23 @@ export default function MyPage() {
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase
       .from('profiles')
-      .select('name, position, total_vacation, is_master')
+      .select('name, name_hanja, name_initial, position, total_vacation, is_master')
       .eq('id', userId)
       .single()
     if (data) {
       setName(data.name || '')
-      setPosition(data.position || '')
+      setNameHanja(data.name_hanja || '')
+      setNameInitial(data.name_initial || '')
+      // 저장된 직급이 프리셋이면 그대로 선택하고, 그 밖의 값이면 '직접 입력'으로 열어 값을 채운다.
+      const savedPosition = (data.position || '').trim()
+      if (!savedPosition) {
+        setPositionChoice('')
+      } else if ((POSITION_PRESETS as readonly string[]).includes(savedPosition)) {
+        setPositionChoice(savedPosition)
+      } else {
+        setPositionChoice(POSITION_CUSTOM)
+        setCustomPosition(savedPosition)
+      }
       setTotalVacation(data.total_vacation || 0)
       if (data.is_master) setIsMaster(true)
     }
@@ -83,11 +102,23 @@ export default function MyPage() {
   }
 
   const handleSave = async () => {
+    const position = positionChoice === POSITION_CUSTOM ? customPosition.trim() : positionChoice
+    if (positionChoice === POSITION_CUSTOM && !position) {
+      setMessage('직급을 직접 입력해주세요.')
+      return
+    }
+
     setLoading(true)
     setMessage('')
     const { error } = await supabase
       .from('profiles')
-      .update({ name, position, total_vacation: totalVacation })
+      .update({
+        name: name.trim(),
+        name_hanja: nameHanja.trim() || null,
+        name_initial: nameInitial.trim() || null,
+        position: position || null,
+        total_vacation: totalVacation,
+      })
       .eq('id', user.id)
 
     if (error) setMessage('저장 실패: ' + error.message)
@@ -169,24 +200,67 @@ export default function MyPage() {
 
             <div className="mb-4">
               <label className="text-sm text-gray-500 dark:text-zinc-400">이름</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="이름을 입력해주세요"
-                className="w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
-              />
+              <div className="grid grid-cols-3 gap-2 mt-1">
+                <div className="min-w-0">
+                  <span className="text-xs text-gray-500 dark:text-zinc-400">한글</span>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="홍길동"
+                    className="w-full min-w-0 border rounded-lg px-3 py-2 mt-0.5 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-xs text-gray-500 dark:text-zinc-400">한자</span>
+                  <input
+                    type="text"
+                    value={nameHanja}
+                    onChange={(e) => setNameHanja(e.target.value)}
+                    placeholder="洪吉童"
+                    className="w-full min-w-0 border rounded-lg px-3 py-2 mt-0.5 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-xs text-gray-500 dark:text-zinc-400">이니셜</span>
+                  <input
+                    type="text"
+                    value={nameInitial}
+                    onChange={(e) => setNameInitial(e.target.value)}
+                    placeholder="HGD"
+                    className="w-full min-w-0 border rounded-lg px-3 py-2 mt-0.5 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1">
+                앱에는 한글, 출력 파일명에는 이니셜, 파일 안 이름란에는 한자가 쓰여요
+              </p>
             </div>
 
             <div className="mb-4">
               <label className="text-sm text-gray-500 dark:text-zinc-400">직급</label>
-              <input
-                type="text"
-                value={position}
-                onChange={(e) => setPosition(e.target.value)}
-                placeholder="직급을 입력해주세요"
+              <select
+                value={positionChoice}
+                onChange={(e) => setPositionChoice(e.target.value)}
                 className="w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
-              />
+              >
+                <option value="">선택 안 함</option>
+                {POSITION_PRESETS.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+                <option value={POSITION_CUSTOM}>직접 입력</option>
+              </select>
+              {positionChoice === POSITION_CUSTOM && (
+                <input
+                  type="text"
+                  value={customPosition}
+                  onChange={(e) => setCustomPosition(e.target.value)}
+                  placeholder="직급을 입력해주세요"
+                  className="w-full border rounded-lg px-3 py-2 mt-2 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
+                />
+              )}
             </div>
 
             <div className="mb-4">
