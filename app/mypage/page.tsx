@@ -76,10 +76,7 @@ export default function MyPage() {
       }
       setTotalVacation(data.total_vacation || 0)
       if (data.is_master) setIsMaster(true)
-<<<<<<< HEAD
-=======
       // 마스터(시스템 관리자)는 조직 구성원이 아니라서 이름을 강제하지 않는다.
->>>>>>> feature/UI_Refactoring
       setNeedsName(!data.is_master && !data.name?.trim())
     }
   }
@@ -109,33 +106,23 @@ export default function MyPage() {
   }
 
   const handleSave = async () => {
-<<<<<<< HEAD
-    // 이름은 필수다. 나머지 항목은 비워 둬도 저장된다.
-=======
     // 이름(한글)은 필수다. 나머지 항목은 비워 둬도 저장된다.
->>>>>>> feature/UI_Refactoring
     const trimmedName = name.trim()
     if (!trimmedName) {
       setMessage('이름을 입력해주세요.')
       return
     }
 
-<<<<<<< HEAD
-=======
     const position = positionChoice === POSITION_CUSTOM ? customPosition.trim() : positionChoice
     if (positionChoice === POSITION_CUSTOM && !position) {
       setMessage('직급을 직접 입력해주세요.')
       return
     }
 
->>>>>>> feature/UI_Refactoring
     setLoading(true)
     setMessage('')
     const { error } = await supabase
       .from('profiles')
-<<<<<<< HEAD
-      .update({ name: trimmedName, position, total_vacation: totalVacation })
-=======
       .update({
         name: trimmedName,
         name_hanja: nameHanja.trim() || null,
@@ -143,7 +130,6 @@ export default function MyPage() {
         position: position || null,
         total_vacation: totalVacation,
       })
->>>>>>> feature/UI_Refactoring
       .eq('id', user.id)
 
     if (error) {
@@ -244,18 +230,6 @@ export default function MyPage() {
             </div>
 
             <div className="mb-4">
-<<<<<<< HEAD
-              <label className="text-sm text-gray-500 dark:text-zinc-400">
-                이름 <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="이름을 입력해주세요"
-                className="w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
-              />
-=======
               <label className="text-sm text-gray-500 dark:text-zinc-400">이름</label>
               <div className="grid grid-cols-3 gap-2 mt-1">
                 <div className="min-w-0">
@@ -294,7 +268,6 @@ export default function MyPage() {
               <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1">
                 앱에는 한글, 출력 파일명에는 이니셜, 파일 안 이름란에는 한자가 쓰여요
               </p>
->>>>>>> feature/UI_Refactoring
             </div>
 
             <div className="mb-4">

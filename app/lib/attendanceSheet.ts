@@ -65,11 +65,8 @@ export interface BuildAttendanceInput {
   /** 당월(정산 종료월). 예: 2026년 11월 → 10/16 ~ 11/15 */
   year: number
   month: number
-<<<<<<< HEAD
-=======
   /** 姓名 옆에 들어갈 이름 (한자 이름) */
   personName?: string
->>>>>>> feature/UI_Refactoring
   logs: AttendanceLog[]
   vacations: AttendanceVacation[]
   /** 사내 대체공휴일 'YYYY-MM-DD' */
@@ -202,11 +199,7 @@ function addOverflowTimeStyle(stylesXml: string, baseId: number): { xml: string;
 }
 
 export async function buildAttendanceXlsx(input: BuildAttendanceInput): Promise<Buffer> {
-<<<<<<< HEAD
-  const { year, month, logs, vacations, substituteHolidays } = input
-=======
   const { year, month, logs, vacations, substituteHolidays, personName } = input
->>>>>>> feature/UI_Refactoring
   const mm = String(month).padStart(2, '0')
 
   const monthStart = dayjs(`${year}-${mm}-01`)
@@ -271,11 +264,7 @@ export async function buildAttendanceXlsx(input: BuildAttendanceInput): Promise<
   sheetXml = setCellString(
     sheetXml,
     'D6',
-<<<<<<< HEAD
-    `          ${year}年   ${mm}月度           勤務管理表                姓名    `
-=======
     `          ${year}年   ${mm}月度           勤務管理表                姓名    ${personName ?? ''}`
->>>>>>> feature/UI_Refactoring
   )
 
   // 스크롤바(양식 컨트롤)가 연결된 E2/E3/E4와 같은 값을 가리키게 맞춘다.

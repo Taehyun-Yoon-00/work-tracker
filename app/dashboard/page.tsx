@@ -778,11 +778,7 @@ export default function DashboardPage() {
                                 className="py-2 text-right dark:text-zinc-200 whitespace-nowrap"
                               >
                                 <div className="font-medium">{stat.total}h</div>
-<<<<<<< HEAD
-                                <div className="text-[10px] text-gray-400 dark:text-zinc-500">
-=======
                                 <div className="text-[11px] text-gray-500 dark:text-zinc-400">
->>>>>>> feature/UI_Refactoring
                                   (<span className="text-blue-500">{stat.weekday}h</span>
                                   <span> · </span>
                                   <span className="text-orange-500">{stat.holiday}h</span>)
@@ -808,11 +804,7 @@ export default function DashboardPage() {
                                     className="py-2 text-right dark:text-zinc-200 whitespace-nowrap"
                                   >
                                     <div className="font-medium">{stat.total}h</div>
-<<<<<<< HEAD
-                                    <div className="text-[10px] text-gray-400 dark:text-zinc-500">
-=======
                                     <div className="text-[11px] text-gray-500 dark:text-zinc-400">
->>>>>>> feature/UI_Refactoring
                                       (<span className="text-blue-500">{stat.weekday}h</span>
                                       <span> · </span>
                                       <span className="text-orange-500">{stat.holiday}h</span>)

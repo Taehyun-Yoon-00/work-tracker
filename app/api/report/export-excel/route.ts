@@ -5,11 +5,7 @@ import Holidays from 'date-holidays'
 import { getSessionUser } from '@/app/lib/apiAuth'
 import { supabaseAdmin } from '@/app/lib/supabaseAdmin'
 import { getSettlementPeriod } from '@/app/lib/dates'
-<<<<<<< HEAD
-import { displayName } from '@/app/lib/labels'
-=======
 import { reportFileNameLabel, reportInsideName } from '@/app/lib/labels'
->>>>>>> feature/UI_Refactoring
 import {
   colLetter,
   setCellNumber,
@@ -394,13 +390,8 @@ export async function POST(req: NextRequest) {
 
   const yy = String(year).slice(-2)
   const mm = String(month).padStart(2, '0')
-<<<<<<< HEAD
-  const nameSlug = (profile?.name || profile?.email || 'report').replace(/\s+/g, '')
-  const filename = `TRENGKR ${yy}年 ${mm}月 SUPPORT LIST ${nameSlug}.xlsx`
-=======
   const nameSlug = reportFileNameLabel(profile, 'report')
   const filename = `TRENGKR ${yy}年 ${mm}月 SUPPORT LIST_${nameSlug}.xlsx`
->>>>>>> feature/UI_Refactoring
 
   return new NextResponse(outBuffer as any, {
     status: 200,

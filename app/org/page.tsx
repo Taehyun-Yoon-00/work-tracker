@@ -387,13 +387,8 @@ export default function OrgPage() {
     )
   const directOfDept = (departmentId: string) =>
     directMembers.filter((m) => m.department_id === departmentId)
-<<<<<<< HEAD
-  // 부서 직속 구성원 "표시용" 목록: 저장된 순서(display_order)를 따르되 부서장은 항상 최상단.
-  // 구성원 탭/팀 구성원 목록과 같은 규칙(pinHeadFirst)이다. 부서장이 직속 소속 레코드에 없어도
-=======
   // 부서 직속 구성원 "표시용" 목록: 저장된 순서(display_order)를 따르되 부장은 항상 최상단.
   // 구성원 탭/팀 구성원 목록과 같은 규칙(pinHeadFirst)이다. 부장이 직속 소속 레코드에 없어도
->>>>>>> feature/UI_Refactoring
   // (자리만 있는 경우) 목록과 인원수에 포함해 구성원 탭과 어긋나지 않게 한다.
   const orderedDirectsOfDept = (department: DepartmentRow) => {
     const list = directOfDept(department.id)
@@ -1620,11 +1615,7 @@ export default function OrgPage() {
                           <span className="text-sm font-medium dark:text-white truncate">
                             {headEntry.name}
                           </span>
-<<<<<<< HEAD
-                          <span className="text-[11px] text-blue-500 shrink-0">부서장</span>
-=======
                           <span className="text-[11px] text-blue-500 shrink-0">부장</span>
->>>>>>> feature/UI_Refactoring
                         </div>
                         <MemberActionMenu
                           rowKey={`div-direct-${department.id}-${headEntry.user_id}`}
@@ -1808,11 +1799,7 @@ export default function OrgPage() {
     const canManageThisDivision = canManageDivision(user.id, division.id, divisions, hasTopAccess)
     const deptTeams = teamsInDept(department.id)
     const directs = directOfDept(department.id)
-<<<<<<< HEAD
-    // 구조 탭의 "부서 직속" 펼침 목록 전용 — 부서장 최상단 + 저장된 순서 반영
-=======
     // 구조 탭의 "부서 직속" 펼침 목록 전용 — 부장 최상단 + 저장된 순서 반영
->>>>>>> feature/UI_Refactoring
     const directsOrdered = orderedDirectsOfDept(department)
     const delegates = approversOfDept(department.id)
     const isReorderingTeams = reorder?.kind === 'teams' && reorder.departmentId === department.id
@@ -1989,11 +1976,7 @@ export default function OrgPage() {
                           >
                             <span>{d.name}</span>
                             {d.user_id === department.head_user_id && (
-<<<<<<< HEAD
-                              <span className="text-[11px] text-blue-500">부서장</span>
-=======
                               <span className="text-[11px] text-blue-500">부장</span>
->>>>>>> feature/UI_Refactoring
                             )}
                           </div>
                         )
@@ -2131,11 +2114,7 @@ export default function OrgPage() {
                         >
                           {d.name}
                         </span>
-<<<<<<< HEAD
-                        {isHead && <span className="text-[11px] text-blue-500 shrink-0">부서장</span>}
-=======
                         {isHead && <span className="text-[11px] text-blue-500 shrink-0">부장</span>}
->>>>>>> feature/UI_Refactoring
                       </div>
                       {!isReorderingMembers && (
                         <MemberActionMenu
