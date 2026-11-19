@@ -22,17 +22,18 @@ import {
 } from '../lib/dashboardStats'
 import OrgScopeSelect, { OrgScopeOption } from '../components/ui/OrgScopeSelect'
 import SectionHeader from '../components/ui/SectionHeader'
+import SegmentedControl from '../components/ui/SegmentedControl'
 import UnitStatBarRow from '../components/ui/UnitStatBarRow'
 
 // 대시보드 조회 범위 (req 6).
 // - team: 팀장(team_members.role='admin') 기본 범위. 팀 하나.
-// - department: 부서장 기본 범위. 이 부서(부서 직속 + 산하 모든 팀).
+// - department: 부장 기본 범위. 이 부서(부서 직속 + 산하 모든 팀).
 // - division: 부문장 기본 범위. 이 부문(산하 모든 부서).
 // - company: 총괄 관리자/마스터 기본 범위. 회사 전체.
 //
 // 역할별로 선택 가능한 옵션(조직 단위 콤보박스 하나에 모두 담긴다):
 //   팀장            → 본인이 팀장인 팀들
-//   부서장          → 부서 전체 + 그 산하 팀들
+//   부장          → 부서 전체 + 그 산하 팀들
 //   부문장          → 부문 전체 + 그 산하 부서들
 //   총괄 관리자     → 회사 전체 + 산하 부문들
 //   마스터(시스템)  → 회사 전체 + 전체 부문 · 부서 · 팀 트리
@@ -142,7 +143,7 @@ export default function DashboardPage() {
       // "그 조직 전체"를 의미하므로 별도의 "전체" 표시는 회사 최상위 옵션에만 붙인다.
       //
       // 한 사람이 여러 조직장을 겸임할 수 있으므로(예: 부문장이면서 동시에 다른 부서의
-      // 부서장), 역할별 옵션을 배타적으로 고르지 않고 해당되는 역할을 모두 합쳐서 보여준다.
+      // 부장), 역할별 옵션을 배타적으로 고르지 않고 해당되는 역할을 모두 합쳐서 보여준다.
       // 마스터는 이미 전체 트리를 보므로 예외적으로 다른 역할과 합치지 않는다.
       const opts: OrgScopeOption[] = []
       const seen = new Set<string>()
@@ -230,7 +231,7 @@ export default function DashboardPage() {
         }
 
         if ((headDepts?.length ?? 0) > 0) {
-          // 부서장: 부서 전체 + 그 산하 팀들
+          // 부장: 부서 전체 + 그 산하 팀들
           for (const dept of headDepts || []) {
             const divName = (dept as any).divisions?.name
             const deptLabel = divName ? `${divName} > ${dept.name}` : dept.name
@@ -531,30 +532,17 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            <div className="inline-flex shrink-0 rounded-lg border border-gray-200 dark:border-zinc-600 overflow-hidden">
-              <button
-                onClick={() => setPeriodMode('calendar')}
-                className={`px-2.5 py-1.5 text-xs font-medium whitespace-nowrap transition ${
-                  periodMode === 'calendar'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-white dark:bg-zinc-700 text-gray-500 dark:text-zinc-300'
-                }`}
-              >
-                1~말일
-              </button>
-              <button
-                onClick={() => setPeriodMode('settlement')}
-                className={`px-2.5 py-1.5 text-xs font-medium whitespace-nowrap transition ${
-                  periodMode === 'settlement'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-white dark:bg-zinc-700 text-gray-500 dark:text-zinc-300'
-                }`}
-              >
-                16~15일
-              </button>
-            </div>
+            <SegmentedControl
+              className="shrink-0"
+              value={periodMode}
+              onChange={setPeriodMode}
+              options={[
+                { value: 'calendar' as const, label: '1~말일' },
+                { value: 'settlement' as const, label: '16~15일' },
+              ]}
+            />
           </div>
-          <p className="text-right text-[11px] text-gray-400 dark:text-zinc-500 mt-1 pr-2">
+          <p className="text-right text-[11px] text-gray-500 dark:text-zinc-400 mt-1 pr-2">
             {periodMode === 'calendar'
               ? `${dayjs(periodStart).format('M/D')} ~ ${dayjs(periodEnd).format('M/D')}`
               : `${dayjs(periodStart).format('YY.M/D')} ~ ${dayjs(periodEnd).format('M/D')}`}
@@ -565,25 +553,25 @@ export default function DashboardPage() {
            (요구사항 2~5, 7: 상세 단위와는 분리된 값). 항목마다 독립된 카드로 나누지 않고
            총 근무시간을 중심 지표로, 인원/평일/휴일을 보조 지표 행으로 배치한다. */}
         <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 mb-4">
-          <p className="text-xs text-gray-400 dark:text-zinc-500 mb-1">총 근무시간</p>
+          <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">총 근무시간</p>
           <p className="text-2xl font-semibold dark:text-white mb-4">
             {(totalStats?.totalHours ?? 0).toLocaleString()}h
           </p>
           <div className="grid grid-cols-3 divide-x divide-gray-100 dark:divide-zinc-700 border-t border-gray-100 dark:border-zinc-700 pt-3">
             <div className="text-center">
-              <p className="text-xs text-gray-400 dark:text-zinc-500 mb-1">인원</p>
+              <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">인원</p>
               <p className="text-sm font-semibold dark:text-white">
                 {(totalStats?.memberCount ?? 0)}명
               </p>
             </div>
             <div className="text-center">
-              <p className="text-xs text-gray-400 dark:text-zinc-500 mb-1">평일 근무</p>
+              <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">평일 근무</p>
               <p className="text-sm font-semibold text-blue-500">
                 {(totalStats?.weekdayHours ?? 0).toLocaleString()}h
               </p>
             </div>
             <div className="text-center">
-              <p className="text-xs text-gray-400 dark:text-zinc-500 mb-1">휴일 근무</p>
+              <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1">휴일 근무</p>
               <p className="text-sm font-semibold text-orange-500">
                 {(totalStats?.holidayHours ?? 0).toLocaleString()}h
               </p>
@@ -592,7 +580,7 @@ export default function DashboardPage() {
         </div>
 
         {loadingStats ? (
-          <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 mb-4 text-center text-sm text-gray-400 dark:text-zinc-500">
+          <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 mb-4 text-center text-sm text-gray-500 dark:text-zinc-400">
             불러오는 중...
           </div>
         ) : (
@@ -603,7 +591,7 @@ export default function DashboardPage() {
                 <h3 className="font-semibold dark:text-white">
                   {DETAIL_UNIT_NOUN[unitLevel]}별 근무시간
                 </h3>
-                <span className="flex items-center gap-3 text-[11px] text-gray-400 dark:text-zinc-500">
+                <span className="flex items-center gap-3 text-[11px] text-gray-500 dark:text-zinc-400">
                   <span className="flex items-center gap-1">
                     <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
                     평일
@@ -615,7 +603,7 @@ export default function DashboardPage() {
                 </span>
               </div>
               {detailStatRows.length === 0 ? (
-                <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-4">
+                <p className="text-sm text-gray-500 dark:text-zinc-400 text-center py-4">
                   표시할 데이터가 없어요.
                 </p>
               ) : (
@@ -722,7 +710,7 @@ export default function DashboardPage() {
                 <h3 className="font-semibold dark:text-white">
                   {WEEKLY_UNIT_NOUN[unitLevel]}별 주차별 근무시간
                 </h3>
-                <span className="flex items-center gap-3 text-[11px] text-gray-400 dark:text-zinc-500">
+                <span className="flex items-center gap-3 text-[11px] text-gray-500 dark:text-zinc-400">
                   <span className="flex items-center gap-1">
                     <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
                     평일
@@ -734,13 +722,13 @@ export default function DashboardPage() {
                 </span>
               </div>
               {weeklyStatRows.length === 0 ? (
-                <p className="text-sm text-gray-400 dark:text-zinc-500 text-center py-4">
+                <p className="text-sm text-gray-500 dark:text-zinc-400 text-center py-4">
                   표시할 데이터가 없어요.
                 </p>
               ) : (
                 <table className="w-full text-sm min-w-[420px]">
                   <thead>
-                    <tr className="border-b dark:border-zinc-700 text-gray-400 dark:text-zinc-500">
+                    <tr className="border-b dark:border-zinc-700 text-gray-500 dark:text-zinc-400">
                       <th className="py-2 text-left font-medium">{UNIT_NAME_HEADER[unitLevel]}</th>
                       {weeks.map((w) => (
                         <th key={w.start} className="py-2 text-right font-medium whitespace-nowrap">
@@ -790,7 +778,11 @@ export default function DashboardPage() {
                                 className="py-2 text-right dark:text-zinc-200 whitespace-nowrap"
                               >
                                 <div className="font-medium">{stat.total}h</div>
+<<<<<<< HEAD
                                 <div className="text-[10px] text-gray-400 dark:text-zinc-500">
+=======
+                                <div className="text-[11px] text-gray-500 dark:text-zinc-400">
+>>>>>>> feature/UI_Refactoring
                                   (<span className="text-blue-500">{stat.weekday}h</span>
                                   <span> · </span>
                                   <span className="text-orange-500">{stat.holiday}h</span>)
@@ -816,7 +808,11 @@ export default function DashboardPage() {
                                     className="py-2 text-right dark:text-zinc-200 whitespace-nowrap"
                                   >
                                     <div className="font-medium">{stat.total}h</div>
+<<<<<<< HEAD
                                     <div className="text-[10px] text-gray-400 dark:text-zinc-500">
+=======
+                                    <div className="text-[11px] text-gray-500 dark:text-zinc-400">
+>>>>>>> feature/UI_Refactoring
                                       (<span className="text-blue-500">{stat.weekday}h</span>
                                       <span> · </span>
                                       <span className="text-orange-500">{stat.holiday}h</span>)

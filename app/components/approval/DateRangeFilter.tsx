@@ -5,6 +5,7 @@ import { Calendar, DateObject } from 'react-multi-date-picker'
 import dayjs from 'dayjs'
 import { CalendarDays } from 'lucide-react'
 import { weekendClassName } from '@/app/lib/dates'
+import Button from '../ui/Button'
 
 interface DateRangeFilterProps {
   startDate: string // YYYY-MM-DD
@@ -67,19 +68,12 @@ export default function DateRangeFilter({ startDate, endDate, onApply }: DateRan
               className="!shadow-none"
             />
             <div className="flex gap-2 mt-4">
-              <button
-                onClick={() => setOpen(false)}
-                className="flex-1 bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300 py-2 rounded-lg text-sm"
-              >
+              <Button variant="secondary" className="flex-1" onClick={() => setOpen(false)}>
                 취소
-              </button>
-              <button
-                onClick={handleApply}
-                disabled={range.length < 2}
-                className="flex-1 bg-blue-500 text-white py-2 rounded-lg text-sm disabled:opacity-50"
-              >
+              </Button>
+              <Button className="flex-1" onClick={handleApply} disabled={range.length < 2}>
                 적용
-              </button>
+              </Button>
             </div>
           </div>
         </div>

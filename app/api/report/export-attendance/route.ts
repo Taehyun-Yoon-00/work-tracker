@@ -3,7 +3,11 @@ import dayjs from 'dayjs'
 import { getSessionUser } from '@/app/lib/apiAuth'
 import { supabaseAdmin } from '@/app/lib/supabaseAdmin'
 import { getSettlementPeriod } from '@/app/lib/dates'
+<<<<<<< HEAD
 import { displayName } from '@/app/lib/labels'
+=======
+import { reportFileNameLabel, reportInsideName } from '@/app/lib/labels'
+>>>>>>> feature/UI_Refactoring
 import { AttendanceTemplateError, buildAttendanceXlsx } from '@/app/lib/attendanceSheet'
 
 export const runtime = 'nodejs'
@@ -56,6 +60,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
+<<<<<<< HEAD
   // 2) 본인 프로필(파일명에 들어갈 이름)
   const { data: profile } = await supabaseAdmin
     .from('profiles')
@@ -63,6 +68,16 @@ export async function POST(req: NextRequest) {
     .eq('id', user.id)
     .single()
   const personName = displayName(profile, '이름미설정')
+=======
+  // 2) 본인 프로필 — 파일명에는 이니셜, 파일 내부 이름란(姓名)에는 한자가 들어간다.
+  const { data: profile } = await supabaseAdmin
+    .from('profiles')
+    .select('name, email, name_hanja, name_initial')
+    .eq('id', user.id)
+    .single()
+  const fileNameLabel = reportFileNameLabel(profile, '이름미설정')
+  const insideName = reportInsideName(profile, '이름 미설정')
+>>>>>>> feature/UI_Refactoring
 
   // 3) 정산 기간(전월 16일 ~ 당월 15일) — 리포트 화면/서포트리스트와 같은 규칙
   const monthStart = dayjs(`${year}-${String(month).padStart(2, '0')}-01`)
@@ -103,6 +118,10 @@ export async function POST(req: NextRequest) {
       template: await fileBlob.arrayBuffer(),
       year,
       month,
+<<<<<<< HEAD
+=======
+      personName: insideName,
+>>>>>>> feature/UI_Refactoring
       logs: logsRes.data ?? [],
       vacations: vacationsRes.data ?? [],
       substituteHolidays: new Set((holidaysRes.data ?? []).map((h: { date: string }) => h.date)),
@@ -117,8 +136,12 @@ export async function POST(req: NextRequest) {
   // 파일명: TRENGKR YY年 MM月 勤務管理表_이름
   const yy = String(year).slice(-2)
   const mm = String(month).padStart(2, '0')
+<<<<<<< HEAD
   const nameSlug = personName.replace(/[\s\\/:*?"<>|]+/g, '')
   const filename = `TRENGKR ${yy}年 ${mm}月 勤務管理表_${nameSlug}.xlsx`
+=======
+  const filename = `TRENGKR ${yy}年 ${mm}月 勤務管理表_${fileNameLabel}.xlsx`
+>>>>>>> feature/UI_Refactoring
 
   return new NextResponse(out as any, {
     status: 200,

@@ -387,8 +387,13 @@ export default function OrgPage() {
     )
   const directOfDept = (departmentId: string) =>
     directMembers.filter((m) => m.department_id === departmentId)
+<<<<<<< HEAD
   // 부서 직속 구성원 "표시용" 목록: 저장된 순서(display_order)를 따르되 부서장은 항상 최상단.
   // 구성원 탭/팀 구성원 목록과 같은 규칙(pinHeadFirst)이다. 부서장이 직속 소속 레코드에 없어도
+=======
+  // 부서 직속 구성원 "표시용" 목록: 저장된 순서(display_order)를 따르되 부장은 항상 최상단.
+  // 구성원 탭/팀 구성원 목록과 같은 규칙(pinHeadFirst)이다. 부장이 직속 소속 레코드에 없어도
+>>>>>>> feature/UI_Refactoring
   // (자리만 있는 경우) 목록과 인원수에 포함해 구성원 탭과 어긋나지 않게 한다.
   const orderedDirectsOfDept = (department: DepartmentRow) => {
     const list = directOfDept(department.id)
@@ -416,7 +421,7 @@ export default function OrgPage() {
     departments.filter((d) => d.division_id === divisionId)
 
   // 부서/부문 인원수는 "고유 인원" 기준으로 센다.
-  // - 팀장/부서장/부문장을 겸임해도 한 명은 한 번만 카운트한다 (Set으로 중복 제거)
+  // - 팀장/부장/부문장을 겸임해도 한 명은 한 번만 카운트한다 (Set으로 중복 제거)
   // - 부문장은 하위 부서/팀에 소속되어 있지 않아도 그 부문의 인원수에 포함된다
   const memberIdsOfDept = (departmentId: string): Set<string> => {
     const ids = new Set<string>()
@@ -441,7 +446,7 @@ export default function OrgPage() {
 
   // ---------- 조직장 임명 후보 ----------
   // 부문장을 임명하는 총괄 관리자/마스터는 이미 조직 전체에 대한 권한을 가지므로
-  // 후보 제한이 필요 없다. 하지만 그 아래(부문장이 부서장을, 부서장이 팀장을 임명)로
+  // 후보 제한이 필요 없다. 하지만 그 아래(부문장이 부장을, 부장이 팀장을 임명)로
   // 내려가면 "자신의 권한이 미치는 인원(해당 부문/부서 소속) + 미지정 인원"만 후보로
   // 노출해서, 다른 부문·부서 소속 인원을 함부로 데려오지 못하게 한다.
   const candidatesForDivision = (divisionId: string): ProfileOption[] => {
@@ -455,8 +460,8 @@ export default function OrgPage() {
 
   // ---------- 미지정 인원 ----------
   // 어느 팀에도, 어느 부서에도(직접 소속으로도) 속하지 않은 사람 = 미지정 인원.
-  // 단, 부문장/부서장은 조직의 장으로 임명된 것 자체로 소속이 인정되므로
-  // (부문장은 애초에 부서/팀에 소속될 필요가 없고, 부서장은 임명 시 자동으로
+  // 단, 부문장/부장은 조직의 장으로 임명된 것 자체로 소속이 인정되므로
+  // (부문장은 애초에 부서/팀에 소속될 필요가 없고, 부장은 임명 시 자동으로
   // 해당 부서에 소속 처리된다) 미지정 인원 목록에서 제외한다.
   const unassignedProfiles = allProfiles.filter(
     (p) =>
@@ -469,7 +474,7 @@ export default function OrgPage() {
   // 이 사람이 배정 권한을 행사할 수 있는 부서 목록.
   // - 마스터: 전체 부서
   // - 부문장: 자신의 부문에 속한 모든 부서
-  // - 부서장: 자신의 부서만
+  // - 부장: 자신의 부서만
   // (canManageDepartment가 위 두 조건을 이미 포함해서 판별해준다)
   // 조직 관리 권한 트랙의 최상위 접근 여부 (시스템 관리자 또는 총괄 관리자)
   const hasTopAccess = hasTopOrgAccess(isMaster, isGeneralAdmin)
@@ -686,7 +691,7 @@ export default function OrgPage() {
     }
 
     if (modal.kind === 'assignDepartmentHead') {
-      // 교체되기 전의 부서장을 먼저 기억해둔다 (아래에서 그 사람의 겸임 잔여 소속을 정리하기 위함).
+      // 교체되기 전의 부장을 먼저 기억해둔다 (아래에서 그 사람의 겸임 잔여 소속을 정리하기 위함).
       const previousHeadId =
         departments.find((d) => d.id === modal.departmentId)?.head_user_id || null
 
@@ -695,11 +700,11 @@ export default function OrgPage() {
         .update({ head_user_id: modalUserId || null, updated_at: new Date().toISOString() })
         .eq('id', modal.departmentId)
       if (error) {
-        setMessage('부서장 지정 실패: ' + error.message)
+        setMessage('부장 지정 실패: ' + error.message)
         return
       }
 
-      // 부서장으로 임명되면 자동으로 그 부서 소속이 되어야 한다.
+      // 부장으로 임명되면 자동으로 그 부서 소속이 되어야 한다.
       // 이미 그 부서(팀 소속 포함)에 속해 있다면 중복으로 추가하지 않는다.
       if (modalUserId) {
         const alreadyBelongsToDept =
@@ -716,9 +721,9 @@ export default function OrgPage() {
         }
       }
 
-      // 방금 자리에서 물러난 이전 부서장이 이 부서가 속한 부문의 부문장을 겸임하고 있었다면,
-      // 부서장 임명 시 자동으로 붙었던 "부서 직속" 잔여 소속을 함께 정리한다.
-      // (부문장은 부서에 소속될 필요 없이도 산하 모든 부서에 접근 가능하므로, 부서장 자리에서
+      // 방금 자리에서 물러난 이전 부장이 이 부서가 속한 부문의 부문장을 겸임하고 있었다면,
+      // 부장 임명 시 자동으로 붙었던 "부서 직속" 잔여 소속을 함께 정리한다.
+      // (부문장은 부서에 소속될 필요 없이도 산하 모든 부서에 접근 가능하므로, 부장 자리에서
       //  내려온 뒤에는 부문장으로만 남아야 하고 부서 직속으로 남아있으면 안 된다.)
       if (previousHeadId && previousHeadId !== modalUserId) {
         const dept = departments.find((d) => d.id === modal.departmentId)
@@ -924,10 +929,10 @@ export default function OrgPage() {
   // ---------- 소속 해제 (내보내기) ----------
   // 내보내기는 "그 조작이 일어난 범위"만 해제한다. 겸임 중인 상위/별개 직위(예: 부문장)는
   // 이 부서·팀과 무관하게 유지되는 독립적인 자리이므로 함께 해제하지 않는다.
-  // 예) 부문장을 겸임 중인 부서장을 부서에서 내보내면 그 부서 소속·부서장 자리만 사라지고
+  // 예) 부문장을 겸임 중인 부장을 부서에서 내보내면 그 부서 소속·부장 자리만 사라지고
   //     부문장 지위는 그대로 남는다. (부문장 자리를 비우려면 "부문장 변경"에서 공석으로 지정)
 
-  // 팀에서 내보내기: 그 팀 소속만 해제한다. 부서 직속/다른 팀/부서장·부문장 등은 그대로 유지된다.
+  // 팀에서 내보내기: 그 팀 소속만 해제한다. 부서 직속/다른 팀/부장·부문장 등은 그대로 유지된다.
   const handleUnassignFromTeam = async (teamId: string, userId: string) => {
     await supabase.from('team_members').delete().eq('team_id', teamId).eq('user_id', userId)
     fetchAll()
@@ -946,8 +951,8 @@ export default function OrgPage() {
   }
 
   // 부서에서 내보내기: 그 부서 직속 소속과 그 부서 산하 팀 소속을 모두 해제한다.
-  // 내보내는 대상이 이 부서의 부서장이었다면 부서장 자리도 함께 비운다(부서에 속하지 않으면서
-  // 부서장일 수는 없으므로). 다만 이 사람이 겸임 중인 부문장 등 다른 조직의 직위는 건드리지 않는다.
+  // 내보내는 대상이 이 부서의 부장이었다면 부장 자리도 함께 비운다(부서에 속하지 않으면서
+  // 부장일 수는 없으므로). 다만 이 사람이 겸임 중인 부문장 등 다른 조직의 직위는 건드리지 않는다.
   const handleUnassignFromDept = async (departmentId: string, userId: string) => {
     if (!departmentId) return
     const deptTeamIds = teamsInDept(departmentId).map((t) => t.id)
@@ -1581,7 +1586,7 @@ export default function OrgPage() {
               </p>
             )}
             {deptList.map((department) => {
-              // 부서장은 이미 위 배지에서 다룰 수 있으므로(우선순위 표시, req 11) 직속 목록에서는 중복 노출하지 않는다.
+              // 부장은 이미 위 배지에서 다룰 수 있으므로(우선순위 표시, req 11) 직속 목록에서는 중복 노출하지 않는다.
               const directs = directOfDept(department.id).filter(
                 (m) => m.user_id !== department.head_user_id
               )
@@ -1615,7 +1620,11 @@ export default function OrgPage() {
                           <span className="text-sm font-medium dark:text-white truncate">
                             {headEntry.name}
                           </span>
+<<<<<<< HEAD
                           <span className="text-[11px] text-blue-500 shrink-0">부서장</span>
+=======
+                          <span className="text-[11px] text-blue-500 shrink-0">부장</span>
+>>>>>>> feature/UI_Refactoring
                         </div>
                         <MemberActionMenu
                           rowKey={`div-direct-${department.id}-${headEntry.user_id}`}
@@ -1737,8 +1746,8 @@ export default function OrgPage() {
 
         {activeTab === 'permissions' && (
           <div className="space-y-5">
-            {/* 부문장은 부문 산하 모든 부서에 대한 결재권을 가진다 (부서장의 결재가 부문장에게 올라감).
-                부서장과 같은 패턴으로 부문장도 결재권자를 위임할 수 있다. */}
+            {/* 부문장은 부문 산하 모든 부서에 대한 결재권을 가진다 (부장의 결재가 부문장에게 올라감).
+                부장과 같은 패턴으로 부문장도 결재권자를 위임할 수 있다. */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs text-gray-500 dark:text-zinc-400">
@@ -1799,7 +1808,11 @@ export default function OrgPage() {
     const canManageThisDivision = canManageDivision(user.id, division.id, divisions, hasTopAccess)
     const deptTeams = teamsInDept(department.id)
     const directs = directOfDept(department.id)
+<<<<<<< HEAD
     // 구조 탭의 "부서 직속" 펼침 목록 전용 — 부서장 최상단 + 저장된 순서 반영
+=======
+    // 구조 탭의 "부서 직속" 펼침 목록 전용 — 부장 최상단 + 저장된 순서 반영
+>>>>>>> feature/UI_Refactoring
     const directsOrdered = orderedDirectsOfDept(department)
     const delegates = approversOfDept(department.id)
     const isReorderingTeams = reorder?.kind === 'teams' && reorder.departmentId === department.id
@@ -1866,7 +1879,7 @@ export default function OrgPage() {
                         }}
                         className="w-full text-left px-3 py-1.5 text-xs text-gray-600 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-700"
                       >
-                        부서장 변경
+                        부장 변경
                       </button>
                     )}
                     {canManageThisDept && deptTeams.length > 1 && (
@@ -1976,7 +1989,11 @@ export default function OrgPage() {
                           >
                             <span>{d.name}</span>
                             {d.user_id === department.head_user_id && (
+<<<<<<< HEAD
                               <span className="text-[11px] text-blue-500">부서장</span>
+=======
+                              <span className="text-[11px] text-blue-500">부장</span>
+>>>>>>> feature/UI_Refactoring
                             )}
                           </div>
                         )
@@ -2069,17 +2086,17 @@ export default function OrgPage() {
             )}
             <div>
               {/*
-                부서장도 부서 직속 구성원이다 — 별도 "부서장" 섹션으로 빼서 부서 직속 목록에서
-                제외하면(구 로직) 부서 직속 인원이 부서장뿐일 때 "없음"으로 잘못 표시되고, 인원수도
-                실제 데이터와 어긋난다. 부서장을 포함한 하나의 "부서 직속" 목록으로 통일하고,
-                부서장은 배지로만 구분한다. (부서장은 항상 최상단에 고정 — lib/orgOrder의 규칙과 동일)
+                부장도 부서 직속 구성원이다 — 별도 "부장" 섹션으로 빼서 부서 직속 목록에서
+                제외하면(구 로직) 부서 직속 인원이 부장뿐일 때 "없음"으로 잘못 표시되고, 인원수도
+                실제 데이터와 어긋난다. 부장을 포함한 하나의 "부서 직속" 목록으로 통일하고,
+                부장은 배지로만 구분한다. (부장은 항상 최상단에 고정 — lib/orgOrder의 규칙과 동일)
                 이동/내보내기는 이름과 같은 행 오른쪽 끝의 ⋮ 버튼을 눌렀을 때만 펼쳐진다.
               */}
               {(() => {
                 const headInDirects = department.head_user_id
                   ? directs.some((d) => d.user_id === department.head_user_id)
                   : false
-                // department_memberships에 부서장이 없더라도(자리만 있는 경우) 목록/인원수에는 포함한다.
+                // department_memberships에 부장이 없더라도(자리만 있는 경우) 목록/인원수에는 포함한다.
                 const directsAll =
                   department.head_user_id && !headInDirects
                     ? [
@@ -2114,7 +2131,11 @@ export default function OrgPage() {
                         >
                           {d.name}
                         </span>
+<<<<<<< HEAD
                         {isHead && <span className="text-[11px] text-blue-500 shrink-0">부서장</span>}
+=======
+                        {isHead && <span className="text-[11px] text-blue-500 shrink-0">부장</span>}
+>>>>>>> feature/UI_Refactoring
                       </div>
                       {!isReorderingMembers && (
                         <MemberActionMenu
@@ -2284,7 +2305,7 @@ export default function OrgPage() {
             </div>
             <div className="space-y-0.5">
               <ApproverRow
-                name={profileName(department.head_user_id) || '부서장 공석'}
+                name={profileName(department.head_user_id) || '부장 공석'}
                 meta="부장(자동)"
               />
               {delegates.map((a) => (
@@ -2322,7 +2343,7 @@ export default function OrgPage() {
       hasTopAccess
     )
     // 팀장은 팀 구조 변경(팀장 교체/팀 삭제)까지는 못 하지만, 자기 팀의 권한 관리(결재권자 위임)와
-    // 자기 권한 아래 있는 팀원 관리(내보내기)는 부서장과 동등하게 할 수 있다.
+    // 자기 권한 아래 있는 팀원 관리(내보내기)는 부장과 동등하게 할 수 있다.
     const canManageThisTeam = canManageTeam(
       user.id,
       team.id,
@@ -2429,7 +2450,7 @@ export default function OrgPage() {
             )}
             {members.map((m) => {
               const key = `team-${team.id}-${m.user_id}`
-              // 팀 간 이동은 대상 부서 선택이 필요해 부서장 이상만 가능하고,
+              // 팀 간 이동은 대상 부서 선택이 필요해 부장 이상만 가능하고,
               // 팀장은 자기 권한 아래 있는 팀원을 팀에서 내보내는 것만 할 수 있다.
               return (
                 <div key={key} className="relative flex items-center flex-wrap justify-between gap-y-1 gap-x-2 py-1">
@@ -2471,7 +2492,7 @@ export default function OrgPage() {
 
         {activeTab === 'permissions' && (
           <div className="space-y-5">
-            {/* 팀장도 부서장/부문장과 같은 패턴으로 결재권자를 위임할 수 있다.
+            {/* 팀장도 부장/부문장과 같은 패턴으로 결재권자를 위임할 수 있다.
                 팀원들이 결재를 올릴 때 결재권자로 팀장을 선택할 수 있는 것과 짝이 되는 관리 화면. */}
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -2884,7 +2905,7 @@ export default function OrgPage() {
               {modal.kind === 'renameDepartment' && '부서 이름 변경'}
               {modal.kind === 'renameTeam' && '팀 이름 변경'}
               {modal.kind === 'assignDivisionHead' && '부문장 지정'}
-              {modal.kind === 'assignDepartmentHead' && '부서장 지정'}
+              {modal.kind === 'assignDepartmentHead' && '부장 지정'}
               {modal.kind === 'assignTeamHead' && '팀장 지정'}
               {modal.kind === 'addApprover' && '결재권자 위임'}
             </h3>

@@ -19,8 +19,8 @@ export default function ApproverRow({ name, meta, scopes, onRemove }: ApproverRo
     <div className="flex items-center justify-between gap-2 py-1">
       <div className="flex items-baseline gap-1.5 min-w-0 flex-wrap">
         <span className="text-sm text-gray-700 dark:text-zinc-200">{name}</span>
-        {meta && <span className="text-xs text-gray-400 dark:text-zinc-500">{meta}</span>}
-        {scopeText && <span className="text-xs text-gray-400 dark:text-zinc-500">{scopeText}</span>}
+        {meta && <span className="text-xs text-gray-500 dark:text-zinc-400">{meta}</span>}
+        {scopeText && <span className="text-xs text-gray-500 dark:text-zinc-400">{scopeText}</span>}
       </div>
       {onRemove && (
         <button

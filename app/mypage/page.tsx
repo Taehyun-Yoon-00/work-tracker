@@ -6,12 +6,21 @@ import { useRouter } from 'next/navigation'
 import dayjs from 'dayjs'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import SectionHeader from '../components/ui/SectionHeader'
+import Button from '../components/ui/Button'
+
+// 직급 선택지. 'custom'을 고르면 직접 입력 칸이 나타나고, 입력한 값이 그대로 position에 저장된다.
+const POSITION_PRESETS = ['사원', '선임', '책임', '수석'] as const
+const POSITION_CUSTOM = '__custom__'
 
 export default function MyPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
-  const [name, setName] = useState('')
-  const [position, setPosition] = useState('')
+  const [name, setName] = useState('') // 한글 (앱 화면에 표시되는 이름)
+  const [nameHanja, setNameHanja] = useState('') // 한자 (출력 파일 내부 이름란)
+  const [nameInitial, setNameInitial] = useState('') // 이니셜 (출력 파일명)
+  // 직급 select 값: '' (미선택) | 프리셋 | POSITION_CUSTOM. 직접 입력 값은 customPosition에 둔다.
+  const [positionChoice, setPositionChoice] = useState('')
+  const [customPosition, setCustomPosition] = useState('')
   const [totalVacation, setTotalVacation] = useState<number>(0)
   const [usedVacation, setUsedVacation] = useState<number>(0)
   const [loading, setLoading] = useState(false)
@@ -48,14 +57,29 @@ export default function MyPage() {
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase
       .from('profiles')
-      .select('name, position, total_vacation, is_master')
+      .select('name, name_hanja, name_initial, position, total_vacation, is_master')
       .eq('id', userId)
       .single()
     if (data) {
       setName(data.name || '')
-      setPosition(data.position || '')
+      setNameHanja(data.name_hanja || '')
+      setNameInitial(data.name_initial || '')
+      // 저장된 직급이 프리셋이면 그대로 선택하고, 그 밖의 값이면 '직접 입력'으로 열어 값을 채운다.
+      const savedPosition = (data.position || '').trim()
+      if (!savedPosition) {
+        setPositionChoice('')
+      } else if ((POSITION_PRESETS as readonly string[]).includes(savedPosition)) {
+        setPositionChoice(savedPosition)
+      } else {
+        setPositionChoice(POSITION_CUSTOM)
+        setCustomPosition(savedPosition)
+      }
       setTotalVacation(data.total_vacation || 0)
       if (data.is_master) setIsMaster(true)
+<<<<<<< HEAD
+=======
+      // 마스터(시스템 관리자)는 조직 구성원이 아니라서 이름을 강제하지 않는다.
+>>>>>>> feature/UI_Refactoring
       setNeedsName(!data.is_master && !data.name?.trim())
     }
   }
@@ -85,18 +109,41 @@ export default function MyPage() {
   }
 
   const handleSave = async () => {
+<<<<<<< HEAD
     // 이름은 필수다. 나머지 항목은 비워 둬도 저장된다.
+=======
+    // 이름(한글)은 필수다. 나머지 항목은 비워 둬도 저장된다.
+>>>>>>> feature/UI_Refactoring
     const trimmedName = name.trim()
     if (!trimmedName) {
       setMessage('이름을 입력해주세요.')
       return
     }
 
+<<<<<<< HEAD
+=======
+    const position = positionChoice === POSITION_CUSTOM ? customPosition.trim() : positionChoice
+    if (positionChoice === POSITION_CUSTOM && !position) {
+      setMessage('직급을 직접 입력해주세요.')
+      return
+    }
+
+>>>>>>> feature/UI_Refactoring
     setLoading(true)
     setMessage('')
     const { error } = await supabase
       .from('profiles')
+<<<<<<< HEAD
       .update({ name: trimmedName, position, total_vacation: totalVacation })
+=======
+      .update({
+        name: trimmedName,
+        name_hanja: nameHanja.trim() || null,
+        name_initial: nameInitial.trim() || null,
+        position: position || null,
+        total_vacation: totalVacation,
+      })
+>>>>>>> feature/UI_Refactoring
       .eq('id', user.id)
 
     if (error) {
@@ -197,6 +244,7 @@ export default function MyPage() {
             </div>
 
             <div className="mb-4">
+<<<<<<< HEAD
               <label className="text-sm text-gray-500 dark:text-zinc-400">
                 이름 <span className="text-red-500">*</span>
               </label>
@@ -207,17 +255,72 @@ export default function MyPage() {
                 placeholder="이름을 입력해주세요"
                 className="w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
               />
+=======
+              <label className="text-sm text-gray-500 dark:text-zinc-400">이름</label>
+              <div className="grid grid-cols-3 gap-2 mt-1">
+                <div className="min-w-0">
+                  <span className="text-xs text-gray-500 dark:text-zinc-400">
+                    한글 <span className="text-red-500">*</span>
+                  </span>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="홍길동"
+                    className="w-full min-w-0 border rounded-lg px-3 py-2 mt-0.5 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-xs text-gray-500 dark:text-zinc-400">한자</span>
+                  <input
+                    type="text"
+                    value={nameHanja}
+                    onChange={(e) => setNameHanja(e.target.value)}
+                    placeholder="洪吉童"
+                    className="w-full min-w-0 border rounded-lg px-3 py-2 mt-0.5 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-xs text-gray-500 dark:text-zinc-400">이니셜</span>
+                  <input
+                    type="text"
+                    value={nameInitial}
+                    onChange={(e) => setNameInitial(e.target.value)}
+                    placeholder="HGD"
+                    className="w-full min-w-0 border rounded-lg px-3 py-2 mt-0.5 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1">
+                앱에는 한글, 출력 파일명에는 이니셜, 파일 안 이름란에는 한자가 쓰여요
+              </p>
+>>>>>>> feature/UI_Refactoring
             </div>
 
             <div className="mb-4">
               <label className="text-sm text-gray-500 dark:text-zinc-400">직급</label>
-              <input
-                type="text"
-                value={position}
-                onChange={(e) => setPosition(e.target.value)}
-                placeholder="직급을 입력해주세요"
+              <select
+                value={positionChoice}
+                onChange={(e) => setPositionChoice(e.target.value)}
                 className="w-full border rounded-lg px-3 py-2 mt-1 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
-              />
+              >
+                <option value="">선택 안 함</option>
+                {POSITION_PRESETS.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+                <option value={POSITION_CUSTOM}>직접 입력</option>
+              </select>
+              {positionChoice === POSITION_CUSTOM && (
+                <input
+                  type="text"
+                  value={customPosition}
+                  onChange={(e) => setCustomPosition(e.target.value)}
+                  placeholder="직급을 입력해주세요"
+                  className="w-full border rounded-lg px-3 py-2 mt-2 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
+                />
+              )}
             </div>
 
             <div className="mb-4">
@@ -233,20 +336,16 @@ export default function MyPage() {
                 />
                 <span className="text-sm text-gray-500 dark:text-zinc-400 shrink-0">일</span>
               </div>
-              <p className="text-xs text-gray-400 dark:text-zinc-500 mt-1">
+              <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1">
                 반차는 0.5일로 계산돼요
               </p>
             </div>
 
             {message && <p className="text-sm text-center text-blue-500 mb-3">{message}</p>}
 
-            <button
-              onClick={handleSave}
-              disabled={loading}
-              className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
-            >
+            <Button onClick={handleSave} disabled={loading} fullWidth>
               {loading ? '저장 중...' : '저장'}
-            </button>
+            </Button>
           </div>
 
           <div className="pt-4">
@@ -264,13 +363,9 @@ export default function MyPage() {
             {passwordMessage && (
               <p className="text-sm text-center text-blue-500 mb-3">{passwordMessage}</p>
             )}
-            <button
-              onClick={handlePasswordChange}
-              disabled={passwordLoading}
-              className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
-            >
+            <Button onClick={handlePasswordChange} disabled={passwordLoading} fullWidth>
               {passwordLoading ? '변경 중...' : '비밀번호 변경'}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -300,7 +395,7 @@ export default function MyPage() {
               }}
             />
           </div>
-          <div className="flex justify-between text-xs text-gray-400 dark:text-zinc-500 mt-1">
+          <div className="flex justify-between text-xs text-gray-500 dark:text-zinc-400 mt-1">
             <span>0일</span>
             <span>{totalVacation}일</span>
           </div>
@@ -337,13 +432,15 @@ export default function MyPage() {
                 className="w-full border border-red-200 rounded-lg px-3 py-2 mb-3 dark:bg-zinc-700 dark:border-red-900 dark:text-zinc-200"
               />
               {deleteMessage && <p className="text-sm text-red-500 mb-3">{deleteMessage}</p>}
-              <button
+              <Button
+                variant="danger"
+                fullWidth
                 onClick={() => setConfirmingDelete(true)}
-                disabled={deleteLoading || deleteConfirm !== user?.email}
-                className="w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 disabled:opacity-40"
+                disabled={deleteConfirm !== user?.email}
+                loading={deleteLoading}
               >
-                {deleteLoading ? '처리 중...' : '회원 탈퇴'}
-              </button>
+                회원 탈퇴
+              </Button>
             </div>
           )}
         </div>

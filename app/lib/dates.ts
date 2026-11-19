@@ -77,3 +77,25 @@ export function getWeeksOfMonth(date: DateLike): dayjs.Dayjs[] {
   }
   return weeks
 }
+
+/**
+ * 월요일 시작 월간 달력 그리드: 이번 달 1일이 속한 주의 월요일부터, 말일이 속한 주의
+ * 일요일까지를 7일씩 주 단위로 묶어 반환한다. 팀/부서 일정 캘린더(TeamMonthCalendar)가
+ * Google 캘린더 스타일의 월간 뷰를 그릴 때 쓴다. 근무기록 페이지의 react-calendar와는
+ * 별개 — 그쪽은 단순 날짜 선택용이라 그대로 둔다.
+ */
+export function getMonthGrid(date: DateLike): dayjs.Dayjs[][] {
+  const start = dayjs(date).startOf('month').startOf('isoWeek')
+  const end = dayjs(date).endOf('month').endOf('isoWeek')
+  const weeks: dayjs.Dayjs[][] = []
+  let cursor = start
+  while (cursor.isBefore(end) || cursor.isSame(end, 'day')) {
+    const week: dayjs.Dayjs[] = []
+    for (let i = 0; i < 7; i++) {
+      week.push(cursor)
+      cursor = cursor.add(1, 'day')
+    }
+    weeks.push(week)
+  }
+  return weeks
+}

@@ -89,7 +89,7 @@ export default function OrgScopeSelect({
         <ChevronDown
           size={14}
           strokeWidth={2}
-          className={`shrink-0 text-gray-400 dark:text-zinc-500 transition-transform ${
+          className={`shrink-0 text-gray-500 dark:text-zinc-400 transition-transform ${
             open ? 'rotate-180' : ''
           }`}
         />
@@ -111,7 +111,7 @@ export default function OrgScopeSelect({
           </div>
           <ul className="max-h-64 overflow-y-auto py-1">
             {filtered.length === 0 ? (
-              <li className="px-3 py-3 text-xs text-gray-400 dark:text-zinc-500 text-center">
+              <li className="px-3 py-3 text-xs text-gray-500 dark:text-zinc-400 text-center">
                 검색 결과가 없어요.
               </li>
             ) : (

@@ -5,7 +5,7 @@ export interface AffiliationItem {
   key: string
   label: string
   path: string
-  /** 정렬 우선순위 낮을수록 위(부문장 > 부서장 > 팀장 > 팀원/직속) */
+  /** 정렬 우선순위 낮을수록 위(부문장 > 부장 > 팀장 > 팀원/직속) */
   rank: number
 }
 
@@ -13,7 +13,7 @@ export interface AffiliationItem {
  * 로그인한 사용자가 열람할 수 있는 "내 소속" 목적지 목록.
  * - 소속된 팀들
  * - 부서 직속인 경우 그 부서
- * - 부서장으로 임명된 부서
+ * - 부장으로 임명된 부서
  * - 부문장으로 임명된 경우, 조직 관리로 보내는 대신 그 부문 산하 "각 부서"를 하나씩 노출한다
  *   (부문장은 부문 내 모든 부서의 캘린더를 열람할 수 있어야 하므로).
  *
@@ -61,7 +61,7 @@ export function useMyAffiliations() {
       // 부문장: 전용 조직관리 화면으로 보내지 않고, 부문 산하 각 부서를 개별 항목으로 노출해서
       // 사이드바 "내 소속" 하위 탭에서 바로 부서(및 그 캘린더)를 선택할 수 있게 한다.
       // 부서 순서는 조직관리에서 정한 순서(display_order)를 그대로 따르되, 부문장이 동시에
-      // 그 부문 안의 특정 부서 부서장까지 겸임하고 있다면 본인이 속한 부서를 가장 위로 올린다.
+      // 그 부문 안의 특정 부서 부장까지 겸임하고 있다면 본인이 속한 부서를 가장 위로 올린다.
       const headDivisions = headDivRes.data || []
       if (headDivisions.length > 0) {
         const divisionDeptResults = await Promise.all(
@@ -77,11 +77,11 @@ export function useMyAffiliations() {
           const depts = res.data || []
           const own = depts.filter((d: any) => headDeptIds.has(d.id))
           const rest = depts.filter((d: any) => !headDeptIds.has(d.id))
-          // 본인이 부서장을 겸임 중인 부서를 맨 앞으로, 나머지는 조직관리 순서 그대로.
+          // 본인이 부장을 겸임 중인 부서를 맨 앞으로, 나머지는 조직관리 순서 그대로.
           ;[...own, ...rest].forEach((dept: any) => {
             add({
               key: `div-dept-${dept.id}`,
-              label: headDeptIds.has(dept.id) ? `${dept.name} (부서장)` : dept.name,
+              label: headDeptIds.has(dept.id) ? `${dept.name} (부장)` : dept.name,
               path: `/team/dept/${dept.id}`,
               rank: 0,
             })
@@ -89,12 +89,12 @@ export function useMyAffiliations() {
         })
       }
 
-      // 부문장이 아니면서(혹은 부문장이지만 다른 부문 소속) 부서장으로 임명된 부서 —
+      // 부문장이 아니면서(혹은 부문장이지만 다른 부문 소속) 부장으로 임명된 부서 —
       // 위에서 이미 추가됐다면 add()의 dedup으로 자동 스킵된다.
       ;(headDeptRes.data || []).forEach((d: any) => {
         add({
           key: `dept-head-${d.id}`,
-          label: `${d.name} (부서장)`,
+          label: `${d.name} (부장)`,
           path: `/team/dept/${d.id}`,
           rank: 1,
         })

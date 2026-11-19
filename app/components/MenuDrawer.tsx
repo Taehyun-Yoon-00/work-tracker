@@ -6,7 +6,12 @@ import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import { useCurrentProfile } from '../hooks/useCurrentProfile'
 import { useMyAffiliations } from '../hooks/useMyAffiliations'
-import { SIDEBAR_GROUPS, SIDEBAR_FOOTER_ITEMS, SidebarItem } from '../lib/sidebarConfig'
+import {
+  SIDEBAR_GROUPS,
+  SIDEBAR_FOOTER_ITEMS,
+  SidebarItem,
+  hasSidebarPermission,
+} from '../lib/sidebarConfig'
 import { X, LogOut, ChevronDown } from 'lucide-react'
 
 interface MenuDrawerProps {
@@ -31,13 +36,8 @@ export default function MenuDrawer({ open, onClose }: MenuDrawerProps) {
   // 형제 요소인 BottomNav(z-50)에게 항상 가려지므로, 최상위로 빼내야 z-index가 제대로 먹는다.
   useEffect(() => setMounted(true), [])
 
-  const hasPermission = (item: SidebarItem) => {
-    if (item.permission === 'master') return isMaster
-    if (item.permission === 'teamLeaderOrAbove') return isTeamLeaderOrAbove
-    if (item.permission === 'orgManager') return isOrgManager
-    if (item.permission === 'dashboardViewer') return isTeamLeaderOrAbove || isOrgManager
-    return true
-  }
+  const hasPermission = (item: SidebarItem) =>
+    hasSidebarPermission(item, { isMaster, isTeamLeaderOrAbove, isOrgManager })
 
   const handleLogout = async () => {
     onClose()
@@ -137,7 +137,7 @@ export default function MenuDrawer({ open, onClose }: MenuDrawerProps) {
         }`}
       >
         <div className="h-20 flex items-center justify-between px-4 border-b border-gray-100 dark:border-zinc-700 shrink-0">
-          <img src="/logo/toray-logo.png" alt="TORAY" className="h-14 w-auto" />
+          <img src="/logo/toray-logo.png" alt="TORAY" className="h-5 w-auto" />
           <button
             onClick={onClose}
             aria-label="메뉴 닫기"
@@ -155,7 +155,7 @@ export default function MenuDrawer({ open, onClose }: MenuDrawerProps) {
             return (
               <div key={idx}>
                 {group.title && (
-                  <p className="px-3 mb-1.5 text-[11px] font-semibold text-gray-400 dark:text-zinc-500 tracking-wide">
+                  <p className="px-3 mb-1.5 text-[11px] font-semibold text-gray-500 dark:text-zinc-400 tracking-wide">
                     {group.title}
                   </p>
                 )}
@@ -177,7 +177,7 @@ export default function MenuDrawer({ open, onClose }: MenuDrawerProps) {
 
           <button
             onClick={handleLogout}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs text-gray-400 dark:text-zinc-500 hover:bg-gray-100 dark:hover:bg-zinc-700 hover:text-gray-600 dark:hover:text-zinc-300 transition mt-1"
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs text-gray-500 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-700 hover:text-gray-600 dark:hover:text-zinc-300 transition mt-1"
           >
             <span className="shrink-0">
               <LogOut size={14} strokeWidth={1.75} />

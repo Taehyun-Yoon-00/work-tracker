@@ -76,3 +76,26 @@ export function displayName(
 ): string {
   return profile?.name || profile?.email?.split('@')[0] || fallback
 }
+
+/**
+ * 출력 파일명에 들어갈 이름: 이니셜 → 한글 이름 → 이메일 아이디 → fallback 순.
+ * 파일명에 쓸 수 없는 문자(공백, \\ / : * ? " < > |)는 제거한다.
+ */
+export function reportFileNameLabel(
+  profile: Partial<Pick<Profile, 'name' | 'email' | 'name_initial'>> | null | undefined,
+  fallback = '이름미설정'
+): string {
+  const raw = profile?.name_initial?.trim() || displayName(profile, fallback)
+  return raw.replace(/[\s\\/:*?"<>|]+/g, '') || fallback
+}
+
+/**
+ * 출력 파일 내부 이름란에 들어갈 이름: 한자 → 한글 이름 → 이메일 아이디 → fallback 순.
+ * 한자를 아직 입력하지 않은 사용자는 한글 이름으로 대신 채워진다.
+ */
+export function reportInsideName(
+  profile: Partial<Pick<Profile, 'name' | 'email' | 'name_hanja'>> | null | undefined,
+  fallback = '이름 미설정'
+): string {
+  return profile?.name_hanja?.trim() || displayName(profile, fallback)
+}

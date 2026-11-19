@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useRouter } from 'next/navigation'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
+import Button from '../components/ui/Button'
 
 export default function AdminPage() {
   const router = useRouter()
@@ -241,7 +242,7 @@ export default function AdminPage() {
         {/* 테스트 계정 생성 (이메일 인증 없이 즉시 로그인 가능한 계정을 만든다) */}
         <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 mb-4">
           <h2 className="font-semibold mb-1 dark:text-white">테스트 계정 생성</h2>
-          <p className="text-xs text-gray-400 dark:text-zinc-500 mb-3">
+          <p className="text-xs text-gray-500 dark:text-zinc-400 mb-3">
             이메일 인증 없이 바로 로그인 가능한 계정을 만들어요. 테스트 용도로만 사용해주세요.
           </p>
           <div className="flex gap-2 flex-wrap">
@@ -259,13 +260,9 @@ export default function AdminPage() {
               placeholder="이름 (선택)"
               className="flex-1 min-w-[120px] border dark:border-zinc-600 rounded-lg px-3 py-2 text-sm dark:bg-zinc-700 dark:text-zinc-200"
             />
-            <button
-              onClick={handleCreateTestUser}
-              disabled={creatingTestUser}
-              className="bg-blue-500 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-600 disabled:opacity-50"
-            >
+            <Button onClick={handleCreateTestUser} disabled={creatingTestUser}>
               {creatingTestUser ? '생성 중...' : '생성'}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -283,17 +280,17 @@ export default function AdminPage() {
                     {profile.name || '이름 미설정'}
                   </span>
                   {profile.is_master && (
-                    <span className="text-[10px] bg-gray-700 dark:bg-zinc-600 text-white px-2 py-0.5 rounded-full">
+                    <span className="text-[11px] bg-gray-700 dark:bg-zinc-600 text-white px-2 py-0.5 rounded-full">
                       마스터
                     </span>
                   )}
                   {generalAdminIds.has(profile.id) && (
-                    <span className="text-[10px] bg-blue-50 dark:bg-blue-950 text-blue-500 px-2 py-0.5 rounded-full">
+                    <span className="text-[11px] bg-blue-50 dark:bg-blue-950 text-blue-500 px-2 py-0.5 rounded-full">
                       총괄 관리자
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-gray-400 dark:text-zinc-500">{profile.email}</p>
+                <p className="text-xs text-gray-500 dark:text-zinc-400">{profile.email}</p>
               </div>
               <div className="flex gap-2 flex-wrap justify-end">
                 <button
@@ -355,17 +352,12 @@ export default function AdminPage() {
                 placeholder="명칭 (예: 광복절 대체)"
                 className="flex-1 border dark:border-zinc-600 rounded-lg px-3 py-2 text-sm dark:bg-zinc-700 dark:text-zinc-200"
               />
-              <button
-                onClick={handleAddHoliday}
-                className="bg-blue-500 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-600"
-              >
-                추가
-              </button>
+              <Button onClick={handleAddHoliday}>추가</Button>
             </div>
 
             {/* 목록 */}
             {holidays.length === 0 ? (
-              <p className="text-sm text-gray-400 dark:text-zinc-500">
+              <p className="text-sm text-gray-500 dark:text-zinc-400">
                 등록된 대체공휴일이 없어요.
               </p>
             ) : (
@@ -376,7 +368,7 @@ export default function AdminPage() {
                 >
                   <div>
                     <span className="text-sm font-medium dark:text-zinc-200">{h.date}</span>
-                    <span className="text-xs text-gray-400 dark:text-zinc-500 ml-2">{h.name}</span>
+                    <span className="text-xs text-gray-500 dark:text-zinc-400 ml-2">{h.name}</span>
                   </div>
                   <button
                     onClick={() => handleDeleteHoliday(h.id)}

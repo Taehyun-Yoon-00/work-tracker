@@ -16,7 +16,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
   const pathnameRef = useRef(pathname)
+<<<<<<< HEAD
   pathnameRef.current = pathname
+=======
+  // 렌더 중에 ref를 바꾸지 않고 effect에서 동기화한다. (아래 checkName effect보다 먼저 선언해야
+  // 같은 커밋에서 checkName이 최신 경로를 읽는다.)
+  useEffect(() => {
+    pathnameRef.current = pathname
+  }, [pathname])
+>>>>>>> feature/UI_Refactoring
   // 이름이 있는 걸 확인한 사용자는 다시 조회하지 않는다.
   const verifiedUserId = useRef<string | null>(null)
 

@@ -2,6 +2,7 @@ import dayjs from 'dayjs'
 import DatePicker from 'react-multi-date-picker'
 import { X, Palmtree, Laptop, Building2 } from 'lucide-react'
 import Badge from '../ui/Badge'
+import Button from '../ui/Button'
 import { weekendClassName } from '@/app/lib/dates'
 
 // ApprovalCard/ApprovalDetailModal과 같은 기준: 신청 타입은 서로 구분이 필요해 기존 색을 유지한다.
@@ -101,7 +102,7 @@ export default function RequestModal({
           <h3 className="font-semibold dark:text-white">
             {isEditing ? '결재 요청 수정' : '결재 요청'}
           </h3>
-          <button onClick={onClose} className="text-gray-400 dark:text-zinc-500">
+          <button onClick={onClose} className="text-gray-500 dark:text-zinc-400">
             <X size={20} strokeWidth={1.75} />
           </button>
         </div>
@@ -140,7 +141,7 @@ export default function RequestModal({
           {step === 2 && (
             <div>
               {!isEditing && (
-                <button onClick={onBack} className="text-xs text-gray-400 dark:text-zinc-500 mb-3">
+                <button onClick={onBack} className="text-xs text-gray-500 dark:text-zinc-400 mb-3">
                   ← 뒤로
                 </button>
               )}
@@ -203,7 +204,7 @@ export default function RequestModal({
                   </button>
                 </div>
                 {dateGroups.length === 0 && (
-                  <p className="text-xs text-gray-400 dark:text-zinc-500">
+                  <p className="text-xs text-gray-500 dark:text-zinc-400">
                     날짜 추가 버튼을 눌러주세요
                   </p>
                 )}
@@ -240,12 +241,9 @@ export default function RequestModal({
                     {group.dates.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-3">
                         {group.dates.map((d, i) => (
-                          <span
-                            key={i}
-                            className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full"
-                          >
+                          <Badge key={i} tone="info">
                             {dayjs(d).format('MM/DD')}
-                          </span>
+                          </Badge>
                         ))}
                       </div>
                     )}
@@ -296,7 +294,7 @@ export default function RequestModal({
               <div className="mb-4">
                 <label className="text-sm text-gray-500 dark:text-zinc-400">
                   참조 (CC){' '}
-                  <span className="text-gray-400 dark:text-zinc-500 font-normal">· 선택</span>
+                  <span className="text-gray-500 dark:text-zinc-400 font-normal">· 선택</span>
                 </label>
                 <div className="relative mt-1">
                   <div className="flex gap-1">
@@ -337,10 +335,7 @@ export default function RequestModal({
                 {ccList.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-2">
                     {ccList.map((email) => (
-                      <span
-                        key={email}
-                        className="flex items-center gap-1 bg-blue-50 text-blue-600 text-xs px-2 py-1 rounded-full"
-                      >
+                      <Badge key={email} tone="info" className="flex items-center gap-1 py-1">
                         {email}
                         <button
                           onClick={() => onRemoveCc(email)}
@@ -348,7 +343,7 @@ export default function RequestModal({
                         >
                           ×
                         </button>
-                      </span>
+                      </Badge>
                     ))}
                   </div>
                 )}
@@ -361,11 +356,7 @@ export default function RequestModal({
 
         {step === 2 && (
           <div className="p-4 border-t dark:border-zinc-700 bg-white dark:bg-zinc-800 rounded-b-xl">
-            <button
-              onClick={onSubmit}
-              disabled={loading}
-              className="w-full bg-blue-500 text-white py-2 rounded-lg text-sm disabled:opacity-50"
-            >
+            <Button onClick={onSubmit} disabled={loading} fullWidth>
               {loading
                 ? isEditing
                   ? '저장 중...'
@@ -373,7 +364,7 @@ export default function RequestModal({
                 : isEditing
                   ? '수정 완료'
                   : '결재 요청'}
-            </button>
+            </Button>
           </div>
         )}
       </div>

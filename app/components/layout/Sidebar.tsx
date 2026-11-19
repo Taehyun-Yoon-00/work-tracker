@@ -5,7 +5,12 @@ import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
 import { useCurrentProfile } from '../../hooks/useCurrentProfile'
 import { useMyAffiliations } from '../../hooks/useMyAffiliations'
-import { SIDEBAR_GROUPS, SIDEBAR_FOOTER_ITEMS, SidebarItem } from '../../lib/sidebarConfig'
+import {
+  SIDEBAR_GROUPS,
+  SIDEBAR_FOOTER_ITEMS,
+  SidebarItem,
+  hasSidebarPermission,
+} from '../../lib/sidebarConfig'
 import { LogOut, ChevronDown } from 'lucide-react'
 
 function isActivePath(pathname: string, itemPath: string) {
@@ -28,13 +33,8 @@ export default function Sidebar() {
     router.push('/login')
   }
 
-  const hasPermission = (item: SidebarItem) => {
-    if (item.permission === 'master') return isMaster
-    if (item.permission === 'teamLeaderOrAbove') return isTeamLeaderOrAbove
-    if (item.permission === 'orgManager') return isTeamLeaderOrAbove || isOrgManager
-    if (item.permission === 'dashboardViewer') return isTeamLeaderOrAbove || isOrgManager
-    return true
-  }
+  const hasPermission = (item: SidebarItem) =>
+    hasSidebarPermission(item, { isMaster, isTeamLeaderOrAbove, isOrgManager })
 
   const renderItem = (item: SidebarItem) => {
     if (!hasPermission(item)) return null
@@ -107,8 +107,8 @@ export default function Sidebar() {
     <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-64 border-r border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 flex-col z-30">
       {/* 로고 */}
       <div className="h-20 flex items-center px-4 border-b border-gray-100 dark:border-zinc-700 shrink-0">
-        <img src="/logo/toray-logo.png" alt="TORAY" className="h-14 w-auto" />
-        <span className="ml-2 text-xs font-semibold text-gray-400 dark:text-zinc-500 tracking-wide">
+        <img src="/logo/toray-logo.png" alt="TORAY" className="h-5 w-auto" />
+        <span className="ml-2 text-xs font-semibold text-gray-500 dark:text-zinc-400 tracking-wide">
           WORK TRACKER
         </span>
       </div>
@@ -121,7 +121,7 @@ export default function Sidebar() {
           return (
             <div key={idx}>
               {group.title && (
-                <p className="px-3 mb-1.5 text-[11px] font-semibold text-gray-400 dark:text-zinc-500 tracking-wide">
+                <p className="px-3 mb-1.5 text-[11px] font-semibold text-gray-500 dark:text-zinc-400 tracking-wide">
                   {group.title}
                 </p>
               )}
@@ -145,7 +145,7 @@ export default function Sidebar() {
 
         <button
           onClick={handleLogout}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs text-gray-400 dark:text-zinc-500 hover:bg-gray-100 dark:hover:bg-zinc-700 hover:text-gray-600 dark:hover:text-zinc-300 transition mt-1"
+          className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs text-gray-500 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-700 hover:text-gray-600 dark:hover:text-zinc-300 transition mt-1"
         >
           <span className="shrink-0">
             <LogOut size={14} strokeWidth={1.75} />

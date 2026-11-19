@@ -52,7 +52,7 @@ begin
       delete from public.department_approvers where department_id = v_department_id;
     end if;
 
-    -- 부서장 지정도 의미가 없어지므로 삭제 전에 정리.
+    -- 부장 지정도 의미가 없어지므로 삭제 전에 정리.
     delete from public.departments where id = v_department_id;
   end if;
 

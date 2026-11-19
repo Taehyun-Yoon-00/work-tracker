@@ -5,7 +5,11 @@ import Holidays from 'date-holidays'
 import { getSessionUser } from '@/app/lib/apiAuth'
 import { supabaseAdmin } from '@/app/lib/supabaseAdmin'
 import { getSettlementPeriod } from '@/app/lib/dates'
+<<<<<<< HEAD
 import { displayName } from '@/app/lib/labels'
+=======
+import { reportFileNameLabel, reportInsideName } from '@/app/lib/labels'
+>>>>>>> feature/UI_Refactoring
 import {
   colLetter,
   setCellNumber,
@@ -114,13 +118,13 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // 2) 본인 프로필(AI4에 들어갈 이름)
+  // 2) 본인 프로필 — AI4(파일 내부 이름란)에는 한자, 파일명에는 이니셜이 들어간다.
   const { data: profile } = await supabaseAdmin
     .from('profiles')
-    .select('name, email')
+    .select('name, email, name_hanja, name_initial')
     .eq('id', user.id)
     .single()
-  const personName = displayName(profile, '이름 미설정')
+  const personName = reportInsideName(profile, '이름 미설정')
 
   // 3) 정산 기간(전월 16일 ~ 당월 15일) — 대시보드/리포트 화면과 같은 규칙(lib/dates.ts)
   const monthStart = dayjs(`${year}-${String(month).padStart(2, '0')}-01`)
@@ -390,8 +394,13 @@ export async function POST(req: NextRequest) {
 
   const yy = String(year).slice(-2)
   const mm = String(month).padStart(2, '0')
+<<<<<<< HEAD
   const nameSlug = (profile?.name || profile?.email || 'report').replace(/\s+/g, '')
   const filename = `TRENGKR ${yy}年 ${mm}月 SUPPORT LIST ${nameSlug}.xlsx`
+=======
+  const nameSlug = reportFileNameLabel(profile, 'report')
+  const filename = `TRENGKR ${yy}年 ${mm}月 SUPPORT LIST_${nameSlug}.xlsx`
+>>>>>>> feature/UI_Refactoring
 
   return new NextResponse(outBuffer as any, {
     status: 200,

@@ -18,7 +18,11 @@ import { displayName } from '@/app/lib/labels'
 //
 // 중복 알림 방지: profiles.unassigned_notified_at 에 알린 시각을 남기고, 소속이 배정되면 null로 되돌린다.
 //
+<<<<<<< HEAD
 // 알림을 받는 사람: 총괄 관리자, 부문장, 부서장 (마스터는 시스템 관리자라 제외).
+=======
+// 알림을 받는 사람: 총괄 관리자, 부문장, 부장 (마스터는 시스템 관리자라 제외).
+>>>>>>> feature/UI_Refactoring
 
 export async function POST() {
   try {
@@ -53,7 +57,11 @@ export async function POST() {
     const profiles = profilesRes.data ?? []
 
     // 조직 관리 화면의 "미지정 인원"과 같은 기준: 마스터 계정은 조직 구성원 풀에서 빠지고,
+<<<<<<< HEAD
     // 팀·부서 소속이 없으며 부문장/부서장도 아닌 사람.
+=======
+    // 팀·부서 소속이 없으며 부문장/부장도 아닌 사람.
+>>>>>>> feature/UI_Refactoring
     const assignedIds = new Set<string>([
       ...(teamMembersRes.data ?? []).map((r) => r.user_id as string),
       ...(deptMembersRes.data ?? []).map((r) => r.user_id as string),
@@ -103,7 +111,11 @@ export async function POST() {
       return NextResponse.json({ success: true, notified: 0 })
     }
 
+<<<<<<< HEAD
     // 받는 사람: 총괄 관리자 + 부문장 + 부서장. 호출한 본인은 제외한다.
+=======
+    // 받는 사람: 총괄 관리자 + 부문장 + 부장. 호출한 본인은 제외한다.
+>>>>>>> feature/UI_Refactoring
     // 마스터(시스템 관리자)는 받지 않는다 — 마스터 계정이 총괄 관리자도 겸하면 그쪽으로는 받는다.
     const recipientIds = new Set<string>([
       ...(generalAdminsRes.data ?? []).map((r) => r.user_id as string),

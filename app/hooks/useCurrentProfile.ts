@@ -11,7 +11,7 @@ interface ProfileSummary {
   isGeneralAdmin: boolean
   /** true면 최소 한 팀 이상에서 팀장(role='admin')이거나 마스터 계정 */
   isTeamLeaderOrAbove: boolean
-  /** true면 총괄 관리자/부문장/부서장이거나 마스터 계정 (조직 관리 화면 접근 가능) */
+  /** true면 총괄 관리자/부문장/부장이거나 마스터 계정 (조직 관리 화면 접근 가능) */
   isOrgManager: boolean
 }
 
