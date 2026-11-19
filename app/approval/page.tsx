@@ -25,7 +25,7 @@ interface MySource {
 
 // 결재 목록 부서 필터 옵션 (req 4).
 // 상위 조직부터 이어붙인 경로 형태의 라벨(대시보드의 OrgScopeSelect와 동일한 방식)로,
-// 총괄 관리자/마스터는 "전체" + 부문 단위, 부문장은 "부문 전체" + 부서 단위까지 노출한다.
+// 총괄 관리자/마스터는 "전체" + 부문 + 부서 단위, 부문장은 "부문 전체" + 부서 단위까지 노출한다.
 // 그 아래(부장/팀장/팀원)는 필터 없이 항상 자기 부서 범위로 고정된다.
 // 여러 조직장을 겸임 중이면 각 역할에서 나오는 옵션을 모두 합쳐서 보여준다.
 interface ScopeOption extends OrgScopeOption {
@@ -93,6 +93,8 @@ function ApprovalPageContent() {
   const [baseDepartmentIds, setBaseDepartmentIds] = useState<string[]>([])
   const [scopeOptions, setScopeOptions] = useState<ScopeOption[]>([])
   const [selectedScope, setSelectedScope] = useState<ScopeOption | null>(null)
+  // 결재 카드의 팀 배지에 부서명을 붙이기 위한 department_id → 부서명 맵
+  const [departmentNames, setDepartmentNames] = useState<Record<string, string>>({})
 
   // CC 관련
   const [ccInput, setCcInput] = useState('')
@@ -114,12 +116,20 @@ function ApprovalPageContent() {
       const scope = await initViewerScope(user.id)
       fetchRequests(user.id, dateRangeStart, dateRangeEnd, scope)
       fetchMySources(user.id)
+      supabase
+        .from('departments')
+        .select('id, name')
+        .then(({ data }) => {
+          setDepartmentNames(
+            Object.fromEntries((data || []).map((d: any) => [d.id, d.name as string]))
+          )
+        })
     }
     getUser()
   }, [])
 
   // 결재 페이지 열람 범위 계산 (req 4).
-  // - 총괄 관리자/마스터: 전사 전체가 기본, 부문 단위로 좁혀보는 필터 제공.
+  // - 총괄 관리자/마스터: 전사 전체가 기본, 부문·부서 단위로 좁혀보는 필터 제공.
   // - 부문장: 부문 전체가 기본, 부서 단위로 좁혀보는 필터 제공.
   // - 그 아래(부장/팀장/팀원): 필터 없이 자기 부서 범위로 고정.
   // 한 사람이 여러 조직장을 겸임할 수 있으므로(예: 부문장이면서 다른 부서의 부장), 역할별
@@ -167,17 +177,31 @@ function ApprovalPageContent() {
     }
 
     if (hasTopAccess) {
-      // 총괄 관리자/마스터: 전사 전체 + 산하 부문들
+      // 총괄 관리자/마스터: 전사 전체 + 부문 + 그 산하 부서들
       const [{ data: allDivs }, { data: allDepts }] = await Promise.all([
         supabase.from('divisions').select('id, name').order('display_order', { ascending: true }),
-        supabase.from('departments').select('id, division_id').order('display_order', { ascending: true }),
+        supabase
+          .from('departments')
+          .select('id, name, division_id')
+          .order('display_order', { ascending: true }),
       ])
       addOpt({ level: 'company', entityId: '', label: '전체', departmentIds: null })
       ;(allDivs || []).forEach((div: any) => {
-        const deptIds = (allDepts || [])
-          .filter((d: any) => d.division_id === div.id)
-          .map((d: any) => d.id)
-        addOpt({ level: 'division', entityId: div.id, label: div.name, departmentIds: deptIds })
+        const divDepts = (allDepts || []).filter((d: any) => d.division_id === div.id)
+        addOpt({
+          level: 'division',
+          entityId: div.id,
+          label: div.name,
+          departmentIds: divDepts.map((d: any) => d.id),
+        })
+        divDepts.forEach((dept: any) => {
+          addOpt({
+            level: 'department',
+            entityId: dept.id,
+            label: `${div.name} > ${dept.name}`,
+            departmentIds: [dept.id],
+          })
+        })
       })
     }
 
@@ -278,7 +302,7 @@ function ApprovalPageContent() {
     let query = supabase
       .from('approval_requests')
       .select(
-        `*, requester:profiles!approval_requests_requester_id_fkey(name,email), approver:profiles!approval_requests_approver_id_fkey(name,email), teams(name), departments(name), divisions(name)`
+        `*, requester:profiles!approval_requests_requester_id_fkey(name,email), approver:profiles!approval_requests_approver_id_fkey(name,email), teams(name, department_id), departments(name), divisions(name)`
       )
       .gte('created_at', dayjs(rangeStart).startOf('day').toISOString())
       .lte('created_at', dayjs(rangeEnd).endOf('day').toISOString())
@@ -1100,6 +1124,8 @@ function ApprovalPageContent() {
           scopeOptions={scopeOptions}
           selectedScope={selectedScope}
           onScopeChange={handleScopeChange}
+          showDepartment={selectedScope?.level === 'company' || selectedScope?.level === 'division'}
+          departmentNames={departmentNames}
         />
 
         {selectedRequest && (

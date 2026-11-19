@@ -23,12 +23,26 @@ interface ApprovalCardProps {
   req: any
   userId: string
   onClick: (req: any) => void
+  /** 필터가 "전체/부문" 단위일 때 true — 팀 배지에 부서명을 함께 표시한다 (예: 'xxx부/xxx팀'). */
+  showDepartment?: boolean
+  /** department_id → 부서명 */
+  departmentNames?: Record<string, string>
 }
 
-export default function ApprovalCard({ req, userId, onClick }: ApprovalCardProps) {
+export default function ApprovalCard({
+  req,
+  userId,
+  onClick,
+  showDepartment = false,
+  departmentNames = {},
+}: ApprovalCardProps) {
   const isRequester = req.requester_id === userId
   const status = statusLabel(req.status)
   const type = typeLabel(req.type)
+  // 팀 배지는 기본적으로 팀 이름만 보여주고, 부문 이상 단위로 보고 있을 때만 '부서명/팀명'으로 바꾼다.
+  const teamDeptName = req.teams?.department_id ? departmentNames[req.teams.department_id] : undefined
+  const teamBadgeText =
+    showDepartment && teamDeptName ? `${teamDeptName}/${req.teams?.name}` : req.teams?.name
 
   return (
     <div
@@ -43,7 +57,7 @@ export default function ApprovalCard({ req, userId, onClick }: ApprovalCardProps
             </span>
             <Badge colorClassName={type.colorClassName}>{type.text}</Badge>
             {req.teams?.name ? (
-              <Badge tone="neutral">{req.teams.name}</Badge>
+              <Badge tone="neutral">{teamBadgeText}</Badge>
             ) : req.departments?.name ? (
               <Badge tone="neutral">{req.departments.name}</Badge>
             ) : (

@@ -6,7 +6,7 @@ import 'dayjs/locale/ko'
 import { useRouter } from 'next/navigation'
 import type { Notification } from '../../lib/types'
 import type { LucideIcon } from 'lucide-react'
-import { Inbox, CheckCircle2, XCircle, Bell } from 'lucide-react'
+import { Inbox, CheckCircle2, XCircle, Bell, UserX } from 'lucide-react'
 
 dayjs.extend(relativeTime)
 dayjs.locale('ko')
@@ -15,6 +15,7 @@ const TYPE_META: Record<string, { Icon: LucideIcon; style: string }> = {
   REQUEST: { Icon: Inbox, style: 'bg-blue-50 text-blue-500' },
   APPROVED: { Icon: CheckCircle2, style: 'bg-green-50 text-green-500' },
   REJECTED: { Icon: XCircle, style: 'bg-red-50 text-red-500' },
+  UNASSIGNED: { Icon: UserX, style: 'bg-orange-50 text-orange-500' },
 }
 
 interface NotificationCenterProps {
@@ -37,7 +38,10 @@ export default function NotificationCenter({
   const handleClick = (n: Notification) => {
     if (!n.is_read) onMarkAsRead(n.id)
     onClose()
-    if (n.approval_id) {
+    if (n.type === 'UNASSIGNED') {
+      // 소속 배정은 조직 관리의 "미지정 인원"에서 한다.
+      router.push('/org?view=unassigned')
+    } else if (n.approval_id) {
       router.push(`/approval?requestId=${n.approval_id}`)
     } else {
       router.push('/approval')

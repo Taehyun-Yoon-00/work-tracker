@@ -25,6 +25,8 @@ export default function MyPage() {
   const [usedVacation, setUsedVacation] = useState<number>(0)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  // 이름이 비어 있는 첫 방문 — 이름 입력 안내를 보여주고, 저장하면 홈으로 보낸다.
+  const [needsName, setNeedsName] = useState(false)
   const [isMaster, setIsMaster] = useState(false)
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -74,6 +76,8 @@ export default function MyPage() {
       }
       setTotalVacation(data.total_vacation || 0)
       if (data.is_master) setIsMaster(true)
+      // 마스터(시스템 관리자)는 조직 구성원이 아니라서 이름을 강제하지 않는다.
+      setNeedsName(!data.is_master && !data.name?.trim())
     }
   }
 
@@ -102,6 +106,13 @@ export default function MyPage() {
   }
 
   const handleSave = async () => {
+    // 이름(한글)은 필수다. 나머지 항목은 비워 둬도 저장된다.
+    const trimmedName = name.trim()
+    if (!trimmedName) {
+      setMessage('이름을 입력해주세요.')
+      return
+    }
+
     const position = positionChoice === POSITION_CUSTOM ? customPosition.trim() : positionChoice
     if (positionChoice === POSITION_CUSTOM && !position) {
       setMessage('직급을 직접 입력해주세요.')
@@ -113,7 +124,7 @@ export default function MyPage() {
     const { error } = await supabase
       .from('profiles')
       .update({
-        name: name.trim(),
+        name: trimmedName,
         name_hanja: nameHanja.trim() || null,
         name_initial: nameInitial.trim() || null,
         position: position || null,
@@ -121,8 +132,22 @@ export default function MyPage() {
       })
       .eq('id', user.id)
 
-    if (error) setMessage('저장 실패: ' + error.message)
-    else setMessage('저장 완료!')
+    if (error) {
+      setMessage('저장 실패: ' + error.message)
+      setLoading(false)
+      return
+    }
+
+    setName(trimmedName)
+    if (needsName) {
+      // 첫 이름 저장 — 이제부터 미지정 인원이므로 권한자들에게 소속 배정 알림을 보낸다.
+      // 페이지를 떠나도 요청이 끊기지 않도록 keepalive로 보낸다.
+      fetch('/api/notify-unassigned', { method: 'POST', keepalive: true }).catch(() => {})
+      setNeedsName(false)
+      router.push('/')
+      return
+    }
+    setMessage('저장 완료!')
     setLoading(false)
   }
 
@@ -193,6 +218,12 @@ export default function MyPage() {
           <div className="pb-4">
             <SectionHeader className="mb-3">계정</SectionHeader>
 
+            {needsName && (
+              <div className="mb-4 rounded-lg bg-blue-50 dark:bg-blue-500/10 px-3 py-2.5 text-sm text-blue-600 dark:text-blue-300">
+                처음 오셨네요! 이름을 먼저 입력하고 저장해주세요. 다른 항목은 나중에 입력해도 괜찮아요.
+              </div>
+            )}
+
             <div className="mb-4">
               <label className="text-sm text-gray-500 dark:text-zinc-400">이메일</label>
               <p className="text-sm font-medium mt-1 dark:text-zinc-200">{user?.email}</p>
@@ -202,7 +233,9 @@ export default function MyPage() {
               <label className="text-sm text-gray-500 dark:text-zinc-400">이름</label>
               <div className="grid grid-cols-3 gap-2 mt-1">
                 <div className="min-w-0">
-                  <span className="text-xs text-gray-500 dark:text-zinc-400">한글</span>
+                  <span className="text-xs text-gray-500 dark:text-zinc-400">
+                    한글 <span className="text-red-500">*</span>
+                  </span>
                   <input
                     type="text"
                     value={name}

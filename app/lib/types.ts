@@ -46,6 +46,11 @@ export interface Profile {
   is_master: boolean | null
   /** 직급 (012_profile_position) */
   position: string | null
+  /**
+   * 미지정 인원 알림을 이미 보낸 시각 (028_unassigned_notification).
+   * 소속이 배정되면 서버가 null로 되돌려서, 다시 미지정이 되면 새로 알림이 가도록 한다.
+   */
+  unassigned_notified_at: Timestamp | null
 }
 
 export interface Team {
@@ -188,7 +193,14 @@ export interface SubstituteHoliday {
   created_at: Timestamp | null
 }
 
-export type NotificationType = 'REQUEST' | 'APPROVED' | 'REJECTED' | 'CANCEL_REQUEST' | 'CANCELLED'
+export type NotificationType =
+  | 'REQUEST'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'CANCEL_REQUEST'
+  | 'CANCELLED'
+  /** 소속이 배정되지 않은 인원 발생 (028_unassigned_notification) */
+  | 'UNASSIGNED'
 
 export interface Notification {
   id: UUID

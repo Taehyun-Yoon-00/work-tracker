@@ -22,6 +22,10 @@ interface ApprovalListProps {
   scopeOptions?: OrgScopeOption[]
   selectedScope?: OrgScopeOption | null
   onScopeChange?: (opt: OrgScopeOption) => void
+  /** 팀 배지에 부서명을 함께 보여줄지 (필터가 전체/부문 단위일 때) */
+  showDepartment?: boolean
+  /** department_id → 부서명 */
+  departmentNames?: Record<string, string>
 }
 
 export default function ApprovalList({
@@ -39,6 +43,8 @@ export default function ApprovalList({
   scopeOptions = [],
   selectedScope = null,
   onScopeChange,
+  showDepartment = false,
+  departmentNames = {},
 }: ApprovalListProps) {
   const filteredRequests = requests.filter((r) => {
     const statusMatch =
@@ -143,7 +149,14 @@ export default function ApprovalList({
           </p>
         ) : (
           filteredRequests.map((req) => (
-            <ApprovalCard key={req.id} req={req} userId={userId} onClick={onCardClick} />
+            <ApprovalCard
+              key={req.id}
+              req={req}
+              userId={userId}
+              onClick={onCardClick}
+              showDepartment={showDepartment}
+              departmentNames={departmentNames}
+            />
           ))
         )}
       </div>
