@@ -13,6 +13,7 @@ import {
   type OrgMember,
   type DepartmentScope,
 } from '../../lib/orgOrder'
+import { useScheduleRange } from '../../hooks/useScheduleRange'
 import { vacationLabel, vacationColorClass, REMOTE_COLOR_CLASS, REMOTE_LABEL } from '../../lib/scheduleDisplay'
 import SegmentedControl from '../../components/ui/SegmentedControl'
 import TeamMonthCalendar, { type CalendarEntry } from '../../components/team/TeamMonthCalendar'
@@ -32,10 +33,12 @@ export default function TeamDetailPage() {
   const [deptScope, setDeptScope] = useState<DepartmentScope | null>(null)
   const [filterScope, setFilterScope] = useState<FilterScope>('department')
   const [isAdmin, setIsAdmin] = useState(false)
-  const [vacations, setVacations] = useState<any[]>([])
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date())
-  const [remoteWorks, setRemoteWorks] = useState<any[]>([])
+  // 캘린더에 쓸 휴가/재택은 보고 있는 달만 조회한다(hooks/useScheduleRange).
+  const [scheduleUserIds, setScheduleUserIds] = useState<string[]>([])
+  const [scheduleToken, setScheduleToken] = useState(0)
+  const { vacations, remoteWorks } = useScheduleRange(scheduleUserIds, calendarMonth, scheduleToken)
   const [isMaster, setIsMaster] = useState(false)
   const [substituteHolidays, setSubstituteHolidays] = useState<string[]>([])
   // null = 확인 중, true = 열람 가능, false = 접근 불가(소속 인원 또는 상위 조직장이 아님)
@@ -70,32 +73,34 @@ export default function TeamDetailPage() {
   }, [team?.department_id])
 
   const fetchTeamData = async (userId: string) => {
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('is_master')
-      .eq('id', userId)
-      .single()
-    const masterFlag = !!profileData?.is_master
-    const { data: generalAdminRow } = await supabase
-      .from('general_admins')
-      .select('user_id')
-      .eq('user_id', userId)
-      .maybeSingle()
-    if (masterFlag || generalAdminRow) {
-      setIsMaster(true) // 마스터/총괄 관리자는 자동으로 팀장 권한
-      setIsAdmin(true)
-    }
-
-    const { data: teamData } = await supabase
+    // 서로 의존하지 않는 조회(내 권한, 팀 정보, 팀 구성원)는 동시에 시작하고, 부서 전체 스코프는
+    // 팀 정보(부서 id)가 도착하는 즉시 이어서 시작한다. 예전에는 이 조회들이 전부 순서대로였다.
+    const teamQuery = supabase
       .from('teams')
       .select('*, departments(id, name, head_user_id, division_id, divisions(head_user_id))')
       .eq('id', id)
       .single()
-    if (teamData) setTeam(teamData)
-
+    const teamPromise = (async () => await teamQuery)()
     // 정렬/조회 규칙은 lib/orgOrder에 모아둔 공용 로직을 그대로 쓴다 — 조직관리, 대시보드와
     // 항상 같은 순서(팀장이 팀 안에서 항상 최상단, 나머지는 display_order 순서)를 보장한다.
-    const teamMembersList = await fetchTeamMembers(String(id))
+    const membersPromise = fetchTeamMembers(String(id))
+    const scopePromise = teamPromise.then(({ data }) =>
+      data?.department_id ? fetchDepartmentScope(data.department_id) : null
+    )
+
+    const [{ data: profileData }, { data: generalAdminRow }, { data: teamData }, teamMembersList] =
+      await Promise.all([
+        supabase.from('profiles').select('is_master').eq('id', userId).single(),
+        supabase.from('general_admins').select('user_id').eq('user_id', userId).maybeSingle(),
+        teamPromise,
+        membersPromise,
+      ])
+    const masterFlag = !!profileData?.is_master
+    if (masterFlag || generalAdminRow) {
+      setIsMaster(true) // 마스터/총괄 관리자는 자동으로 팀장 권한
+      setIsAdmin(true)
+    }
+    if (teamData) setTeam(teamData)
     setMembers(teamMembersList)
     const myRole = teamMembersList.find((m) => m.user_id === userId)
     if (myRole?.isHead) setIsAdmin(true)
@@ -112,8 +117,8 @@ export default function TeamDetailPage() {
     // 부서 전체 스코프: 같은 부서의 다른 팀 + 부서 직접 소속 인원까지 모아둔다.
     // 표시 순서는 조직관리와 동일한 공용 규칙(부장 최상단 → 부서 직속 → 팀 순서대로,
     // 각 팀은 팀장이 최상단)을 그대로 따른다.
-    if (teamData?.department_id) {
-      const scope = await fetchDepartmentScope(teamData.department_id)
+    const scope = await scopePromise
+    if (teamData?.department_id && scope) {
       setDeptMembers(scope.allMembers)
       setDeptScope(scope)
       unionUserIds = Array.from(new Set([...unionUserIds, ...scope.allMembers.map((m) => m.user_id)]))
@@ -122,23 +127,10 @@ export default function TeamDetailPage() {
       setDeptScope(null)
     }
 
-    if (unionUserIds.length > 0) {
-      const [{ data: vacationData }, { data: remoteData }] = await Promise.all([
-        supabase
-          .from('vacations')
-          .select('*, profiles(id, email, name)')
-          .in('user_id', unionUserIds),
-        supabase
-          .from('remote_works')
-          .select('*, profiles(id, email, name)')
-          .in('user_id', unionUserIds),
-      ])
-      if (vacationData) setVacations(vacationData)
-      if (remoteData) setRemoteWorks(remoteData)
-    } else {
-      setVacations([])
-      setRemoteWorks([])
-    }
+    // 휴가/재택은 useScheduleRange가 보고 있는 달 기준으로 가져온다. (포커스로 다시 불러올 때마다
+    // 토큰을 올려 최신 상태로 갱신한다.)
+    setScheduleUserIds(unionUserIds)
+    setScheduleToken((t) => t + 1)
   }
 
   const loadSubstituteHolidays = async () => {

@@ -97,12 +97,14 @@ export default function MenuDrawer({ open, onClose }: MenuDrawerProps) {
       )
     }
     const active = isActivePath(pathname, item.path)
+    // 소속이 정확히 1개면 /team을 거치지 않고 그 소속으로 바로 간다. (그 외에는 기존처럼 /team)
+    const target = item.path === '/team' && affiliations.length === 1 ? affiliations[0].path : item.path
     return (
       <button
         key={item.path}
         onClick={() => {
           onClose()
-          router.push(item.path)
+          router.push(target)
         }}
         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition ${
           active

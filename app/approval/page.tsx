@@ -3,14 +3,21 @@
 import { Suspense, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import dayjs from 'dayjs'
 import { usePushSubscription } from '../hooks/usePushSubscription'
 import ApprovalList from '../components/approval/ApprovalList'
-import ApprovalDetailModal from '../components/approval/ApprovalDetailModal'
-import RequestModal from '../components/approval/RequestModal'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import OrgScopeSelect, { OrgScopeOption } from '../components/ui/OrgScopeSelect'
 import { fetchDivisionMembers, fetchDepartmentScope } from '../lib/orgOrder'
+
+// 상세/신청 모달은 열릴 때만 필요하므로 따로 불러온다. (신청 모달은 달력 라이브러리를 포함한다)
+const ApprovalDetailModal = dynamic(() => import('../components/approval/ApprovalDetailModal'), {
+  loading: () => null,
+})
+const RequestModal = dynamic(() => import('../components/approval/RequestModal'), {
+  loading: () => null,
+})
 
 const CC_STORAGE_KEY = 'approval_cc_history'
 
@@ -207,12 +214,18 @@ function ApprovalPageContent() {
 
     if ((headDivs?.length ?? 0) > 0) {
       // 부문장: 부문 전체 + 그 산하 부서들
-      for (const div of headDivs || []) {
-        const { data: depts } = await supabase
-          .from('departments')
-          .select('id, name')
-          .eq('division_id', div.id)
-          .order('display_order', { ascending: true })
+      // 부문별 부서 조회는 서로 독립적이라 동시에 실행한다. (옵션 추가 순서는 부문 순서 그대로)
+      const headDivDeptResults = await Promise.all(
+        (headDivs || []).map((div: any) =>
+          supabase
+            .from('departments')
+            .select('id, name')
+            .eq('division_id', div.id)
+            .order('display_order', { ascending: true })
+        )
+      )
+      ;(headDivs || []).forEach((div: any, i: number) => {
+        const depts = headDivDeptResults[i].data
         const deptIds = (depts || []).map((d: any) => d.id)
         addOpt({ level: 'division', entityId: div.id, label: div.name, departmentIds: deptIds })
         ;(depts || []).forEach((dept: any) => {
@@ -223,7 +236,7 @@ function ApprovalPageContent() {
             departmentIds: [dept.id],
           })
         })
-      }
+      })
     }
 
     if ((headDepts?.length ?? 0) > 0) {

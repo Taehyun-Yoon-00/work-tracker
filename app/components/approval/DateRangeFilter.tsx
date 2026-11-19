@@ -1,11 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { Calendar, DateObject } from 'react-multi-date-picker'
+import dynamic from 'next/dynamic'
 import dayjs from 'dayjs'
 import { CalendarDays } from 'lucide-react'
-import { weekendClassName } from '@/app/lib/dates'
-import Button from '../ui/Button'
+
+// 기간 선택 팝업(react-multi-date-picker 포함)은 처음 열 때 불러온다.
+const DateRangePopup = dynamic(() => import('./DateRangePopup'), { loading: () => null })
 
 interface DateRangeFilterProps {
   startDate: string // YYYY-MM-DD
@@ -15,23 +16,8 @@ interface DateRangeFilterProps {
 
 export default function DateRangeFilter({ startDate, endDate, onApply }: DateRangeFilterProps) {
   const [open, setOpen] = useState(false)
-  const [range, setRange] = useState<DateObject[]>([
-    new DateObject(startDate),
-    new DateObject(endDate),
-  ])
 
-  const openPicker = () => {
-    setRange([new DateObject(startDate), new DateObject(endDate)])
-    setOpen(true)
-  }
-
-  const handleApply = () => {
-    if (range.length === 2) {
-      const [s, e] = range
-      onApply(s.format('YYYY-MM-DD'), e.format('YYYY-MM-DD'))
-    }
-    setOpen(false)
-  }
+  const openPicker = () => setOpen(true)
 
   return (
     <div>
@@ -48,35 +34,12 @@ export default function DateRangeFilter({ startDate, endDate, onApply }: DateRan
       </button>
 
       {open && (
-        <div
-          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-          onClick={() => setOpen(false)}
-        >
-          <div
-            className="bg-white dark:bg-zinc-800 rounded-xl shadow-lg p-4 max-w-full overflow-x-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p className="text-sm font-semibold mb-3 dark:text-white">기간 선택</p>
-            <Calendar
-              value={range}
-              onChange={(dates: any) => setRange(dates)}
-              range
-              numberOfMonths={2}
-              shadow={false}
-              weekStartDayIndex={1}
-              mapDays={({ date }) => ({ className: weekendClassName(date.toDate()) })}
-              className="!shadow-none"
-            />
-            <div className="flex gap-2 mt-4">
-              <Button variant="secondary" className="flex-1" onClick={() => setOpen(false)}>
-                취소
-              </Button>
-              <Button className="flex-1" onClick={handleApply} disabled={range.length < 2}>
-                적용
-              </Button>
-            </div>
-          </div>
-        </div>
+        <DateRangePopup
+          startDate={startDate}
+          endDate={endDate}
+          onApply={onApply}
+          onClose={() => setOpen(false)}
+        />
       )}
     </div>
   )

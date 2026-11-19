@@ -96,27 +96,37 @@ export async function fetchDepartmentScope(departmentId: string): Promise<Depart
     .filter((m: any) => !m.profiles?.is_master && m.user_id !== headUserId)
     .map((m: any) => toMember(m.user_id, m.profiles, false))
 
+  // 부장 프로필 조회와 팀별 인원 조회는 서로 의존하지 않으므로 동시에 실행한다.
+  // (결과 순서는 teams 배열 순서 그대로 유지된다.)
+  const existingHead: any = headUserId
+    ? (directDept || []).find((m: any) => m.user_id === headUserId)
+    : null
+  const [headProfileRes, teamGroups] = await Promise.all([
+    headUserId && !existingHead
+      ? // department_memberships에는 없고 "자리"만 있는 부장도 목록에 노출
+        supabase
+          .from('profiles')
+          .select('id, name, email, position, is_master')
+          .eq('id', headUserId)
+          .single()
+      : Promise.resolve(null),
+    Promise.all(
+      (teams || []).map(async (t: any): Promise<TeamMemberGroup> => {
+        const members = await fetchTeamMembers(t.id)
+        return { id: t.id, name: t.name, members }
+      })
+    ),
+  ])
+
   if (headUserId) {
-    const existingHead: any = (directDept || []).find((m: any) => m.user_id === headUserId)
     if (existingHead) {
       directList.unshift(toMember(existingHead.user_id, existingHead.profiles, true))
     } else {
-      // department_memberships에는 없고 "자리"만 있는 부장도 목록에 노출
-      const { data: headProfile } = await supabase
-        .from('profiles')
-        .select('id, name, email, position, is_master')
-        .eq('id', headUserId)
-        .single()
+      const headProfile = headProfileRes?.data
       if (headProfile && !(headProfile as any).is_master) {
         directList.unshift(toMember(headProfile.id, headProfile, true))
       }
     }
-  }
-
-  const teamGroups: TeamMemberGroup[] = []
-  for (const t of teams || []) {
-    const members = await fetchTeamMembers((t as any).id)
-    teamGroups.push({ id: (t as any).id, name: (t as any).name, members })
   }
 
   const map = new Map<string, OrgMember>()
@@ -146,19 +156,25 @@ export async function fetchDivisionMembers(divisionId: string): Promise<OrgMembe
       .order('display_order', { ascending: true }),
   ])
 
+  // 부문장 프로필과 산하 부서별 구성원 조회를 동시에 실행한다. 합치는 순서는 기존과 같다
+  // (부문장 → 부서 display_order 순).
+  const [headRes, scopes] = await Promise.all([
+    division?.head_user_id
+      ? supabase
+          .from('profiles')
+          .select('id, name, email, position, is_master')
+          .eq('id', division.head_user_id)
+          .single()
+      : Promise.resolve(null),
+    Promise.all((depts || []).map((d: any) => fetchDepartmentScope(d.id))),
+  ])
+
   const map = new Map<string, OrgMember>()
-  if (division?.head_user_id) {
-    const { data: headProfile } = await supabase
-      .from('profiles')
-      .select('id, name, email, position, is_master')
-      .eq('id', division.head_user_id)
-      .single()
-    if (headProfile && !(headProfile as any).is_master) {
-      map.set(headProfile.id, toMember(headProfile.id, headProfile, true))
-    }
+  const headProfile = headRes?.data
+  if (headProfile && !(headProfile as any).is_master) {
+    map.set(headProfile.id, toMember(headProfile.id, headProfile, true))
   }
-  for (const d of depts || []) {
-    const scope = await fetchDepartmentScope((d as any).id)
+  for (const scope of scopes) {
     scope.allMembers.forEach((m) => {
       if (!map.has(m.user_id)) map.set(m.user_id, m)
     })
@@ -173,8 +189,10 @@ export async function fetchCompanyMembers(): Promise<OrgMember[]> {
     .select('id')
     .order('display_order', { ascending: true })
   const map = new Map<string, OrgMember>()
-  for (const d of divisions || []) {
-    const members = await fetchDivisionMembers((d as any).id)
+  const memberLists = await Promise.all(
+    (divisions || []).map((d: any) => fetchDivisionMembers(d.id))
+  )
+  for (const members of memberLists) {
     members.forEach((m) => {
       if (!map.has(m.user_id)) map.set(m.user_id, m)
     })

@@ -7,6 +7,7 @@ import dayjs from 'dayjs'
 import '../../lib/dates'
 import { fetchSubstituteHolidays } from '../../lib/holidays'
 import { fetchDepartmentScope } from '../../lib/orgOrder'
+import { useScheduleRange } from '../../hooks/useScheduleRange'
 import { vacationLabel, vacationColorClass, REMOTE_COLOR_CLASS, REMOTE_LABEL } from '../../lib/scheduleDisplay'
 import SegmentedControl from '../ui/SegmentedControl'
 import SkeletonRows from '../ui/SkeletonRows'
@@ -36,10 +37,15 @@ export default function DepartmentAffiliationView({ departmentId }: { department
   const [allMembers, setAllMembers] = useState<Member[]>([])
   const [filterScope, setFilterScope] = useState<FilterScope>('department')
   const [hasTeams, setHasTeams] = useState(false)
-  const [vacations, setVacations] = useState<any[]>([])
-  const [remoteWorks, setRemoteWorks] = useState<any[]>([])
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date())
+  // 캘린더에 쓸 휴가/재택은 보고 있는 달만 조회한다(hooks/useScheduleRange).
+  const [scheduleUserIds, setScheduleUserIds] = useState<string[]>([])
+  const { vacations, remoteWorks, ready: scheduleReady } = useScheduleRange(
+    scheduleUserIds,
+    calendarMonth,
+    0
+  )
   const [substituteHolidays, setSubstituteHolidays] = useState<string[]>([])
 
   useEffect(() => {
@@ -49,27 +55,35 @@ export default function DepartmentAffiliationView({ departmentId }: { department
 
   const fetchDepartmentInfo = async (deptId: string) => {
     setLoading(true)
-    const { data: dept } = await supabase
+    // 부서 정보, 부장 프로필, 부서 구성원 조회는 서로 기다릴 필요가 없어 동시에 실행한다.
+    const deptQuery = supabase
       .from('departments')
       .select('id, name, head_user_id')
       .eq('id', deptId)
       .single()
-    setDepartment(dept)
-
-    if (dept?.head_user_id) {
+    const deptPromise = (async () => await deptQuery)()
+    const headPromise = deptPromise.then(async ({ data }) => {
+      if (!data?.head_user_id) return null
       const { data: headProfile } = await supabase
         .from('profiles')
         .select('name, email')
-        .eq('id', dept.head_user_id)
+        .eq('id', data.head_user_id)
         .single()
+      return headProfile
+    })
+    // 정렬/조회 규칙은 lib/orgOrder에 모아둔 공용 로직을 그대로 쓴다 — 조직관리, 대시보드와
+    // 항상 같은 순서(부장 최상단 → 부서 직속 → 팀 순서대로, 각 팀은 팀장이 최상단)를 보장한다.
+    const [{ data: dept }, headProfile, scope] = await Promise.all([
+      deptPromise,
+      headPromise,
+      fetchDepartmentScope(deptId),
+    ])
+    setDepartment(dept)
+    if (dept?.head_user_id) {
       setHeadName(headProfile?.name || headProfile?.email?.split('@')[0] || null)
     } else {
       setHeadName(null)
     }
-
-    // 정렬/조회 규칙은 lib/orgOrder에 모아둔 공용 로직을 그대로 쓴다 — 조직관리, 대시보드와
-    // 항상 같은 순서(부장 최상단 → 부서 직속 → 팀 순서대로, 각 팀은 팀장이 최상단)를 보장한다.
-    const scope = await fetchDepartmentScope(deptId)
     setHasTeams(scope.teamGroups.length > 0)
 
     const directList: Member[] = scope.directMembers.map((m) => ({
@@ -105,18 +119,8 @@ export default function DepartmentAffiliationView({ departmentId }: { department
     })
     setAllMembers(combined)
 
-    const userIds = combined.map((m) => m.user_id)
-    if (userIds.length > 0) {
-      const [{ data: vacationData }, { data: remoteData }] = await Promise.all([
-        supabase.from('vacations').select('*').in('user_id', userIds),
-        supabase.from('remote_works').select('*').in('user_id', userIds),
-      ])
-      if (vacationData) setVacations(vacationData)
-      if (remoteData) setRemoteWorks(remoteData)
-    } else {
-      setVacations([])
-      setRemoteWorks([])
-    }
+    // 휴가/재택은 useScheduleRange가 보고 있는 달 기준으로 가져온다.
+    setScheduleUserIds(combined.map((m) => m.user_id))
 
     setLoading(false)
   }
@@ -155,7 +159,8 @@ export default function DepartmentAffiliationView({ departmentId }: { department
     return [...vacEntries, ...remEntries]
   }
 
-  if (loading) {
+  // 예전처럼 구성원 + 첫 달 일정이 모두 준비된 뒤에 화면을 보여준다.
+  if (loading || !scheduleReady) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-zinc-900 p-2 sm:p-4 pb-28">
         <div className="max-w-2xl mx-auto">

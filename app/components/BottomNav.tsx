@@ -4,11 +4,13 @@ import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import { Clock, BarChart3, Users, ClipboardList } from 'lucide-react'
+import { useMyAffiliations } from '../hooks/useMyAffiliations'
 
 export default function BottomNav() {
   const router = useRouter()
   const pathname = usePathname()
   const [pendingCount, setPendingCount] = useState(0)
+  const { items: affiliations } = useMyAffiliations()
 
   useEffect(() => {
     const fetchPending = async () => {
@@ -42,7 +44,13 @@ export default function BottomNav() {
           return (
             <button
               key={tab.path}
-              onClick={() => router.push(tab.path)}
+              onClick={() =>
+                // 소속이 정확히 1개면 /team을 거치지 않고 그 소속으로 바로 간다.
+                // (여러 개면 /team이 기존 우선순위대로 보내주므로 그대로 /team으로 간다.)
+                router.push(
+                  tab.path === '/team' && affiliations.length === 1 ? affiliations[0].path : tab.path
+                )
+              }
               className={`flex-1 h-full pt-2 flex flex-col items-center justify-start gap-0.5 transition relative ${
                 isActive
                   ? 'text-blue-500'

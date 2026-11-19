@@ -15,6 +15,60 @@ interface ProfileSummary {
   isOrgManager: boolean
 }
 
+interface ProfileFlags {
+  name: string | null
+  isMaster: boolean
+  hasProfile: boolean
+  isGeneralAdmin: boolean
+  isTeamAdmin: boolean
+  isOrgManager: boolean
+}
+
+// 사이드바 · 메뉴 드로어 등 여러 컴포넌트가 이 훅을 동시에 쓰기 때문에, 같은 사용자에 대한
+// 조회가 진행 중이면 새로 요청하지 않고 그 결과를 같이 받는다. (끝나면 바로 비우므로
+// 캐시처럼 오래된 값이 남지 않는다.)
+const inflightFlags = new Map<string, Promise<ProfileFlags>>()
+
+function loadProfileFlags(userId: string): Promise<ProfileFlags> {
+  const existing = inflightFlags.get(userId)
+  if (existing) return existing
+
+  const promise = (async (): Promise<ProfileFlags> => {
+    // 서로 의존하지 않는 조회라 모두 동시에 실행한다.
+    const [
+      { data: profileRow },
+      { data: generalAdminRow },
+      { data: adminTeams },
+      { data: headDivisions },
+      { data: headDepartments },
+    ] = await Promise.all([
+      supabase.from('profiles').select('name, is_master').eq('id', userId).single(),
+      supabase.from('general_admins').select('user_id').eq('user_id', userId).maybeSingle(),
+      supabase
+        .from('team_members')
+        .select('team_id')
+        .eq('user_id', userId)
+        .eq('role', 'admin')
+        .limit(1),
+      supabase.from('divisions').select('id').eq('head_user_id', userId).limit(1),
+      supabase.from('departments').select('id').eq('head_user_id', userId).limit(1),
+    ])
+    return {
+      name: profileRow?.name || null,
+      isMaster: !!profileRow?.is_master,
+      hasProfile: !!profileRow,
+      isGeneralAdmin: !!generalAdminRow,
+      isTeamAdmin: !!adminTeams && adminTeams.length > 0,
+      isOrgManager: (headDivisions?.length ?? 0) > 0 || (headDepartments?.length ?? 0) > 0,
+    }
+  })().finally(() => {
+    inflightFlags.delete(userId)
+  })
+
+  inflightFlags.set(userId, promise)
+  return promise
+}
+
 export function useCurrentProfile(): ProfileSummary {
   const [userId, setUserId] = useState<string | undefined>(undefined)
   const [name, setName] = useState<string | null>(null)
@@ -42,36 +96,14 @@ export function useCurrentProfile(): ProfileSummary {
   useEffect(() => {
     if (!userId) return
     const fetchProfile = async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('name, is_master')
-        .eq('id', userId)
-        .single()
-      if (data) {
-        setName(data.name || null)
-        setIsMaster(!!data.is_master)
+      const flags = await loadProfileFlags(userId)
+      if (flags.hasProfile) {
+        setName(flags.name)
+        setIsMaster(flags.isMaster)
       }
-
-      const { data: generalAdminRow } = await supabase
-        .from('general_admins')
-        .select('user_id')
-        .eq('user_id', userId)
-        .maybeSingle()
-      setIsGeneralAdmin(!!generalAdminRow)
-
-      const { data: adminTeams } = await supabase
-        .from('team_members')
-        .select('team_id')
-        .eq('user_id', userId)
-        .eq('role', 'admin')
-        .limit(1)
-      setIsTeamAdmin(!!adminTeams && adminTeams.length > 0)
-
-      const [{ data: headDivisions }, { data: headDepartments }] = await Promise.all([
-        supabase.from('divisions').select('id').eq('head_user_id', userId).limit(1),
-        supabase.from('departments').select('id').eq('head_user_id', userId).limit(1),
-      ])
-      setIsOrgManager((headDivisions?.length ?? 0) > 0 || (headDepartments?.length ?? 0) > 0)
+      setIsGeneralAdmin(flags.isGeneralAdmin)
+      setIsTeamAdmin(flags.isTeamAdmin)
+      setIsOrgManager(flags.isOrgManager)
     }
     fetchProfile()
   }, [userId])

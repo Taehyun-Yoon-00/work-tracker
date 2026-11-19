@@ -22,31 +22,31 @@ export default function DepartmentDetailPage() {
         return
       }
 
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('is_master')
-        .eq('id', user.id)
-        .single()
+      // 권한 판정에 필요한 네 가지 조회를 동시에 실행한 뒤, 판정 순서는 이전과 같게 적용한다.
+      const [{ data: profileData }, { data: generalAdminRow }, { data: dept }, { data: directMembership }] =
+        await Promise.all([
+          supabase.from('profiles').select('is_master').eq('id', user.id).single(),
+          supabase.from('general_admins').select('user_id').eq('user_id', user.id).maybeSingle(),
+          supabase
+            .from('departments')
+            .select('id, head_user_id, division_id, divisions(head_user_id)')
+            .eq('id', departmentId)
+            .single(),
+          supabase
+            .from('department_memberships')
+            .select('id')
+            .eq('department_id', departmentId)
+            .eq('user_id', user.id)
+            .maybeSingle(),
+        ])
       if (profileData?.is_master) {
         setAuthorized(true)
         return
       }
-
-      const { data: generalAdminRow } = await supabase
-        .from('general_admins')
-        .select('user_id')
-        .eq('user_id', user.id)
-        .maybeSingle()
       if (generalAdminRow) {
         setAuthorized(true)
         return
       }
-
-      const { data: dept } = await supabase
-        .from('departments')
-        .select('id, head_user_id, division_id, divisions(head_user_id)')
-        .eq('id', departmentId)
-        .single()
       if (!dept) {
         setAuthorized(false)
         return
@@ -61,12 +61,6 @@ export default function DepartmentDetailPage() {
         return
       }
 
-      const { data: directMembership } = await supabase
-        .from('department_memberships')
-        .select('id')
-        .eq('department_id', departmentId)
-        .eq('user_id', user.id)
-        .maybeSingle()
       setAuthorized(!!directMembership)
     }
     checkAccess()

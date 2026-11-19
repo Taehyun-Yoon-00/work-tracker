@@ -213,21 +213,26 @@ export default function DashboardPage() {
 
         if ((headDivs?.length ?? 0) > 0) {
           // 부문장: 부문 전체 + 그 산하 부서들
-          for (const div of headDivs || []) {
+          // 부문별 부서 조회는 서로 독립적이라 동시에 실행한다. (옵션 추가 순서는 부문 순서 그대로)
+          const headDivDeptResults = await Promise.all(
+            (headDivs || []).map((div: any) =>
+              supabase
+                .from('departments')
+                .select('id, name')
+                .eq('division_id', div.id)
+                .order('display_order', { ascending: true })
+            )
+          )
+          ;(headDivs || []).forEach((div: any, i: number) => {
             addOpt({ level: 'division', entityId: div.id, label: div.name })
-            const { data: depts } = await supabase
-              .from('departments')
-              .select('id, name')
-              .eq('division_id', div.id)
-              .order('display_order', { ascending: true })
-            ;(depts || []).forEach((dept: any) => {
+            ;(headDivDeptResults[i].data || []).forEach((dept: any) => {
               addOpt({
                 level: 'department',
                 entityId: dept.id,
                 label: `${div.name} > ${dept.name}`,
               })
             })
-          }
+          })
         }
 
         if ((headDepts?.length ?? 0) > 0) {

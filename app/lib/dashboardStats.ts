@@ -161,12 +161,13 @@ async function getDivisionDepartmentUnits(divisionId: string): Promise<{
 
   const units: DashboardUnit[] = []
   const coveredUserIds = new Set<string>()
-  for (const d of depts || []) {
-    const scope = await fetchDepartmentScope((d as any).id)
-    const members = dedupeMembers(scope.allMembers.map(toRow))
+  // 부서별 구성원 조회는 서로 독립적이라 동시에 실행한다. (결과 순서는 부서 순서 그대로)
+  const deptScopes = await Promise.all((depts || []).map((d: any) => fetchDepartmentScope(d.id)))
+  ;(depts || []).forEach((d: any, i: number) => {
+    const members = dedupeMembers(deptScopes[i].allMembers.map(toRow))
     members.forEach((m) => coveredUserIds.add(m.userId))
-    units.push({ id: (d as any).id, name: (d as any).name, members })
-  }
+    units.push({ id: d.id, name: d.name, members })
+  })
 
   const headUserId = division?.head_user_id || null
   if (headUserId && !coveredUserIds.has(headUserId)) {
@@ -238,11 +239,14 @@ export async function getDashboardUnits(
     .from('divisions')
     .select('id, name')
     .order('display_order', { ascending: true })
-  const units: DashboardUnit[] = []
-  for (const d of divisions || []) {
-    const members = dedupeMembers((await fetchDivisionMembers((d as any).id)).map(toRow))
-    units.push({ id: (d as any).id, name: (d as any).name, members })
-  }
+  const divisionMembers = await Promise.all(
+    (divisions || []).map((d: any) => fetchDivisionMembers(d.id))
+  )
+  const units: DashboardUnit[] = (divisions || []).map((d: any, i: number) => ({
+    id: d.id,
+    name: d.name,
+    members: dedupeMembers(divisionMembers[i].map(toRow)),
+  }))
   return { unitLevel, units, allMembers: dedupeMembers(units.flatMap((u) => u.members)) }
 }
 

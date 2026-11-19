@@ -85,10 +85,13 @@ export default function Sidebar() {
       )
     }
     const active = isActivePath(pathname, item.path)
+    // 소속이 정확히 1개면 /team을 거쳐 다시 이동할 필요 없이 그 소속으로 바로 간다.
+    // (/team이 보내주는 곳과 같은 목적지다. 소속이 없거나 아직 불러오는 중이면 기존처럼 /team으로 간다.)
+    const target = item.path === '/team' && affiliations.length === 1 ? affiliations[0].path : item.path
     return (
       <button
         key={item.path}
-        onClick={() => router.push(item.path)}
+        onClick={() => router.push(target)}
         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition ${
           active
             ? 'bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-300 font-medium'
