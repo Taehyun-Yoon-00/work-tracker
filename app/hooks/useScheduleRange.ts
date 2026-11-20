@@ -9,6 +9,20 @@ interface Range {
   to: string
 }
 
+// from~to 구간에 걸친 달들의 'YYYY-MM' 목록 (구간은 항상 달 단위로 가져온다).
+function monthsIn(from: string, to: string): string[] {
+  const out: string[] = []
+  let cur = dayjs(from).startOf('month')
+  const end = dayjs(to).startOf('month')
+  while (!cur.isAfter(end)) {
+    out.push(cur.format('YYYY-MM'))
+    cur = cur.add(1, 'month')
+  }
+  return out
+}
+
+const NO_ROWS: any[] = []
+
 function mergeById(prev: any[], incoming: any[]): any[] {
   const map = new Map<string, any>()
   prev.forEach((r) => map.set(r.id, r))
@@ -38,6 +52,9 @@ export function useScheduleRange(
   const [remoteWorks, setRemoteWorks] = useState<any[]>([])
   // 어떤 사용자 목록에 대해 첫 로딩이 끝났는지 기억해 두고, 목록이 바뀐 렌더에서도 곧바로 "아직 준비 안 됨"으로 판단한다.
   const [readyKey, setReadyKey] = useState('')
+  // 실제로 데이터가 도착해 있는 달들. 모달처럼 "특정 날짜의 일정이 비었다"고 단정해서 보여주는
+  // 곳이 아직 불러오지 못한 달을 "없음"으로 오해하지 않도록 isLoaded로 확인한다.
+  const [loaded, setLoaded] = useState<{ key: string; months: Set<string> } | null>(null)
   const rangeRef = useRef<Range | null>(null)
   const idsKeyRef = useRef('')
   const loadedKeyRef = useRef('')
@@ -50,8 +67,6 @@ export function useScheduleRange(
       rangeRef.current = null
       idsKeyRef.current = ''
       loadedKeyRef.current = ''
-      setVacations([])
-      setRemoteWorks([])
       return
     }
 
@@ -96,6 +111,12 @@ export function useScheduleRange(
         if (vac.data) setVacations((cur) => (cancelled ? mergeById(cur, vac.data as any[]) : (vac.data as any[])))
         if (rem.data) setRemoteWorks((cur) => (cancelled ? mergeById(cur, rem.data as any[]) : (rem.data as any[])))
         setReadyKey(idsKey)
+        const months = monthsIn(from, to)
+        setLoaded((cur) =>
+          cancelled && cur && cur.key === idsKey
+            ? { key: idsKey, months: new Set([...cur.months, ...months]) }
+            : { key: idsKey, months: new Set(months) }
+        )
         return
       }
 
@@ -119,6 +140,11 @@ export function useScheduleRange(
       const remAdd = results.flatMap(([, rem]) => (rem.data as any[]) || [])
       if (vacAdd.length) setVacations((cur) => mergeById(cur, vacAdd))
       if (remAdd.length) setRemoteWorks((cur) => mergeById(cur, remAdd))
+      const addedMonths = parts.flatMap((p) => monthsIn(p.from, p.to))
+      setLoaded((cur) => {
+        const base = cur && cur.key === idsKey ? cur.months : new Set<string>()
+        return { key: idsKey, months: new Set([...base, ...addedMonths]) }
+      })
     }
     run()
     return () => {
@@ -128,5 +154,15 @@ export function useScheduleRange(
   }, [idsKey, monthKey, reloadToken])
 
   const ready = userIds.length === 0 || readyKey === idsKey
-  return { vacations, remoteWorks, ready }
+  const isLoaded = (date: Date) =>
+    userIds.length === 0 ||
+    (!!loaded && loaded.key === idsKey && loaded.months.has(dayjs(date).format('YYYY-MM')))
+  // 사용자가 없으면 이전에 불러온 값이 남아 있어도 빈 목록으로 돌려준다.
+  const empty = userIds.length === 0
+  return {
+    vacations: empty ? NO_ROWS : vacations,
+    remoteWorks: empty ? NO_ROWS : remoteWorks,
+    ready,
+    isLoaded,
+  }
 }

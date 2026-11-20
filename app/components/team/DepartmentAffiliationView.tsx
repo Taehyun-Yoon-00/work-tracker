@@ -8,6 +8,7 @@ import '../../lib/dates'
 import { fetchSubstituteHolidays } from '../../lib/holidays'
 import { fetchDepartmentScope } from '../../lib/orgOrder'
 import { useScheduleRange } from '../../hooks/useScheduleRange'
+import DayScheduleModal from './DayScheduleModal'
 import { vacationLabel, vacationColorClass, REMOTE_COLOR_CLASS, REMOTE_LABEL } from '../../lib/scheduleDisplay'
 import SegmentedControl from '../ui/SegmentedControl'
 import SkeletonRows from '../ui/SkeletonRows'
@@ -41,7 +42,12 @@ export default function DepartmentAffiliationView({ departmentId }: { department
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date())
   // 캘린더에 쓸 휴가/재택은 보고 있는 달만 조회한다(hooks/useScheduleRange).
   const [scheduleUserIds, setScheduleUserIds] = useState<string[]>([])
-  const { vacations, remoteWorks, ready: scheduleReady } = useScheduleRange(
+  const {
+    vacations,
+    remoteWorks,
+    ready: scheduleReady,
+    isLoaded: scheduleLoaded,
+  } = useScheduleRange(
     scheduleUserIds,
     calendarMonth,
     0
@@ -131,6 +137,14 @@ export default function DepartmentAffiliationView({ departmentId }: { department
   const showFullMemberList = !hasTeams || filterScope === 'department'
   const scopeMembers = showFullMemberList ? allMembers : directMembers
   const scopeUserIds = new Set(scopeMembers.map((m) => m.user_id))
+
+  // 모달에서 < > 로 하루씩 넘긴다. 다른 달로 넘어가면 캘린더도 그 달로 같이 이동한다.
+  const moveSelectedDay = (delta: number) => {
+    if (!selectedDate) return
+    const next = dayjs(selectedDate).add(delta, 'day')
+    setSelectedDate(next.toDate())
+    if (!next.isSame(calendarMonth, 'month')) setCalendarMonth(next.toDate())
+  }
 
   const getMemberName = (userId: string) =>
     allMembers.find((m) => m.user_id === userId)?.name || '알 수 없음'
@@ -226,47 +240,24 @@ export default function DepartmentAffiliationView({ departmentId }: { department
             />
           </div>
 
+          {/* 날짜를 누르면 그 날의 휴가/원격근무를 모달로 보여준다. */}
           {selectedDate && (
-            <div className="border-t dark:border-zinc-700 pt-3 mt-3">
-              <p className="text-sm font-semibold mb-2 dark:text-zinc-200">
-                {dayjs(selectedDate).format('MM월 DD일')}
-              </p>
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <p className="text-base font-semibold text-orange-500 mb-1">휴가</p>
-                  {getVacationsOnDate(selectedDate).length === 0 ? (
-                    <p className="text-xs text-gray-500 dark:text-zinc-400">없음</p>
-                  ) : (
-                    getVacationsOnDate(selectedDate).map((v) => (
-                      <div key={v.id} className="flex items-center gap-1 mb-1">
-                        <p className="text-base font-medium dark:text-zinc-200">
-                          {getMemberName(v.user_id)}
-                        </p>
-                        <p className="text-[13px] text-orange-400">{vacationLabel(v.type)}</p>
-                      </div>
-                    ))
-                  )}
-                </div>
-                <div className="flex-1">
-                  <p className="text-base font-semibold text-indigo-500 mb-1">원격근무</p>
-                  {getRemoteOnDate(selectedDate).length === 0 ? (
-                    <p className="text-xs text-gray-500 dark:text-zinc-400">없음</p>
-                  ) : (
-                    getRemoteOnDate(selectedDate).map((r) => (
-                      <p key={r.id} className="text-base py-0.5 dark:text-zinc-200">
-                        {getMemberName(r.user_id)}
-                      </p>
-                    ))
-                  )}
-                </div>
-              </div>
-              <button
-                onClick={() => setSelectedDate(null)}
-                className="text-xs text-gray-500 dark:text-zinc-400 hover:underline mt-2"
-              >
-                닫기
-              </button>
-            </div>
+            <DayScheduleModal
+              date={selectedDate}
+              loading={!scheduleLoaded(selectedDate)}
+              vacations={getVacationsOnDate(selectedDate).map((v) => ({
+                id: v.id,
+                name: getMemberName(v.user_id),
+                label: vacationLabel(v.type),
+              }))}
+              remotes={getRemoteOnDate(selectedDate).map((r) => ({
+                id: r.id,
+                name: getMemberName(r.user_id),
+              }))}
+              onClose={() => setSelectedDate(null)}
+              onPrevDay={() => moveSelectedDay(-1)}
+              onNextDay={() => moveSelectedDay(1)}
+            />
           )}
         </div>
 

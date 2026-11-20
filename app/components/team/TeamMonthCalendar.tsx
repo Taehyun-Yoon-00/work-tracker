@@ -28,7 +28,7 @@ const WEEKDAY_LABELS = ['월', '화', '수', '목', '금', '토', '일']
 /**
  * 팀/부서 일정 캘린더. 근무기록 페이지의 react-calendar(단순 날짜 선택용)와 달리,
  * 한 달치 팀원 현황을 Google 캘린더 스타일로 한눈에 훑어보는 게 목적이라 직접 그린다.
- * 날짜를 누르면 그 날의 전체 목록은 이 컴포넌트를 쓰는 화면이 아래쪽에 따로 보여준다.
+ * 날짜를 누르면 그 날의 전체 목록은 이 컴포넌트를 쓰는 화면이 모달(DayScheduleModal)로 보여준다.
  */
 export default function TeamMonthCalendar({
   month,
@@ -169,7 +169,7 @@ export default function TeamMonthCalendar({
             <button
               key={dateStr}
               onClick={() => onSelectDate(d.toDate())}
-              className={`min-h-[84px] sm:min-h-[112px] flex flex-col items-stretch text-left p-1 bg-white dark:bg-zinc-800 transition-colors ${
+              className={`min-h-[84px] sm:min-h-[112px] flex flex-col items-stretch text-left p-0.5 sm:p-1 bg-white dark:bg-zinc-800 transition-colors ${
                 inMonth ? 'hover:bg-gray-50 dark:hover:bg-zinc-700/50' : 'bg-gray-50/60 dark:bg-zinc-900/40'
               } ${isSelected ? 'ring-2 ring-inset ring-blue-400' : ''}`}
             >
@@ -184,7 +184,10 @@ export default function TeamMonthCalendar({
                 {visible.map((e) => (
                   <span
                     key={e.id}
-                    className={`text-[11px] leading-[15px] text-white rounded px-1 truncate ${e.colorClass}`}
+                    // 모바일은 칸이 좁아 "홍길…"처럼 두 글자에서 잘렸다. 좌우 여백을 줄이고 말줄임표(…)
+                    // 대신 그냥 잘라서(clip) 이름 세 글자가 보이게 한다. 뒤의 휴가 종류는 막대 색으로
+                    // 구분된다. sm 이상(넓은 화면)은 기존처럼 말줄임표를 쓴다.
+                    className={`text-[11px] leading-[15px] text-white rounded px-0.5 sm:px-1 overflow-hidden whitespace-nowrap text-clip sm:text-ellipsis ${e.colorClass}`}
                   >
                     {e.label}
                   </span>
