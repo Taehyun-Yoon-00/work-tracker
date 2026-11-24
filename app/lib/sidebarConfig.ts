@@ -10,6 +10,7 @@ import {
   BarChart3,
   Users,
   Building2,
+  Plane,
   ClipboardList,
   User,
   Settings,
@@ -84,6 +85,17 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
         path: '/report',
         icon: BarChart3,
         description: '월별 안건별 근무 시간 통계',
+      },
+    ],
+  },
+  {
+    title: '정산',
+    items: [
+      {
+        label: '출장 정산',
+        path: '/settlement',
+        icon: Plane,
+        description: '국내 · 해외 출장 정산',
       },
     ],
   },

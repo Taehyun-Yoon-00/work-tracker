@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import Calendar from 'react-calendar'
 import 'react-calendar/dist/Calendar.css'
 import dayjs from 'dayjs'
@@ -23,7 +24,7 @@ import { recordMatterUsage } from './lib/matterHistory'
 import ConfirmDialog from './components/ui/ConfirmDialog'
 import Button from './components/ui/Button'
 import StatCard from './components/ui/StatCard'
-import { Pencil, Trash2, Check } from 'lucide-react'
+import { Pencil, Trash2, Check, ChevronRight } from 'lucide-react'
 
 export default function Home() {
   const router = useRouter()
@@ -853,6 +854,17 @@ export default function Home() {
             </p>
           )}
         </div>
+
+        {/* 출장 정산 바로가기 — 입력은 출장 정산 페이지에서 한다 (출근하지 않은 날도 입력 가능) */}
+        <Link
+          href={`/settlement?date=${dayjs(selectedDate).format('YYYY-MM-DD')}`}
+          className="flex items-center justify-between bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 mb-4 hover:bg-gray-50 dark:hover:bg-zinc-700/60 transition"
+        >
+          <span className="text-sm font-medium dark:text-white">
+            {dayjs(selectedDate).format('MM월 DD일')} 출장 정산 입력
+          </span>
+          <ChevronRight size={16} className="text-gray-400" />
+        </Link>
 
         {/* 주간 합산 */}
         <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 mb-8">
