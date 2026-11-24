@@ -41,7 +41,7 @@ export default function MenuDrawer({ open, onClose }: MenuDrawerProps) {
 
   const handleLogout = async () => {
     onClose()
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: 'local' })
     router.push('/login')
   }
 

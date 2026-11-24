@@ -29,7 +29,7 @@ export default function Sidebar() {
   if (!userId) return null
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: 'local' })
     router.push('/login')
   }
 
