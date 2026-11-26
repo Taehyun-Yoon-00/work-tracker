@@ -13,7 +13,7 @@ interface ProfileSummary {
   isTeamLeaderOrAbove: boolean
   /** true면 총괄 관리자/부문장/부장이거나 마스터 계정 (조직 관리 화면 접근 가능) */
   isOrgManager: boolean
-  /** true면 부문/부서/팀 어디서든 "대시보드 조회" 권한을 위임받은 사람 (030_dashboard_delegation) */
+  /** true면 부문/부서/팀 어디서든 "대시보드 조회" 권한을 위임받은 사람 (032_dashboard_delegation) */
   isDashboardDelegate: boolean
 }
 
