@@ -13,6 +13,8 @@ interface ProfileSummary {
   isTeamLeaderOrAbove: boolean
   /** true면 총괄 관리자/부문장/부장이거나 마스터 계정 (조직 관리 화면 접근 가능) */
   isOrgManager: boolean
+  /** true면 부문/부서/팀 어디서든 "대시보드 조회" 권한을 위임받은 사람 (032_dashboard_delegation) */
+  isDashboardDelegate: boolean
 }
 
 interface ProfileFlags {
@@ -22,6 +24,7 @@ interface ProfileFlags {
   isGeneralAdmin: boolean
   isTeamAdmin: boolean
   isOrgManager: boolean
+  isDashboardDelegate: boolean
 }
 
 // 사이드바 · 메뉴 드로어 등 여러 컴포넌트가 이 훅을 동시에 쓰기 때문에, 같은 사용자에 대한
@@ -41,6 +44,9 @@ function loadProfileFlags(userId: string): Promise<ProfileFlags> {
       { data: adminTeams },
       { data: headDivisions },
       { data: headDepartments },
+      { data: delegatedDivisions },
+      { data: delegatedDepartments },
+      { data: delegatedTeams },
     ] = await Promise.all([
       supabase.from('profiles').select('name, is_master').eq('id', userId).single(),
       supabase.from('general_admins').select('user_id').eq('user_id', userId).maybeSingle(),
@@ -52,6 +58,25 @@ function loadProfileFlags(userId: string): Promise<ProfileFlags> {
         .limit(1),
       supabase.from('divisions').select('id').eq('head_user_id', userId).limit(1),
       supabase.from('departments').select('id').eq('head_user_id', userId).limit(1),
+      // 대시보드 조회 권한을 위임받은 조직 단위가 하나라도 있는가
+      supabase
+        .from('division_approvers')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('can_dashboard', true)
+        .limit(1),
+      supabase
+        .from('department_approvers')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('can_dashboard', true)
+        .limit(1),
+      supabase
+        .from('team_approvers')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('can_dashboard', true)
+        .limit(1),
     ])
     return {
       name: profileRow?.name || null,
@@ -60,6 +85,10 @@ function loadProfileFlags(userId: string): Promise<ProfileFlags> {
       isGeneralAdmin: !!generalAdminRow,
       isTeamAdmin: !!adminTeams && adminTeams.length > 0,
       isOrgManager: (headDivisions?.length ?? 0) > 0 || (headDepartments?.length ?? 0) > 0,
+      isDashboardDelegate:
+        (delegatedDivisions?.length ?? 0) > 0 ||
+        (delegatedDepartments?.length ?? 0) > 0 ||
+        (delegatedTeams?.length ?? 0) > 0,
     }
   })().finally(() => {
     inflightFlags.delete(userId)
@@ -77,6 +106,7 @@ export function useCurrentProfile(): ProfileSummary {
   const [isGeneralAdmin, setIsGeneralAdmin] = useState(false)
   const [isTeamAdmin, setIsTeamAdmin] = useState(false)
   const [isOrgManager, setIsOrgManager] = useState(false)
+  const [isDashboardDelegate, setIsDashboardDelegate] = useState(false)
 
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -88,6 +118,7 @@ export function useCurrentProfile(): ProfileSummary {
         setIsGeneralAdmin(false)
         setIsTeamAdmin(false)
         setIsOrgManager(false)
+        setIsDashboardDelegate(false)
       }
     })
     return () => authListener.subscription.unsubscribe()
@@ -104,6 +135,7 @@ export function useCurrentProfile(): ProfileSummary {
       setIsGeneralAdmin(flags.isGeneralAdmin)
       setIsTeamAdmin(flags.isTeamAdmin)
       setIsOrgManager(flags.isOrgManager)
+      setIsDashboardDelegate(flags.isDashboardDelegate)
     }
     fetchProfile()
   }, [userId])
@@ -116,5 +148,6 @@ export function useCurrentProfile(): ProfileSummary {
     isGeneralAdmin,
     isTeamLeaderOrAbove: isMaster || isTeamAdmin,
     isOrgManager: isMaster || isGeneralAdmin || isOrgManager,
+    isDashboardDelegate,
   }
 }

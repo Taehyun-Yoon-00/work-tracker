@@ -27,7 +27,8 @@ function isActivePath(pathname: string, itemPath: string) {
 export default function MenuDrawer({ open, onClose }: MenuDrawerProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const { name, email, isMaster, isTeamLeaderOrAbove, isOrgManager } = useCurrentProfile()
+  const { name, email, isMaster, isTeamLeaderOrAbove, isOrgManager, isDashboardDelegate } =
+    useCurrentProfile()
   const { items: affiliations } = useMyAffiliations()
   const [mounted, setMounted] = useState(false)
   const [affiliationsOpen, setAffiliationsOpen] = useState(false)
@@ -37,7 +38,12 @@ export default function MenuDrawer({ open, onClose }: MenuDrawerProps) {
   useEffect(() => setMounted(true), [])
 
   const hasPermission = (item: SidebarItem) =>
-    hasSidebarPermission(item, { isMaster, isTeamLeaderOrAbove, isOrgManager })
+    hasSidebarPermission(item, {
+      isMaster,
+      isTeamLeaderOrAbove,
+      isOrgManager,
+      isDashboardDelegate,
+    })
 
   const handleLogout = async () => {
     onClose()

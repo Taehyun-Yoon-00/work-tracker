@@ -21,7 +21,8 @@ function isActivePath(pathname: string, itemPath: string) {
 export default function Sidebar() {
   const router = useRouter()
   const pathname = usePathname()
-  const { userId, name, email, isMaster, isTeamLeaderOrAbove, isOrgManager } = useCurrentProfile()
+  const { userId, name, email, isMaster, isTeamLeaderOrAbove, isOrgManager, isDashboardDelegate } =
+    useCurrentProfile()
   const { items: affiliations } = useMyAffiliations()
   const [affiliationsOpen, setAffiliationsOpen] = useState(false)
 
@@ -34,7 +35,12 @@ export default function Sidebar() {
   }
 
   const hasPermission = (item: SidebarItem) =>
-    hasSidebarPermission(item, { isMaster, isTeamLeaderOrAbove, isOrgManager })
+    hasSidebarPermission(item, {
+      isMaster,
+      isTeamLeaderOrAbove,
+      isOrgManager,
+      isDashboardDelegate,
+    })
 
   const renderItem = (item: SidebarItem) => {
     if (!hasPermission(item)) return null
