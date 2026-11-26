@@ -1,6 +1,6 @@
 // Supabase 테이블의 row 타입.
 // 스키마 근거: supabase/migrations/001_init.sql, 002~008, 009_fix_work_log_matters_rls,
-// 010_org_structure ~ 015_org_display_order, 019_division_team_approvers
+// 010_org_structure ~ 015_org_display_order, 019_division_team_approvers, 030_dashboard_delegation
 // (컬럼을 추가/변경하는 마이그레이션을 쓸 때 이 파일도 함께 갱신할 것)
 //
 // refactoring 브랜치(main 기준)의 lib/types.ts를 renewal의 조직 구조
@@ -256,6 +256,8 @@ export interface DepartmentApprover {
   can_vacation: boolean
   can_remote: boolean
   can_holiday: boolean
+  /** 이 부서 범위의 대시보드 조회 권한 위임 (030_dashboard_delegation) */
+  can_dashboard: boolean
   created_at: Timestamp
 }
 
@@ -267,6 +269,8 @@ export interface DivisionApprover {
   can_vacation: boolean
   can_remote: boolean
   can_holiday: boolean
+  /** 이 부문 범위의 대시보드 조회 권한 위임 (030_dashboard_delegation) */
+  can_dashboard: boolean
   created_at: Timestamp
 }
 
@@ -278,6 +282,8 @@ export interface TeamApprover {
   can_vacation: boolean
   can_remote: boolean
   can_holiday: boolean
+  /** 이 팀 범위의 대시보드 조회 권한 위임 (030_dashboard_delegation) */
+  can_dashboard: boolean
   created_at: Timestamp
 }
 

@@ -23,7 +23,8 @@ export interface SidebarItem {
   icon: LucideIcon
   description?: string
   /** 'all'(기본값): 로그인한 모든 사용자, 'master': is_master 계정만, 'teamLeaderOrAbove': 팀장 이상,
-   * 'dashboardViewer': 팀장 이상 또는 부장/부문장/총괄 관리자 (대시보드 조회 가능한 모든 역할) */
+   * 'dashboardViewer': 팀장 이상 또는 부장/부문장/총괄 관리자, 또는 대시보드 조회를 위임받은 사람
+   * (대시보드 조회 가능한 모든 역할) */
   permission?: SidebarPermission
 }
 
@@ -37,6 +38,8 @@ export interface SidebarProfile {
   isMaster: boolean
   isTeamLeaderOrAbove: boolean
   isOrgManager: boolean
+  /** 부문/부서/팀 어디서든 대시보드 조회 권한을 위임받았는가 (생략하면 false) */
+  isDashboardDelegate?: boolean
 }
 
 /**
@@ -60,7 +63,9 @@ export function hasSidebarPermission(item: SidebarItem, profile: SidebarProfile)
     case 'orgManager':
       return profile.isTeamLeaderOrAbove || profile.isOrgManager
     case 'dashboardViewer':
-      return profile.isTeamLeaderOrAbove || profile.isOrgManager
+      return (
+        profile.isTeamLeaderOrAbove || profile.isOrgManager || !!profile.isDashboardDelegate
+      )
     default:
       return true
   }

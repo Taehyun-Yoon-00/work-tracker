@@ -32,6 +32,8 @@ import UnitStatBarRow from '../components/ui/UnitStatBarRow'
 // - company: 총괄 관리자/마스터 기본 범위. 회사 전체.
 //
 // 역할별로 선택 가능한 옵션(조직 단위 콤보박스 하나에 모두 담긴다):
+//   (위임)          → 조직 관리에서 "대시보드 조회"를 위임받은 부문/부서/팀은
+//                     부문장/부장/팀장과 같은 범위로 아래에 합쳐진다 (030_dashboard_delegation)
 //   팀장            → 본인이 팀장인 팀들
 //   부장          → 부서 전체 + 그 산하 팀들
 //   부문장          → 부문 전체 + 그 산하 부서들
@@ -118,6 +120,9 @@ export default function DashboardPage() {
         { data: headDivs },
         { data: headDepts },
         { data: adminTeamRows },
+        { data: delegatedDivRows },
+        { data: delegatedDeptRows },
+        { data: delegatedTeamRows },
         substituteHolidayDates,
       ] = await Promise.all([
         supabase.from('profiles').select('is_master').eq('id', user.id).single(),
@@ -132,11 +137,45 @@ export default function DashboardPage() {
           .select('team_id, teams(id, name, department_id, departments(name, division_id, divisions(name)))')
           .eq('user_id', user.id)
           .eq('role', 'admin'),
+        // 대시보드 조회 권한을 위임받은 조직 단위 (조직 관리 > 권한 위임)
+        supabase
+          .from('division_approvers')
+          .select('division_id, divisions(id, name)')
+          .eq('user_id', user.id)
+          .eq('can_dashboard', true),
+        supabase
+          .from('department_approvers')
+          .select('department_id, departments(id, name, division_id, divisions(name))')
+          .eq('user_id', user.id)
+          .eq('can_dashboard', true),
+        supabase
+          .from('team_approvers')
+          .select(
+            'team_id, teams(id, name, department_id, departments(name, division_id, divisions(name)))'
+          )
+          .eq('user_id', user.id)
+          .eq('can_dashboard', true),
         fetchSubstituteHolidays(),
       ])
       setSubstituteHolidays(substituteHolidayDates)
       const isMasterFlag = !!profileData?.is_master
       const isGeneralAdmin = !!generalAdminRow
+
+      // 직책(부문장/부장/팀장)으로 갖는 조회 범위 + 위임받은 조회 범위를 한 목록으로 합친다.
+      // 위임은 직책과 같은 범위를 갖는다: 부문 위임 = 부문장, 부서 위임 = 부장, 팀 위임 = 해당 팀.
+      // 같은 조직이 중복되어도 아래 addOpt가 걸러준다.
+      const viewDivs: any[] = [
+        ...(headDivs || []),
+        ...(delegatedDivRows || []).map((r: any) => r.divisions).filter(Boolean),
+      ]
+      const viewDepts: any[] = [
+        ...(headDepts || []),
+        ...(delegatedDeptRows || []).map((r: any) => r.departments).filter(Boolean),
+      ]
+      const viewTeamRows: any[] = [
+        ...(adminTeamRows || []),
+        ...(delegatedTeamRows || []).filter((r: any) => r.teams),
+      ]
 
       // 조직 단위 콤보박스 옵션 — 역할에 따라 접근 가능한 범위를, 상위 조직부터 이어붙인
       // 경로 형태의 라벨("기술부문", "기술부문 > 제어기술부")로 평탄화한다. 경로 자체가
@@ -211,11 +250,11 @@ export default function DashboardPage() {
           })
         }
 
-        if ((headDivs?.length ?? 0) > 0) {
+        if (viewDivs.length > 0) {
           // 부문장: 부문 전체 + 그 산하 부서들
           // 부문별 부서 조회는 서로 독립적이라 동시에 실행한다. (옵션 추가 순서는 부문 순서 그대로)
           const headDivDeptResults = await Promise.all(
-            (headDivs || []).map((div: any) =>
+            viewDivs.map((div: any) =>
               supabase
                 .from('departments')
                 .select('id, name')
@@ -223,7 +262,7 @@ export default function DashboardPage() {
                 .order('display_order', { ascending: true })
             )
           )
-          ;(headDivs || []).forEach((div: any, i: number) => {
+          viewDivs.forEach((div: any, i: number) => {
             addOpt({ level: 'division', entityId: div.id, label: div.name })
             ;(headDivDeptResults[i].data || []).forEach((dept: any) => {
               addOpt({
@@ -235,9 +274,9 @@ export default function DashboardPage() {
           })
         }
 
-        if ((headDepts?.length ?? 0) > 0) {
+        if (viewDepts.length > 0) {
           // 부장: 부서 전체 + 그 산하 팀들
-          for (const dept of headDepts || []) {
+          for (const dept of viewDepts) {
             const divName = (dept as any).divisions?.name
             const deptLabel = divName ? `${divName} > ${dept.name}` : dept.name
             addOpt({ level: 'department', entityId: dept.id, label: deptLabel })
@@ -256,8 +295,8 @@ export default function DashboardPage() {
           }
         }
 
-        // 팀장: 본인이 팀장인 팀들 (다른 역할과 함께 겸임 중이어도 항상 포함)
-        ;(adminTeamRows || [])
+        // 팀장 + 팀 단위 위임: 본인이 팀장이거나 대시보드 조회를 위임받은 팀들 (다른 역할과 함께 겸임 중이어도 항상 포함)
+        viewTeamRows
           .map((row: any) => row.teams)
           .filter(Boolean)
           .forEach((team: any) => {
@@ -269,7 +308,7 @@ export default function DashboardPage() {
       }
 
       if (opts.length === 0) {
-        // 대시보드를 조회할 권한(팀장 이상)이 없으면 접근 차단
+        // 대시보드를 조회할 권한(팀장 이상 또는 조회 위임)이 없으면 접근 차단
         router.replace('/')
         return
       }

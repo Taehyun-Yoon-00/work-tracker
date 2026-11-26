@@ -53,6 +53,8 @@ interface ApproverDelegateRow {
   can_vacation: boolean
   can_remote: boolean
   can_holiday: boolean
+  /** 대시보드 조회 권한 위임 (030_dashboard_delegation) */
+  can_dashboard: boolean
 }
 // 부문/팀 단위 결재권자 위임 (019_division_team_approvers) — department 버전과 같은 모양,
 // 소속 컬럼명만 다르다.
@@ -64,6 +66,8 @@ interface DivisionApproverDelegateRow {
   can_vacation: boolean
   can_remote: boolean
   can_holiday: boolean
+  /** 대시보드 조회 권한 위임 (030_dashboard_delegation) */
+  can_dashboard: boolean
 }
 interface TeamApproverDelegateRow {
   id: string
@@ -73,6 +77,8 @@ interface TeamApproverDelegateRow {
   can_vacation: boolean
   can_remote: boolean
   can_holiday: boolean
+  /** 대시보드 조회 권한 위임 (030_dashboard_delegation) */
+  can_dashboard: boolean
 }
 // 결재권자 위임 테이블은 부문/부서/팀 세 군데가 완전히 같은 모양이라 하나의 모달/제출
 // 로직을 공유한다. scope가 어느 테이블(division_approvers/department_approvers/team_approvers)
@@ -154,6 +160,8 @@ export default function OrgPage() {
     can_vacation: true,
     can_remote: true,
     can_holiday: true,
+    // 대시보드 조회 위임은 결재 위임과 달리 기본으로 켜지 않는다 (명시적으로 선택해야 함)
+    can_dashboard: false,
   })
 
   // 구성원 이동 인라인 폼
@@ -274,17 +282,17 @@ export default function OrgPage() {
         supabase
           .from('department_approvers')
           .select(
-            'id, department_id, user_id, can_vacation, can_remote, can_holiday, profiles(name, email, is_master)'
+            'id, department_id, user_id, can_vacation, can_remote, can_holiday, can_dashboard, profiles(name, email, is_master)'
           ),
         supabase
           .from('division_approvers')
           .select(
-            'id, division_id, user_id, can_vacation, can_remote, can_holiday, profiles(name, email, is_master)'
+            'id, division_id, user_id, can_vacation, can_remote, can_holiday, can_dashboard, profiles(name, email, is_master)'
           ),
         supabase
           .from('team_approvers')
           .select(
-            'id, team_id, user_id, can_vacation, can_remote, can_holiday, profiles(name, email, is_master)'
+            'id, team_id, user_id, can_vacation, can_remote, can_holiday, can_dashboard, profiles(name, email, is_master)'
           ),
         // 마스터(시스템 관리자) 계정은 조직 관리 화면에 노출하지 않는다 — 별도 권한 트랙이라 조직 구성원 풀에서 제외
         supabase
@@ -328,6 +336,7 @@ export default function OrgPage() {
           can_vacation: a.can_vacation,
           can_remote: a.can_remote,
           can_holiday: a.can_holiday,
+          can_dashboard: !!a.can_dashboard,
         }))
     )
     setDivisionApproverDelegates(
@@ -341,6 +350,7 @@ export default function OrgPage() {
           can_vacation: a.can_vacation,
           can_remote: a.can_remote,
           can_holiday: a.can_holiday,
+          can_dashboard: !!a.can_dashboard,
         }))
     )
     setTeamApproverDelegates(
@@ -354,6 +364,7 @@ export default function OrgPage() {
           can_vacation: a.can_vacation,
           can_remote: a.can_remote,
           can_holiday: a.can_holiday,
+          can_dashboard: !!a.can_dashboard,
         }))
     )
     setAllProfiles(
@@ -412,6 +423,15 @@ export default function OrgPage() {
     divisionApproverDelegates.filter((a) => a.division_id === divisionId)
   const approversOfTeam = (teamId: string) =>
     teamApproverDelegates.filter((a) => a.team_id === teamId)
+  // 이미 위임된 사람을 다시 고르면 현재 위임 내용을 불러온다 (upsert가 체크 상태를 통째로 덮어쓰므로,
+  // 기존 대시보드/결재 위임이 모르는 사이에 지워지지 않게 하기 위함)
+  const existingDelegateOf = (scope: ApproverScope, targetId: string, userId: string) =>
+    (scope === 'division'
+      ? approversOfDivision(targetId)
+      : scope === 'team'
+        ? approversOfTeam(targetId)
+        : approversOfDept(targetId)
+    ).find((a) => a.user_id === userId)
   const departmentsOfDivision = (divisionId: string) =>
     departments.filter((d) => d.division_id === divisionId)
 
@@ -598,7 +618,7 @@ export default function OrgPage() {
     setModal(m)
     setModalInput('')
     setModalUserId('')
-    setModalChecks({ can_vacation: true, can_remote: true, can_holiday: true })
+    setModalChecks({ can_vacation: true, can_remote: true, can_holiday: true, can_dashboard: false })
     setMessage('')
   }
   const closeModal = () => setModal(null)
@@ -748,7 +768,16 @@ export default function OrgPage() {
 
     if (modal.kind === 'addApprover') {
       if (!modalUserId) {
-        setMessage('결재권자로 위임할 사람을 선택해주세요.')
+        setMessage('위임할 사람을 선택해주세요.')
+        return
+      }
+      if (
+        !modalChecks.can_vacation &&
+        !modalChecks.can_remote &&
+        !modalChecks.can_holiday &&
+        !modalChecks.can_dashboard
+      ) {
+        setMessage('위임할 권한을 하나 이상 선택해주세요.')
         return
       }
       const table = approverTableOf(modal.scope)
@@ -762,7 +791,7 @@ export default function OrgPage() {
         { onConflict: `${idField},user_id` }
       )
       if (error) {
-        setMessage('결재권자 위임 실패: ' + error.message)
+        setMessage('권한 위임 실패: ' + error.message)
         return
       }
     }
@@ -787,7 +816,7 @@ export default function OrgPage() {
 
   const confirmRemoveApprover = (scope: ApproverScope, id: string) => {
     setPendingConfirm({
-      title: '이 사람의 결재권자 위임을 해제할까요?',
+      title: '이 사람의 권한 위임을 해제할까요?',
       confirmLabel: '해제',
       tone: 'danger',
       onConfirm: () => {
@@ -1742,7 +1771,7 @@ export default function OrgPage() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs text-gray-500 dark:text-zinc-400">
-                  결재권자
+                  권한 위임
                 </p>
                 {canManageThisDivision && (
                   <button
@@ -1751,7 +1780,7 @@ export default function OrgPage() {
                     }
                     className="text-xs text-blue-500 hover:underline font-medium"
                   >
-                    + 결재권자 위임
+                    + 권한 위임
                   </button>
                 )}
               </div>
@@ -1768,6 +1797,7 @@ export default function OrgPage() {
                       a.can_vacation && '휴가',
                       a.can_remote && '원격',
                       a.can_holiday && '휴일',
+                      a.can_dashboard && '대시보드',
                     ].filter((v): v is string => Boolean(v))}
                     onRemove={
                       canManageThisDivision
@@ -2270,7 +2300,7 @@ export default function OrgPage() {
         {activeTab === 'permissions' && (
           <div>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs text-gray-500 dark:text-zinc-400">결재권자</p>
+              <p className="text-xs text-gray-500 dark:text-zinc-400">권한 위임</p>
               {canManageThisDept && (
                 <button
                   onClick={() =>
@@ -2278,7 +2308,7 @@ export default function OrgPage() {
                   }
                   className="text-xs text-blue-500 hover:underline font-medium"
                 >
-                  + 결재권자 위임
+                  + 권한 위임
                 </button>
               )}
             </div>
@@ -2295,6 +2325,7 @@ export default function OrgPage() {
                     a.can_vacation && '휴가',
                     a.can_remote && '원격',
                     a.can_holiday && '휴일',
+                    a.can_dashboard && '대시보드',
                   ].filter((v): v is string => Boolean(v))}
                   onRemove={
                     canManageThisDept ? () => confirmRemoveApprover('department', a.id) : undefined
@@ -2475,7 +2506,7 @@ export default function OrgPage() {
                 팀원들이 결재를 올릴 때 결재권자로 팀장을 선택할 수 있는 것과 짝이 되는 관리 화면. */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-gray-500 dark:text-zinc-400">결재권자</p>
+                <p className="text-xs text-gray-500 dark:text-zinc-400">권한 위임</p>
                 {canManageThisTeam && (
                   <button
                     onClick={() =>
@@ -2483,7 +2514,7 @@ export default function OrgPage() {
                     }
                     className="text-xs text-blue-500 hover:underline font-medium"
                   >
-                    + 결재권자 위임
+                    + 권한 위임
                   </button>
                 )}
               </div>
@@ -2497,6 +2528,7 @@ export default function OrgPage() {
                       a.can_vacation && '휴가',
                       a.can_remote && '원격',
                       a.can_holiday && '휴일',
+                      a.can_dashboard && '대시보드',
                     ].filter((v): v is string => Boolean(v))}
                     onRemove={canManageThisTeam ? () => confirmRemoveApprover('team', a.id) : undefined}
                   />
@@ -2886,7 +2918,7 @@ export default function OrgPage() {
               {modal.kind === 'assignDivisionHead' && '부문장 지정'}
               {modal.kind === 'assignDepartmentHead' && '부장 지정'}
               {modal.kind === 'assignTeamHead' && '팀장 지정'}
-              {modal.kind === 'addApprover' && '결재권자 위임'}
+              {modal.kind === 'addApprover' && '권한 위임'}
             </h3>
 
             <div className="space-y-4">
@@ -2943,7 +2975,28 @@ export default function OrgPage() {
                 <>
                   <select
                     value={modalUserId}
-                    onChange={(e) => setModalUserId(e.target.value)}
+                    onChange={(e) => {
+                      const uid = e.target.value
+                      setModalUserId(uid)
+                      const existing = uid
+                        ? existingDelegateOf(modal.scope, modal.targetId, uid)
+                        : undefined
+                      setModalChecks(
+                        existing
+                          ? {
+                              can_vacation: existing.can_vacation,
+                              can_remote: existing.can_remote,
+                              can_holiday: existing.can_holiday,
+                              can_dashboard: existing.can_dashboard,
+                            }
+                          : {
+                              can_vacation: true,
+                              can_remote: true,
+                              can_holiday: true,
+                              can_dashboard: false,
+                            }
+                      )
+                    }}
                     className="w-full border rounded-lg px-3.5 py-2.5 text-sm dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
                   >
                     <option value="">위임할 사람 선택</option>
@@ -2955,13 +3008,14 @@ export default function OrgPage() {
                   </select>
                   <div>
                     <p className="text-xs text-gray-500 dark:text-zinc-400 mb-2.5">
-                      어떤 유형을 위임할까요?
+                      어떤 권한을 위임할까요?
                     </p>
-                    <div className="flex gap-4">
+                    <div className="flex flex-wrap gap-x-4 gap-y-2">
                       {[
-                        { key: 'can_vacation', label: '휴가' },
-                        { key: 'can_remote', label: '원격근무' },
-                        { key: 'can_holiday', label: '휴일근무' },
+                        { key: 'can_vacation', label: '휴가 결재' },
+                        { key: 'can_remote', label: '원격근무 결재' },
+                        { key: 'can_holiday', label: '휴일근무 결재' },
+                        { key: 'can_dashboard', label: '대시보드 조회' },
                       ].map(({ key, label }) => (
                         <label
                           key={key}
