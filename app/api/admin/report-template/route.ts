@@ -9,8 +9,9 @@ export const runtime = 'nodejs'
 
 const BUCKET = 'report-templates'
 
-// 양식 종류 — report_templates.kind 값과 같다 (supabase/migrations/026_report_template_kind.sql).
-const TEMPLATE_KINDS = ['support_list', 'attendance'] as const
+// 양식 종류 — report_templates.kind 값과 같다
+// (supabase/migrations/026_report_template_kind.sql, 031_domestic_trip_pricing.sql).
+const TEMPLATE_KINDS = ['support_list', 'attendance', 'domestic_trip'] as const
 type TemplateKind = (typeof TEMPLATE_KINDS)[number]
 
 function parseKind(value: unknown): TemplateKind | null {
@@ -18,11 +19,11 @@ function parseKind(value: unknown): TemplateKind | null {
 }
 
 async function canManageTemplate(userId: string) {
-  // 총괄 관리자 또는 마스터만 양식(서포트리스트/근무관리표)을 업로드할 수 있다.
+  // 총괄 관리자 또는 마스터만 양식(서포트리스트/근무관리표/국내 출장)을 업로드할 수 있다.
   return (await isMaster(userId)) || (await isGeneralAdmin(userId))
 }
 
-/** 현재 등록된(가장 최근에 업로드된) 양식 정보를 종류별로 반환한다. (?kind=support_list|attendance) */
+/** 현재 등록된(가장 최근에 업로드된) 양식 정보를 종류별로 반환한다. (?kind=support_list|attendance|domestic_trip) */
 export async function GET(req: NextRequest) {
   const user = await getSessionUser()
   if (!user) return NextResponse.json({ error: '로그인이 필요해요.' }, { status: 401 })

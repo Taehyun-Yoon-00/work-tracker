@@ -25,6 +25,8 @@ import Button from '../../ui/Button'
 import DomesticBulkPanel from './DomesticBulkPanel'
 import DomesticDayEditor from './DomesticDayEditor'
 import { useDomesticMonth } from './useDomesticMonth'
+import { useDomesticPricing } from './useDomesticPricing'
+import { pickRankRate, resolveFuelUnitPrice } from '../../../lib/settlement/pricing'
 import { INPUT_CLS, LABEL_CLS, fmt, toNum } from '../ui'
 
 const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토']
@@ -59,18 +61,28 @@ export default function DomesticSettlement({ initialDate, position, substituteHo
   const [filter, setFilter] = useState<'all' | 'filled'>('all')
   const [bulkOpen, setBulkOpen] = useState(true)
   const [exportMsg, setExportMsg] = useState('')
+  const [exporting, setExporting] = useState(false)
+  const pricingStore = useDomesticPricing()
+  const { pricing } = pricingStore
 
   const key = monthKey(month)
-  const cfg = { odometerStart: data.odometerStart, unitPrice: data.fuelUnitPrice }
-  const setCfg = (patch: { odometerStart?: number | null; unitPrice?: number }) =>
-    update((d) => ({
-      ...d,
-      odometerStart: patch.odometerStart !== undefined ? patch.odometerStart : d.odometerStart,
-      fuelUnitPrice: patch.unitPrice !== undefined ? patch.unitPrice : d.fuelUnitPrice,
-    }))
+  const setOdometerStart = (value: number | null) =>
+    update((d) => ({ ...d, odometerStart: value }))
 
   // 이 달에 직급을 따로 정해 저장했으면 그 값, 아니면 마이페이지 직급
   const rank: RankLevel | null = data.rank ?? positionRank
+
+  // 단가는 DB 단가표에서 가져온다 (코드에 고정하지 않는다)
+  const rate = useMemo(() => pickRankRate(pricing.rates, month, rank), [pricing.rates, month, rank])
+  const fuel = useMemo(
+    () => resolveFuelUnitPrice(pricing.fuelPrices, data.vehicleTypeId, data.fuelUnitPrice, month),
+    [pricing.fuelPrices, data.vehicleTypeId, data.fuelUnitPrice, month]
+  )
+  const fuelPrice = fuel.price
+  // 선택 목록: 사용 중인 차종 + 이미 이 달에 선택해 둔 차종(비활성이어도 유지)
+  const vehicleOptions = pricing.vehicleTypes.filter(
+    (v) => v.is_active || v.id === data.vehicleTypeId
+  )
 
   const dates = useMemo(() => getPeriodDates(month), [month])
   const range = useMemo(() => getPeriodRange(month), [month])
@@ -81,8 +93,8 @@ export default function DomesticSettlement({ initialDate, position, substituteHo
   )
 
   const { days, totals } = useMemo(
-    () => computeSettlement(dates, entries, rank, cfg.unitPrice, cfg.odometerStart),
-    [dates, entries, rank, cfg.unitPrice, cfg.odometerStart]
+    () => computeSettlement(dates, entries, rate, fuelPrice, data.odometerStart),
+    [dates, entries, rate, fuelPrice, data.odometerStart]
   )
 
   // 장소·목적 칩: 지금 펼쳐 둔 날을 뺀 나머지 날의 값 중 많이 쓴 순.
@@ -134,6 +146,47 @@ export default function DomesticSettlement({ initialDate, position, substituteHo
   const moveMonth = async (diff: number) => {
     const ok = await store.changeMonth(shiftMonth(month, diff))
     if (ok) setOpenDate(null)
+  }
+
+  // 엑셀 출력: 대기 중인 변경을 먼저 저장하고, 서버가 DB에 저장된 내용으로 양식을 채운다.
+  const handleExport = async () => {
+    setExporting(true)
+    setExportMsg('')
+    try {
+      if (!(await store.flush())) {
+        setExportMsg('저장하지 못해서 출력할 수 없어요. 저장 상태를 확인한 뒤 다시 시도해 주세요.')
+        return
+      }
+      const res = await fetch('/api/settlement/domestic/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ year: month.year, month: month.month }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setExportMsg(body.error || '출력에 실패했어요.')
+        return
+      }
+      const blob = await res.blob()
+      const disposition = res.headers.get('Content-Disposition') || ''
+      const match = disposition.match(/filename\*=UTF-8''([^;]+)/)
+      const filename = match
+        ? decodeURIComponent(match[1])
+        : `국내출장비_${month.year}_${month.month}.xlsx`
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      setExportMsg('엑셀 파일을 내려받았어요.')
+    } catch {
+      setExportMsg('출력 중 오류가 발생했어요. 잠시 후 다시 시도해 주세요.')
+    } finally {
+      setExporting(false)
+    }
   }
 
   const filledCount = dates.filter((d) => isDayFilled(entries[d])).length
@@ -272,30 +325,66 @@ export default function DomesticSettlement({ initialDate, position, substituteHo
                 자동으로 연결되지 않았어요. 위에서 직접 선택하거나 마이페이지에서 직급을 고르세요.
               </p>
             )}
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className={LABEL_CLS}>시작 계기판 (km)</label>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  value={cfg.odometerStart ?? ''}
-                  onChange={(e) => setCfg({ odometerStart: toNum(e.target.value) })}
-                  placeholder="전월 말 누적"
-                  className={INPUT_CLS}
-                />
-              </div>
-              <div>
-                <label className={LABEL_CLS}>유류대 (km당 원)</label>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  value={cfg.unitPrice}
-                  onChange={(e) => setCfg({ unitPrice: toNum(e.target.value) ?? 0 })}
-                  className={INPUT_CLS}
-                />
-              </div>
+            <div>
+              <label className={LABEL_CLS}>시작 계기판 (km)</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={data.odometerStart ?? ''}
+                onChange={(e) => setOdometerStart(toNum(e.target.value))}
+                placeholder="전월 말 누적"
+                className={INPUT_CLS}
+              />
+            </div>
+            <div>
+              <label className={LABEL_CLS}>차종 (km당 유류 단가 기준)</label>
+              <select
+                value={data.vehicleTypeId ?? ''}
+                onChange={(e) => {
+                  const value = e.target.value
+                  update((d) => ({ ...d, vehicleTypeId: value || null }))
+                }}
+                className={INPUT_CLS}
+              >
+                <option value="">직접 입력</option>
+                {vehicleOptions.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.label}
+                    {!v.is_active ? ' (사용 중지)' : ''}
+                  </option>
+                ))}
+              </select>
+              {data.vehicleTypeId ? (
+                fuel.lookup ? (
+                  <p className="text-[11px] text-gray-500 dark:text-zinc-400 mt-1">
+                    {fmt(fuel.lookup.price)}원/km · {fuel.lookup.fromYear}년 {fuel.lookup.fromMonth}월 단가
+                    {fuel.lookup.carried && ' (새 단가가 입력될 때까지 이월 적용)'}
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-orange-500 mt-1">
+                    이 차종의 단가가 아직 등록되지 않았어요. 총괄 관리자에게 문의해 주세요.
+                  </p>
+                )
+              ) : (
+                <div className="mt-1.5 relative">
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    value={data.fuelUnitPrice ?? ''}
+                    onChange={(e) => {
+                      const value = toNum(e.target.value)
+                      update((d) => ({ ...d, fuelUnitPrice: value }))
+                    }}
+                    placeholder="km당 단가를 직접 입력"
+                    className={`${INPUT_CLS} pr-14`}
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 dark:text-zinc-500 pointer-events-none">
+                    원/km
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -369,7 +458,7 @@ export default function DomesticSettlement({ initialDate, position, substituteHo
                     e && (e.from.trim() || e.to.trim())
                       ? `${e.from.trim() || '?'} → ${e.to.trim() || '?'}`
                       : ''
-                  const dayTotal = c.lodging + c.allowance + c.transport + c.km * cfg.unitPrice
+                  const dayTotal = c.lodging + c.allowance + c.transport + c.km * (fuelPrice ?? 0)
                   return (
                     <li
                       key={d}
@@ -438,7 +527,7 @@ export default function DomesticSettlement({ initialDate, position, substituteHo
                           <DomesticDayEditor
                             entry={e ?? emptyDay()}
                             computed={c}
-                            rank={rank}
+                            rate={rate}
                             places={places}
                             purposes={purposes}
                             canCopyPrev={
@@ -487,9 +576,9 @@ export default function DomesticSettlement({ initialDate, position, substituteHo
                 <dt className="text-gray-500 dark:text-zinc-400">
                   ③ 운전주보
                   <span className="block text-[11px] text-gray-400 dark:text-zinc-500">
-                    {fmt(totals.km)}km × {fmt(cfg.unitPrice)}원 · 운행 {totals.driveDays}일
-                    {cfg.odometerStart !== null &&
-                      ` · 계기판 ${fmt(cfg.odometerStart)} → ${fmt(cfg.odometerStart + totals.km)}`}
+                    {fmt(totals.km)}km × {fmt(fuelPrice ?? 0)}원 · 운행 {totals.driveDays}일
+                    {data.odometerStart !== null &&
+                      ` · 계기판 ${fmt(data.odometerStart)} → ${fmt(data.odometerStart + totals.km)}`}
                   </span>
                 </dt>
                 <dd className="font-medium dark:text-zinc-200">{fmt(totals.sheet3)}원</dd>
@@ -499,22 +588,32 @@ export default function DomesticSettlement({ initialDate, position, substituteHo
                 <dd className="font-semibold text-blue-600 dark:text-blue-400">{fmt(totals.grand)}원</dd>
               </div>
             </dl>
-            {!rank && (
+            {pricingStore.status === 'error' && (
+              <p className="text-[11px] text-red-500 mt-2">
+                단가표를 불러오지 못해 금액이 0원으로 보여요. {pricingStore.error}{' '}
+                <button type="button" onClick={pricingStore.reload} className="underline">
+                  다시 불러오기
+                </button>
+              </p>
+            )}
+            {pricingStore.status === 'ready' && !rate && (
               <p className="text-[11px] text-orange-500 mt-2">
-                직급을 알 수 없어 숙박비·일당이 0원으로 계산돼요.
+                {rank
+                  ? '이 달에 적용되는 직급별 단가표가 없어 숙박비·일당이 0원으로 계산돼요. 총괄 관리자에게 문의해 주세요.'
+                  : '직급을 알 수 없어 숙박비·일당이 0원으로 계산돼요.'}
+              </p>
+            )}
+            {totals.km > 0 && fuelPrice === null && (
+              <p className="text-[11px] text-orange-500 mt-2">
+                km당 단가를 알 수 없어 유류비가 0원으로 계산돼요. 차종을 선택하거나 단가를 입력해 주세요.
               </p>
             )}
           </div>
 
           {/* 액션 */}
           <div className="space-y-2">
-            <Button
-              fullWidth
-              onClick={() =>
-                setExportMsg('엑셀 출력은 다음 단계에서 연결할 예정이에요. (지금은 입력 화면만 확인용)')
-              }
-            >
-              엑셀 출력
+            <Button fullWidth disabled={exporting} onClick={handleExport}>
+              {exporting ? '출력 중...' : `${month.month}월분 엑셀 출력`}
             </Button>
             {exportMsg && <p className="text-xs text-center text-blue-500">{exportMsg}</p>}
           </div>

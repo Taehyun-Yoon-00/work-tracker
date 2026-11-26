@@ -39,27 +39,33 @@ export function rankFromPosition(position: string | null | undefined): RankLevel
   return idx >= 0 ? ((idx + 1) as RankLevel) : null
 }
 
-// ---------- 단가표 (양식 수식 CHOOSE(AT3, …)에서 가져온 값) ----------
+// ---------- 단가 ----------
+// 단가는 코드에 고정하지 않는다. 직급별 숙박비·일당은 domestic_trip_rates, km당 유류 단가는
+// domestic_trip_fuel_prices 테이블에 있고 총괄 관리자가 "관리" 탭에서 고친다.
+// (조회/선택 규칙: lib/settlement/pricing.ts)
 
-const LODGING_A = [62000, 65000, 68000, 70000] as const
-const LODGING_B = [18000, 18000, 18000, 18000] as const
-const ALLOWANCE = [20000, 22000, 23000, 24000] as const
-
-/** 양식 H48/AG48의 기본값 (km당 단가) */
-export const DEFAULT_FUEL_UNIT_PRICE = 240
+/** 직급 하나의 단가 — domestic_trip_rates 한 행 */
+export interface RankRate {
+  /** 숙박비 A (양식 AT열 = 1) */
+  lodgingA: number
+  /** 숙박비 B (양식 AT열 = 2) */
+  lodgingB: number
+  /** 일당 — 숙박(A/B)이 있는 날에만 붙는다 */
+  allowance: number
+}
 
 /** 0 = 없음, 1 = A(숙박), 2 = B — 양식 AT열에 들어가는 값 */
 export type LodgingType = 0 | 1 | 2
 
-export function lodgingAmount(type: LodgingType, rank: RankLevel | null): number {
-  if (type === 0 || !rank) return 0
-  return (type === 1 ? LODGING_A : LODGING_B)[rank - 1]
+export function lodgingAmount(type: LodgingType, rate: RankRate | null): number {
+  if (type === 0 || !rate) return 0
+  return type === 1 ? rate.lodgingA : rate.lodgingB
 }
 
 /** 일당은 숙박(A/B)이 있는 날에만 붙는다 (양식: AT=1 또는 2일 때 AG에 금액). */
-export function allowanceAmount(type: LodgingType, rank: RankLevel | null): number {
-  if (type === 0 || !rank) return 0
-  return ALLOWANCE[rank - 1]
+export function allowanceAmount(type: LodgingType, rate: RankRate | null): number {
+  if (type === 0 || !rate) return 0
+  return rate.allowance
 }
 
 // ---------- 교통수단 ----------
@@ -232,8 +238,9 @@ export interface SettlementTotals {
 export function computeSettlement(
   dates: DateStr[],
   entries: Record<DateStr, TripDayEntry | undefined>,
-  rank: RankLevel | null,
-  fuelUnitPrice: number,
+  rate: RankRate | null,
+  /** km당 단가. 차종/단가표를 못 찾았으면 null(유류비 0원으로 계산) */
+  fuelUnitPrice: number | null,
   odometerStart: number | null
 ): { days: Record<DateStr, DayComputed>; totals: SettlementTotals } {
   const days: Record<DateStr, DayComputed> = {}
@@ -256,8 +263,8 @@ export function computeSettlement(
 
   for (const date of dates) {
     const e = entries[date]
-    const lodging = e ? lodgingAmount(e.lodging, rank) : 0
-    const allowance = e ? allowanceAmount(e.lodging, rank) : 0
+    const lodging = e ? lodgingAmount(e.lodging, rate) : 0
+    const allowance = e ? allowanceAmount(e.lodging, rate) : 0
     const km = e?.km ?? 0
     const transport = e ? dayTransportTotal(e) : 0
 
@@ -280,7 +287,7 @@ export function computeSettlement(
 
   t.sheet1 = t.lodging + t.allowance
   t.sheet2 = t.fare + t.toll + t.parking
-  t.sheet3 = t.km * fuelUnitPrice
+  t.sheet3 = t.km * (fuelUnitPrice ?? 0)
   t.grand = t.sheet1 + t.sheet2 + t.sheet3
   return { days, totals: t }
 }

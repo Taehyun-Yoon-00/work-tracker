@@ -159,6 +159,8 @@ export function useDomesticMonth(initialMonth: SettlementMonth, defaultRank: Ran
     errorMessage,
     update,
     changeMonth,
+    /** 대기 중인 변경을 지금 저장한다. 저장에 실패하면 false (엑셀 출력 전에 쓴다) */
+    flush,
     /** 저장 실패 후 다시 시도 */
     retrySave: () => void flush(),
     /** 불러오기 실패 후 다시 시도 */

@@ -11,7 +11,7 @@ import {
   routeVisibility,
   type DayComputed,
   type LodgingType,
-  type RankLevel,
+  type RankRate,
   type TripDayEntry,
 } from '../../../lib/settlement/domestic'
 import { Chip, INPUT_CLS, LABEL_CLS, NumberField, SheetTitle, fmt } from '../ui'
@@ -19,7 +19,8 @@ import { Chip, INPUT_CLS, LABEL_CLS, NumberField, SheetTitle, fmt } from '../ui'
 interface Props {
   entry: TripDayEntry
   computed: DayComputed
-  rank: RankLevel | null
+  /** 이 달·이 직급에 적용되는 단가 (DB 단가표). 모르면 null */
+  rate: RankRate | null
   /** 이미 입력한 장소/목적 중 자주 쓴 것 — 탭 한 번으로 채우는 칩 */
   places: string[]
   purposes: string[]
@@ -39,7 +40,7 @@ const SHEETS = [
 export default function DomesticDayEditor({
   entry,
   computed,
-  rank,
+  rate,
   places,
   purposes,
   canCopyPrev,
@@ -66,8 +67,8 @@ export default function DomesticDayEditor({
     set({ showRoute: next })
   }
 
-  const lodgingA = lodgingAmount(1, rank)
-  const lodgingB = lodgingAmount(2, rank)
+  const lodgingA = lodgingAmount(1, rate)
+  const lodgingB = lodgingAmount(2, rate)
   const hasRoute = entry.from.trim() !== '' || entry.to.trim() !== ''
   const showKmOdo = (entry.km ?? 0) > 0 && computed.odoBefore !== null
 
@@ -138,16 +139,16 @@ export default function DomesticDayEditor({
           onChange={(v) => set({ lodging: Number(v) as LodgingType })}
           options={[
             { value: '0', label: '없음' },
-            { value: '1', label: rank ? `A · ${fmt(lodgingA)}` : 'A' },
-            { value: '2', label: rank ? `B · ${fmt(lodgingB)}` : 'B' },
+            { value: '1', label: rate ? `A · ${fmt(lodgingA)}` : 'A' },
+            { value: '2', label: rate ? `B · ${fmt(lodgingB)}` : 'B' },
           ]}
         />
         <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1.5">
           {entry.lodging === 0
             ? '숙박이 없는 날이에요. (주말 숙박도 A/B를 선택하면 숙박비·일당이 붙어요)'
-            : rank
-              ? `숙박비 ${fmt(computed.lodging)} + 일당 ${fmt(allowanceAmount(entry.lodging, rank))} = ${fmt(computed.lodging + computed.allowance)}원`
-              : '직급을 알 수 없어 금액을 계산하지 못했어요. 위에서 직급을 선택해 주세요.'}
+            : rate
+              ? `숙박비 ${fmt(computed.lodging)} + 일당 ${fmt(allowanceAmount(entry.lodging, rate))} = ${fmt(computed.lodging + computed.allowance)}원`
+              : '직급 또는 단가표를 확인할 수 없어 금액을 계산하지 못했어요.'}
         </p>
       </div>
 

@@ -1,128 +1,92 @@
-// 국내 출장 정산 저장소 — Supabase와 화면 상태 사이의 변환만 맡는다.
-// 테이블/RPC 정의: supabase/migrations/030_domestic_trip_settlements.sql
+// 국내 출장 정산 저장소 — Supabase와 화면 상태 사이의 호출만 맡는다.
+// 테이블/RPC 정의: supabase/migrations/030_domestic_trip_settlements.sql, 031_domestic_trip_pricing.sql
 //
 // 읽기는 테이블 직접 조회(RLS가 본인 것만 돌려준다), 쓰기는 RPC 한 번(월 단위 트랜잭션)이다.
 // 근무시간(work_logs)과는 아무 관계가 없다.
+// 행 ↔ 화면 상태 변환은 domesticMapping.ts(서버와 공용)에 있다.
 
 import { supabase } from '../supabase'
+import { isDayFilled, type DateStr, type RankLevel, type SettlementMonth, type TripDayEntry } from './domestic'
 import {
-  DEFAULT_FUEL_UNIT_PRICE,
-  TRANSPORT_MODES,
-  emptyDay,
-  isDayFilled,
-  type DateStr,
-  type LodgingType,
-  type RankLevel,
-  type SettlementMonth,
-  type TransportModeKey,
-  type TripDayEntry,
-} from './domestic'
+  dayRowsToEntries,
+  entryToDayPayload,
+  toRankLevel,
+  type DayRow,
+} from './domesticMapping'
+import type { DomesticPricing, FuelPriceRow, RateRow, VehicleType } from './pricing'
+
+export { dayRowToEntry, dayRowsToEntries, entryToDayPayload, toRankLevel } from './domesticMapping'
+export type { DayRow } from './domesticMapping'
 
 /** 화면이 한 달 동안 들고 있는 정산 데이터 */
 export interface DomesticMonthData {
   /** 이 달에 저장된 직급. null이면 마이페이지 직급을 따른다. */
   rank: RankLevel | null
   odometerStart: number | null
-  fuelUnitPrice: number
+  /** 차종. 있으면 km당 단가는 월별 유류 단가표에서 가져온다. */
+  vehicleTypeId: string | null
+  /** 차종이 없을 때 직접 입력한 km당 단가 */
+  fuelUnitPrice: number | null
   entries: Record<DateStr, TripDayEntry>
 }
 
 export function emptyMonthData(): DomesticMonthData {
-  return { rank: null, odometerStart: null, fuelUnitPrice: DEFAULT_FUEL_UNIT_PRICE, entries: {} }
+  return { rank: null, odometerStart: null, vehicleTypeId: null, fuelUnitPrice: null, entries: {} }
 }
 
-// ---------- 행 ↔ 화면 상태 변환 (순수 함수) ----------
+// ---------- 단가표 (모든 사용자가 읽을 수 있다) ----------
 
-/** domestic_trip_days 한 행 (PostgREST가 돌려주는 모양) */
-export interface DayRow {
-  date: string
-  lodging: number
-  from_place: string | null
-  to_place: string | null
-  route_s1: boolean | null
-  route_s2: boolean | null
-  route_s3: boolean | null
-  modes: string[] | null
-  fare: number | null
-  toll: number | null
-  parking: number | null
-  purpose: string | null
-  km: number | string | null
-  round_trip: boolean | null
-}
-
-const MODE_KEYS = new Set<string>(TRANSPORT_MODES.map((m) => m.key))
-
-export function toRankLevel(v: number | null | undefined): RankLevel | null {
-  return v === 1 || v === 2 || v === 3 || v === 4 ? v : null
-}
-
-export function dayRowToEntry(row: DayRow): TripDayEntry {
-  const base = emptyDay()
-  const showRoute: TripDayEntry['showRoute'] = {}
-  if (row.route_s1 !== null) showRoute.s1 = row.route_s1
-  if (row.route_s2 !== null) showRoute.s2 = row.route_s2
-  if (row.route_s3 !== null) showRoute.s3 = row.route_s3
+/** 직급별 단가 버전 · 차종 · 월별 유류 단가를 한 번에 읽는다. 양이 적어서 통째로 가져와 화면에서 고른다. */
+export async function loadDomesticPricing(): Promise<DomesticPricing> {
+  const [rates, types, prices] = await Promise.all([
+    supabase.from('domestic_trip_rates').select('*'),
+    supabase.from('domestic_trip_vehicle_types').select('*').order('sort_order').order('label'),
+    supabase.from('domestic_trip_fuel_prices').select('year, month, vehicle_type_id, price'),
+  ])
+  const error = rates.error ?? types.error ?? prices.error
+  if (error) throw new Error(error.message)
   return {
-    ...base,
-    lodging: (row.lodging === 1 || row.lodging === 2 ? row.lodging : 0) as LodgingType,
-    from: row.from_place ?? '',
-    to: row.to_place ?? '',
-    showRoute,
-    modes: (row.modes ?? []).filter((m): m is TransportModeKey => MODE_KEYS.has(m)),
-    fare: row.fare,
-    toll: row.toll,
-    parking: row.parking,
-    purpose: row.purpose ?? '',
-    // numeric 컬럼은 환경에 따라 문자열로 올 수 있다
-    km: row.km === null ? null : Number(row.km),
-    roundTrip: row.round_trip ?? true,
+    rates: (rates.data ?? []) as RateRow[],
+    vehicleTypes: (types.data ?? []) as VehicleType[],
+    fuelPrices: (prices.data ?? []) as FuelPriceRow[],
   }
 }
 
-/** RPC의 p_days 원소. 직접 지정하지 않은(자동) 시트 표시는 null로 보낸다. */
-export function entryToDayPayload(date: DateStr, e: TripDayEntry) {
-  return {
-    date,
-    lodging: e.lodging,
-    from_place: e.from.trim(),
-    to_place: e.to.trim(),
-    route_s1: e.showRoute.s1 ?? null,
-    route_s2: e.showRoute.s2 ?? null,
-    route_s3: e.showRoute.s3 ?? null,
-    modes: e.modes,
-    fare: e.fare,
-    toll: e.toll,
-    parking: e.parking,
-    purpose: e.purpose.trim(),
-    km: e.km,
-    round_trip: e.roundTrip,
-  }
-}
-
-// ---------- Supabase 호출 ----------
+// ---------- 내 정산 ----------
 
 export async function loadDomesticMonth(month: SettlementMonth): Promise<DomesticMonthData> {
   const { data, error } = await supabase
     .from('domestic_trip_settlements')
     .select(
-      'rank_level, odometer_start, fuel_unit_price, domestic_trip_days(date, lodging, from_place, to_place, route_s1, route_s2, route_s3, modes, fare, toll, parking, purpose, km, round_trip)'
+      'rank_level, odometer_start, vehicle_type_id, fuel_unit_price, domestic_trip_days(date, lodging, from_place, to_place, route_s1, route_s2, route_s3, modes, fare, toll, parking, purpose, km, round_trip)'
     )
     .eq('year', month.year)
     .eq('month', month.month)
     .maybeSingle()
   if (error) throw new Error(error.message)
-  if (!data) return emptyMonthData()
 
-  const entries: Record<DateStr, TripDayEntry> = {}
-  for (const row of (data.domestic_trip_days ?? []) as DayRow[]) {
-    entries[row.date] = dayRowToEntry(row)
+  if (!data) {
+    // 아직 저장한 적 없는 달: 가장 최근에 쓴 차량 정보를 기본값으로 가져온다 (차는 매달 바뀌지 않으므로).
+    const { data: last } = await supabase
+      .from('domestic_trip_settlements')
+      .select('vehicle_type_id, fuel_unit_price')
+      .order('year', { ascending: false })
+      .order('month', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    return {
+      ...emptyMonthData(),
+      vehicleTypeId: last?.vehicle_type_id ?? null,
+      fuelUnitPrice: last?.vehicle_type_id ? null : (last?.fuel_unit_price ?? null),
+    }
   }
+
   return {
     rank: toRankLevel(data.rank_level),
     odometerStart: data.odometer_start,
-    fuelUnitPrice: data.fuel_unit_price,
-    entries,
+    vehicleTypeId: data.vehicle_type_id ?? null,
+    fuelUnitPrice: data.fuel_unit_price ?? null,
+    entries: dayRowsToEntries((data.domestic_trip_days ?? []) as DayRow[]),
   }
 }
 
@@ -145,7 +109,8 @@ export async function saveDomesticMonth(
     p_month: month.month,
     p_rank_level: data.rank ?? defaultRank,
     p_odometer_start: data.odometerStart,
-    p_fuel_unit_price: data.fuelUnitPrice,
+    p_vehicle_type_id: data.vehicleTypeId,
+    p_fuel_unit_price: data.vehicleTypeId ? null : data.fuelUnitPrice,
     p_days: days,
   })
   if (error) throw new Error(error.message)
