@@ -13,17 +13,46 @@ body {
 }
 
 /*
- * react-calendar 기본 골격 (자체 정의)
- * 'react-calendar/dist/Calendar.css'가 정상 로드되지 않을 경우를 대비해
- * 셀 테두리/버튼 크기·위치 등 레이아웃에 필요한 핵심 규칙을 직접 정의한다.
- * 근무기록 페이지의 달력(Calendar)에만 영향을 주는 클래스들이며, 다른
- * 페이지/기능에는 영향이 없다.
+ * 근무기록 페이지 달력 (react-calendar)
+ * - 'react-calendar/dist/Calendar.css'가 정상 로드되지 않을 경우를 대비해 핵심 골격은 직접 정의한다.
+ * - 근무/연차/반차/오늘/선택 표시는 칸 전체가 아니라 칸 안쪽에 살짝 작은 둥근 도형(::before)으로 그린다.
+ *   색은 아래 CSS 변수에 모아 두었고, 어떤 칸에 어떤 클래스(wt-*)를 붙일지는 app/page.tsx의
+ *   getTileClassName이 정한다. (색 지정을 Tailwind의 !important 유틸리티로 하면 선택 날짜의
+ *   흰 글자가 덮어써지므로, 글자색도 모두 이 파일에서 정한다.)
+ * - 이 스타일은 근무기록 페이지의 달력에만 영향을 준다.
+ * - 달력 자체에는 테두리/배경/패딩이 없다. 바깥 카드가 프레임이고, 요일 줄·격자·이전/다음 달 칸
+ *   배경은 팀 달력(TeamMonthCalendar)과 같은 값을 쓴다.
+ * - 상단의 "‹ YYYY년 M월 ›"와 년/월 선택은 react-calendar 기본 네비게이션 대신 page.tsx에서
+ *   팀 달력과 같은 코드로 직접 그린다(showNavigation={false}).
+ * - 상단 헤더+요일 줄 높이와 날짜 칸 높이는 page.tsx의 주차별 출근예정 버튼 위치
+ *   (mt-[73px] sm:mt-[77px], 행 높이 h-8 sm:h-11)와 맞물려 있으므로 바꿀 때 같이 맞춘다.
  */
-.react-calendar {
+:root .react-calendar {
+  --wt-line: #f3f4f6; /* 요일 줄 + 격자 선: gray-100 (팀 달력과 동일) */
+  /* 이전/다음 달 칸 배경. 팀 달력 코드에는 gray-50/60이 적혀 있지만 같은 칸의 bg-white와 충돌해
+     라이트 모드에서는 실제로 적용되지 않는다(흰색). 화면에 보이는 모습 그대로 맞춘다. */
+  --wt-neighbor-bg: transparent;
+  --wt-text: #171717;
+  --wt-muted: #d1d5db; /* 이전/다음 달 날짜 */
+  --wt-weekday: #4b5563;
+  --wt-hover: #f3f4f6;
+  --wt-work: #dbeafe; /* 8시간 근무: blue-100 */
+  --wt-vac: #ffedd5; /* 연차: orange-100 */
+  --wt-today-bg: #fef08a; /* yellow-200 */
+  --wt-today-text: #713f12; /* yellow-900 */
+  --wt-selected: #2563eb;
+  --wt-sat: #3b82f6;
+  --wt-red: #ef4444;
+  --wt-dot: #6366f1; /* 원격근무 점: indigo-500 */
+  --wt-half-work: transparent; /* 반차인 날의 근무 쪽 색 (근무기록이 있으면 --wt-work) */
+
   width: 350px;
   max-width: 100%;
-  background: white;
-  border: 1px solid #a0a096;
+  padding: 0;
+  background: none;
+  color: var(--wt-text);
+  border: 0;
+  border-radius: 0;
   font-family: inherit;
   line-height: 1.125em;
 }
@@ -47,174 +76,242 @@ body {
   cursor: pointer;
 }
 
-.react-calendar__navigation {
+/* ---------- 요일 ---------- */
+.react-calendar .react-calendar__month-view__weekdays {
+  align-items: center;
+  height: 28px;
+  margin-bottom: 4px; /* 팀 달력의 mb-1 */
+  padding: 0 1px 6px; /* 좌우 1px: 아래 격자 테두리만큼 안쪽으로 맞춰 열을 정렬 / 아래 6px: 팀 달력의 pb-1.5 */
+  border-bottom: 1px solid var(--wt-line); /* 요일 아래 가는 줄 */
+  text-align: center;
+  text-transform: none;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.react-calendar .react-calendar__month-view__weekdays__weekday {
+  padding: 0;
+  color: var(--wt-weekday);
+}
+
+.react-calendar .react-calendar__month-view__weekdays__weekday abbr {
+  text-decoration: none;
+  cursor: default;
+}
+
+/* 월요일 시작이므로 6번째=토, 7번째=일 */
+.react-calendar .react-calendar__month-view__weekdays__weekday:nth-child(6) {
+  color: var(--wt-sat);
+}
+
+.react-calendar .react-calendar__month-view__weekdays__weekday:nth-child(7) {
+  color: var(--wt-red);
+}
+
+/* ---------- 날짜 격자 ---------- */
+.react-calendar .react-calendar__month-view__days {
+  border: 1px solid var(--wt-line);
+  border-radius: 6px; /* 팀 달력의 rounded-md */
+  overflow: hidden;
+}
+
+/* 모든 보기(월/년/...)의 칸 공통 */
+.react-calendar .react-calendar__tile {
+  position: relative;
   display: flex;
+  align-items: center;
+  justify-content: center;
   height: 44px;
-  margin-bottom: 1em;
-}
-
-.react-calendar__navigation button {
-  min-width: 44px;
-  background: none;
-}
-
-.react-calendar__navigation button:disabled {
-  background-color: #f0f0f0;
-}
-
-.react-calendar__navigation button:enabled:hover,
-.react-calendar__navigation button:enabled:focus {
-  background-color: #e6e6e6;
-}
-
-.react-calendar__month-view__weekdays {
-  display: flex;
-  text-align: center;
-  text-transform: uppercase;
-  font: inherit;
-  font-size: 0.75em;
-  font-weight: bold;
-}
-
-.react-calendar__month-view__weekdays__weekday {
-  flex: 1 0 14.2857%;
-  padding: 0.5em;
-}
-
-.react-calendar__month-view__days {
-  display: flex;
-  flex-wrap: wrap;
-}
-
-.react-calendar__month-view__days__day--weekend {
-  color: #d10000;
-}
-
-.react-calendar__month-view__days__day--neighboringMonth {
-  color: #757575;
-}
-
-.react-calendar__tile {
-  max-width: 100%;
-  padding: 10px 6.6667px;
-  background: none;
+  max-height: 44px;
+  padding: 0 0 4px; /* 점(원격근무)이 들어갈 자리를 위해 숫자를 살짝 위로 */
+  overflow: hidden;
+  background: none !important; /* 색은 ::before 도형이 그린다. Calendar.css의 hover/now/active 배경 차단 */
+  color: var(--wt-text);
   text-align: center;
   font: inherit;
-  font-size: 0.833em;
+  font-size: 14px;
 }
 
-.react-calendar__tile:enabled:hover,
-.react-calendar__tile:enabled:focus {
-  background-color: #e6e6e6;
-}
-/* -------------------- 자체 정의 끝 -------------------- */
-
-/* PC 달력 */
-.react-calendar__tile {
-  height: 44px !important;
-  max-height: 44px !important;
-  overflow: hidden !important;
-  padding: 2px !important;
+/* 이전/다음 달 칸은 살짝 회색 톤 (팀 달력과 동일) */
+.react-calendar .react-calendar__month-view__days__day--neighboringMonth {
+  background: var(--wt-neighbor-bg) !important;
 }
 
-/* 반차 대각선 오버레이 위로 날짜 숫자가 보이도록 */
-.react-calendar__tile abbr {
+/* 날짜 칸 */
+.react-calendar .react-calendar__month-view__days__day {
+  border-right: 1px solid var(--wt-line);
+  border-bottom: 1px solid var(--wt-line);
+}
+
+.react-calendar .react-calendar__month-view__days__day:nth-child(7n) {
+  border-right: 0;
+}
+
+.react-calendar .react-calendar__month-view__days__day:nth-last-child(-n + 7) {
+  border-bottom: 0;
+}
+
+/* 칸을 꽉 채우지 않는 둥근 표시 도형 */
+.react-calendar .react-calendar__month-view__days__day::before {
+  content: '';
+  position: absolute;
+  inset: 3px 4px;
+  border-radius: 10px;
+  background: transparent;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* 숫자는 도형 위로 */
+.react-calendar .react-calendar__month-view__days__day abbr {
   position: relative;
   z-index: 1;
   font-size: 14px;
 }
 
-/* 오늘 날짜 강조 (라이트 모드) */
-.react-calendar__tile--now,
-.react-calendar__tile--now:hover,
-.react-calendar__tile--now:focus {
-  background-color: #fef08a !important;
-  /* yellow-200 */
-  color: #713f12 !important;
-  /* yellow-900 */
+.react-calendar .react-calendar__month-view__days__day:focus-visible::before {
+  box-shadow: 0 0 0 2px #93c5fd;
 }
 
-/* 선택한 날짜 강조 (라이트 모드) */
-.react-calendar__tile--active,
-.react-calendar__tile--active:hover,
-.react-calendar__tile--active:focus {
-  background-color: #2563eb !important;
+/* 아무 표시도 없는 날짜에만 hover 배경 (오늘/선택 날짜는 제외) */
+.react-calendar
+  .react-calendar__month-view__days__day.wt-plain:not(.react-calendar__tile--now):not(
+    .react-calendar__tile--active
+  ):enabled:hover::before {
+  background: var(--wt-hover);
+}
+
+/* ---------- 표시 색 (아래로 갈수록 우선: 근무 < 연차 < 반차 < 오늘 < 선택) ---------- */
+.react-calendar .react-calendar__month-view__days__day.wt-haslog {
+  --wt-half-work: var(--wt-work);
+}
+
+/* 8시간 풀 근무 */
+.react-calendar .react-calendar__month-view__days__day.wt-work::before {
+  background: var(--wt-work);
+}
+
+/* 연차 */
+.react-calendar .react-calendar__month-view__days__day.wt-vac::before {
+  background: var(--wt-vac);
+}
+
+/* 오전 반차(연차 = 좌상, 근무 = 우하) / 오후 반차(근무 = 좌상, 연차 = 우하) */
+.react-calendar .react-calendar__month-view__days__day.wt-half-am::before {
+  background: linear-gradient(to bottom right, var(--wt-vac) 49.5%, var(--wt-half-work) 50.5%);
+}
+
+.react-calendar .react-calendar__month-view__days__day.wt-half-pm::before {
+  background: linear-gradient(to bottom right, var(--wt-half-work) 49.5%, var(--wt-vac) 50.5%);
+}
+
+/* 오늘 */
+.react-calendar .react-calendar__month-view__days__day.react-calendar__tile--now::before {
+  background: var(--wt-today-bg);
+}
+
+/* 선택한 날짜 (오늘과 겹치면 선택이 우선) */
+.react-calendar .react-calendar__month-view__days__day.react-calendar__tile--active::before {
+  background: var(--wt-selected);
+}
+
+/* ---------- 글자색 ---------- */
+.react-calendar .react-calendar__tile--now {
+  color: var(--wt-today-text);
+}
+
+.react-calendar .react-calendar__month-view__days__day.wt-sat {
+  color: var(--wt-sat);
+  font-weight: 600;
+}
+
+.react-calendar .react-calendar__month-view__days__day.wt-red {
+  color: var(--wt-red);
+  font-weight: 600;
+}
+
+/* 이전/다음 달 날짜는 요일과 상관없이 흐리게 */
+.react-calendar
+  .react-calendar__month-view__days__day.react-calendar__month-view__days__day--neighboringMonth {
+  color: var(--wt-muted);
+  font-weight: 400;
+}
+
+/* 선택한 날짜는 요일(토/일/공휴일)과 상관없이 항상 흰 글자 */
+.react-calendar .react-calendar__tile--active,
+.react-calendar .react-calendar__tile--active:enabled:hover,
+.react-calendar .react-calendar__tile--active:enabled:focus {
   color: #ffffff !important;
 }
 
-/* 달력 다크모드 */
+/* ---------- 원격근무 점: 날짜 숫자 아래 ---------- */
+.react-calendar .wt-remote-dot {
+  position: absolute;
+  left: 50%;
+  bottom: 5px;
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  border-radius: 9999px;
+  background: var(--wt-dot);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* 선택한 날짜(파란 배경) 위에서는 흰 점 */
+.react-calendar .react-calendar__tile--active .wt-remote-dot {
+  background: #ffffff;
+}
+
+/* ---------- 다크모드 ---------- */
 @media (prefers-color-scheme: dark) {
   :root .react-calendar {
-    background-color: #3f3f46 !important;
-    border-color: #3f3f46 !important;
-    color: #f9fafb !important;
-  }
-
-  :root .react-calendar__navigation button {
-    background-color: #3f3f46 !important;
-    color: #f9fafb !important;
-  }
-
-  :root .react-calendar__navigation button:hover,
-  :root .react-calendar__navigation button:focus {
-    background-color: #52525b !important;
-  }
-
-  :root .react-calendar__month-view__weekdays__weekday {
-    color: #a1a1aa !important;
-  }
-
-  :root .react-calendar__tile {
-    color: #f9fafb !important;
-    background-color: #3f3f46 !important;
-  }
-
-  :root .react-calendar__tile:hover,
-  :root .react-calendar__tile:focus {
-    background-color: #52525b !important;
-  }
-
-  :root .react-calendar__tile--now,
-  :root .react-calendar__tile--now:hover,
-  :root .react-calendar__tile--now:focus {
-    background-color: #854d0e !important;
-    /* yellow-800 */
-    color: #fef9c3 !important;
-    /* yellow-100 */
-  }
-
-  :root .react-calendar__tile--active,
-  :root .react-calendar__tile--active:hover,
-  :root .react-calendar__tile--active:focus {
-    background-color: #2563eb !important;
-    color: #ffffff !important;
+    --wt-line: #3f3f46; /* zinc-700 (팀 달력과 동일) */
+    /* 팀 달력의 zinc-900/40이 격자 배경(zinc-700) 위에 반투명으로 섞여 보이는 색과 같다 */
+    --wt-neighbor-bg: #2f2f34;
+    --wt-text: #f9fafb;
+    --wt-muted: #52525b; /* zinc-600 */
+    --wt-weekday: #a1a1aa;
+    --wt-hover: #52525b;
+    --wt-work: #172554; /* blue-950 */
+    --wt-vac: #431407; /* orange-950 */
+    --wt-today-bg: #854d0e; /* yellow-800 */
+    --wt-today-text: #fef9c3; /* yellow-100 */
   }
 }
 
-/* 모바일 달력 */
+/* ---------- 모바일 ---------- */
 @media (max-width: 640px) {
-  .react-calendar {
-    width: 100% !important;
-    font-size: 10px !important;
+  :root .react-calendar {
+    width: 100%;
   }
 
-  .react-calendar__tile {
-    height: 32px !important;
-    padding: 1px !important;
+  .react-calendar .react-calendar__month-view__weekdays {
+    height: 24px;
+    padding-bottom: 4px;
+    font-size: 11px;
   }
 
-  .react-calendar__tile abbr {
-    font-size: 11px !important;
+  .react-calendar .react-calendar__tile {
+    height: 32px;
+    max-height: 32px;
+    padding-bottom: 3px;
+    font-size: 11px;
   }
 
-  .react-calendar__navigation button {
-    font-size: 11px !important;
-    min-width: 28px !important;
-    padding: 4px !important;
+  .react-calendar .react-calendar__month-view__days__day::before {
+    inset: 2px;
+    border-radius: 8px;
   }
 
-  .react-calendar__month-view__weekdays__weekday {
-    font-size: 9px !important;
-    padding: 2px !important;
+  .react-calendar .react-calendar__month-view__days__day abbr {
+    font-size: 11px;
+  }
+
+  .react-calendar .wt-remote-dot {
+    bottom: 4px;
+    width: 4px;
+    height: 4px;
+    margin-left: -2px;
   }
 }
