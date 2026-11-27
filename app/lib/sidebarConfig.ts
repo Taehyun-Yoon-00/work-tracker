@@ -10,8 +10,8 @@ import {
   BarChart3,
   Users,
   Building2,
-  Plane,
-  ClipboardList,
+  ReceiptText,
+  ClipboardCheck,
   User,
   Settings,
 } from 'lucide-react'
@@ -99,7 +99,7 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
       {
         label: '출장 정산',
         path: '/settlement',
-        icon: Plane,
+        icon: ReceiptText,
         description: '국내 · 해외 출장 정산',
       },
     ],
@@ -119,7 +119,7 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
   },
   {
     title: '결재',
-    items: [{ label: '결재', path: '/approval', icon: ClipboardList }],
+    items: [{ label: '결재', path: '/approval', icon: ClipboardCheck }],
   },
 ]
 
