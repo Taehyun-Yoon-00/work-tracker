@@ -24,7 +24,7 @@ import { recordMatterUsage } from './lib/matterHistory'
 import ConfirmDialog from './components/ui/ConfirmDialog'
 import Button from './components/ui/Button'
 import StatCard from './components/ui/StatCard'
-import { Pencil, Trash2, Check, ChevronRight } from 'lucide-react'
+import { Pencil, Trash2, Check, ChevronLeft, ChevronRight } from 'lucide-react'
 
 export default function Home() {
   const router = useRouter()
@@ -52,6 +52,7 @@ export default function Home() {
   const [isNextDay, setIsNextDay] = useState(false)
   const [substituteHolidays, setSubstituteHolidays] = useState<string[]>([])
   const [viewedWeek, setViewedWeek] = useState<Date>(new Date())
+  const [monthPickerOpen, setMonthPickerOpen] = useState(false)
 
   useEffect(() => {
     const getUser = async () => {
@@ -446,26 +447,51 @@ export default function Home() {
     setDeleteLoading(false)
   }
   const isHoliday = (date: Date) => isHolidayShared(date, substituteHolidays)
-  const getTileClassName = ({ date }: { date: Date }) => {
+  // 달력 상단(‹ YYYY년 M월 ›)과 년/월 선택은 팀 달력(TeamMonthCalendar)과 같은 구성으로 직접 그린다.
+  // 월을 옮기면 기존처럼 선택 날짜가 그 달 1일로 바뀌고, 달력은 선택 날짜의 달을 보여준다.
+  const viewMonth = dayjs(selectedDate).startOf('month')
+  const moveCalendarMonth = (target: dayjs.Dayjs) => setSelectedDate(target.startOf('month').toDate())
+  const calendarYearOptions = (() => {
+    const nowYear = dayjs().year()
+    const years: number[] = []
+    for (let y = nowYear; y >= nowYear - 5; y--) years.push(y)
+    // 화살표로 범위 밖의 연도까지 넘어간 경우에도 select가 비지 않도록 현재 보는 연도를 포함한다.
+    if (!years.includes(viewMonth.year())) {
+      years.push(viewMonth.year())
+      years.sort((a, b) => b - a)
+    }
+    return years
+  })()
+  const calendarMonthOptions = Array.from({ length: 12 }, (_, i) => i + 1)
+
+  // 근무기록 달력 칸에 붙일 클래스. 실제 색/모양은 globals.css의 .react-calendar 스타일(wt-*)이 정한다.
+  // 오늘/선택 날짜는 react-calendar가 붙이는 --now / --active 클래스를 CSS에서 처리한다.
+  const getTileClassName = ({ date, view }: { date: Date; view: string }) => {
+    if (view !== 'month') return ''
     const day = date.getDay()
     const dateStr = dayjs(date).format('YYYY-MM-DD')
-    const isToday = dateStr === dayjs().format('YYYY-MM-DD')
     const hasLog = monthlyLogs.some((log) => log.date === dateStr)
     const vacationOnDate = monthlyVacations.find((v) => v.date === dateStr)
     const isHalfDay = vacationOnDate?.type === 'morning' || vacationOnDate?.type === 'afternoon'
     const isSubstitute = substituteHolidays.includes(dateStr)
 
-    let className = 'relative '
-    // 반차인 날은 대각선 오버레이(getTileContent)가 색을 전부 담당하므로 button 자체 배경은 비움
-    if (hasLog && !isToday && !isHalfDay) className += '!bg-blue-100 dark:!bg-blue-950 rounded-lg '
-    if (vacationOnDate && !isHalfDay && !isToday)
-      className += '!bg-orange-100 dark:!bg-orange-950 rounded-lg '
-    if (isHalfDay && !isToday) className += 'rounded-lg '
-    if (day === 6) className += '!text-blue-500 font-semibold'
-    else if (day === 0 || isPublicHoliday(date) || isSubstitute)
-      className += '!text-red-500 font-semibold'
+    const classes: string[] = []
+    if (isHalfDay) {
+      // 반차: 대각선 두 색. 근무기록이 있으면 근무 쪽이 파란색, 없으면 비워 둔다.
+      classes.push(vacationOnDate.type === 'morning' ? 'wt-half-am' : 'wt-half-pm')
+      if (hasLog) classes.push('wt-haslog')
+    } else if (vacationOnDate) {
+      classes.push('wt-vac')
+    } else if (hasLog) {
+      classes.push('wt-work')
+    } else {
+      classes.push('wt-plain')
+    }
 
-    return className.trim()
+    if (day === 6) classes.push('wt-sat')
+    else if (day === 0 || isPublicHoliday(date) || isSubstitute) classes.push('wt-red')
+
+    return classes.join(' ')
   }
   const getWeekStart = (date: Date) => dayjs(date).startOf('isoWeek').format('YYYY-MM-DD')
 
@@ -510,46 +536,12 @@ export default function Home() {
     }
   }
 
-  const getTileContent = ({ date }: { date: Date }) => {
+  // 원격근무인 날은 날짜 숫자 아래에 점으로 표시 (위치/색은 globals.css의 .wt-remote-dot)
+  const getTileContent = ({ date, view }: { date: Date; view: string }) => {
+    if (view !== 'month') return null
     const dateStr = dayjs(date).format('YYYY-MM-DD')
-    const isToday = dateStr === dayjs().format('YYYY-MM-DD')
     const isRemoteOnDate = monthlyRemoteWorks.some((remoteWork) => remoteWork.date === dateStr)
-    const remoteDot = isRemoteOnDate ? (
-      <span
-        className="absolute top-0.5 left-0.5 w-1.5 h-1.5 rounded-full bg-indigo-500 pointer-events-none"
-        style={{ zIndex: 1 }}
-      />
-    ) : null
-
-    if (isToday) return remoteDot
-
-    const vacationOnDate = monthlyVacations.find((v) => v.date === dateStr)
-    if (!vacationOnDate || (vacationOnDate.type !== 'morning' && vacationOnDate.type !== 'afternoon')) {
-      return remoteDot
-    }
-
-    const hasLog = monthlyLogs.some((log) => log.date === dateStr)
-    const isDark =
-      typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
-    const workColor = hasLog ? (isDark ? '#172554' : '#dbeafe') : isDark ? '#27272a' : '#ffffff'
-    const vacationColor = isDark ? '#431407' : '#ffedd5'
-
-    // 오전반차: 좌상 주황, 우하 근무색 / 오후반차: 좌상 근무색, 우하 주황
-    const topLeft = vacationOnDate.type === 'morning' ? vacationColor : workColor
-    const bottomRight = vacationOnDate.type === 'morning' ? workColor : vacationColor
-
-    return (
-      <>
-        <div
-          className="absolute inset-0 rounded-lg pointer-events-none"
-          style={{
-            background: `linear-gradient(to bottom right, ${topLeft} 49.5%, ${bottomRight} 50.5%)`,
-            zIndex: 0,
-          }}
-        />
-        {remoteDot}
-      </>
-    )
+    return isRemoteOnDate ? <span className="wt-remote-dot" aria-hidden="true" /> : null
   }
   const calcHours = (log: any) => calcWorkHours(log).toFixed(2)
 
@@ -574,23 +566,94 @@ export default function Home() {
         {/* 달력 */}
         <div className="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-3 mb-4">
           <div className="flex items-start gap-2 w-full">
-            <div className="min-w-0">
+            <div className="min-w-0 w-[350px] max-w-full">
+              {/* 월 이동 + 년/월 선택 (팀 캘린더와 같은 화살표 + 라벨 구성) */}
+              <div className="flex items-center justify-center gap-1 mb-2 px-0.5">
+                <button
+                  type="button"
+                  onClick={() => moveCalendarMonth(viewMonth.subtract(1, 'month'))}
+                  className="w-9 h-9 flex items-center justify-center rounded text-gray-500 hover:bg-gray-100 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                  aria-label="이전 달"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setMonthPickerOpen((open) => !open)}
+                    className="px-2 py-1.5 rounded text-sm font-semibold dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-700"
+                  >
+                    {viewMonth.format('YYYY년 M월')}
+                  </button>
+                  {monthPickerOpen && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setMonthPickerOpen(false)} />
+                      <div className="absolute z-20 top-full left-1/2 -translate-x-1/2 mt-1 flex gap-1.5 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-lg p-2">
+                        <select
+                          value={viewMonth.year()}
+                          onChange={(e) => {
+                            moveCalendarMonth(viewMonth.year(Number(e.target.value)))
+                            setMonthPickerOpen(false)
+                          }}
+                          className="border rounded-lg px-2 py-1 text-sm dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
+                          aria-label="연도 선택"
+                        >
+                          {calendarYearOptions.map((y) => (
+                            <option key={y} value={y}>
+                              {y}년
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          value={viewMonth.month() + 1}
+                          onChange={(e) => {
+                            moveCalendarMonth(viewMonth.month(Number(e.target.value) - 1))
+                            setMonthPickerOpen(false)
+                          }}
+                          className="border rounded-lg px-2 py-1 text-sm dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
+                          aria-label="월 선택"
+                        >
+                          {calendarMonthOptions.map((m) => (
+                            <option key={m} value={m}>
+                              {m}월
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => moveCalendarMonth(viewMonth.add(1, 'month'))}
+                  className="w-9 h-9 flex items-center justify-center rounded text-gray-500 hover:bg-gray-100 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                  aria-label="다음 달"
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+
               <Calendar
                 onChange={(date) => setSelectedDate(date as Date)}
                 onActiveStartDateChange={({ activeStartDate }) => {
                   if (activeStartDate) setSelectedDate(activeStartDate)
                 }}
                 value={selectedDate}
+                activeStartDate={viewMonth.toDate()}
                 locale="ko-KR"
                 tileClassName={getTileClassName}
                 tileContent={getTileContent}
-                prev2Label={null}
-                next2Label={null}
+                // 기본 네비게이션 대신 위에서 직접 그린 상단을 쓴다.
+                showNavigation={false}
+                // 연도/월 보기로 넘어가지 않게 월 보기로 고정 (년/월 선택은 위의 팝업이 담당)
+                minDetail="month"
+                // 날짜는 "26일"이 아니라 숫자만 표시
+                formatDay={(_, date) => String(date.getDate())}
               />
             </div>
 
             {/* 주차별 출근예정 버튼 */}
-            <div className="flex flex-col shrink-0 mt-[74px] sm:mt-[90px]">
+            <div className="flex flex-col shrink-0 mt-[73px] sm:mt-[77px]">
               {(() => {
                 const monthStart = dayjs(selectedDate).startOf('month')
                 const monthEnd = dayjs(selectedDate).endOf('month')
